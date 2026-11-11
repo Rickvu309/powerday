@@ -32,9 +32,6 @@ export function startIdle() {
     cx += (tx - cx) * 0.14;
     cy += (ty - cy) * 0.14;
     el.gaze.style.transform = `translate(${cx.toFixed(2)}px, ${cy.toFixed(2)}px)`;
-    if (finePointer) {
-      el.bg.style.transform = `translate3d(${(-cx * 1.4).toFixed(2)}px, ${(-cy * 2.2).toFixed(2)}px, 0) scale(1.06)`;
-    }
     raf = Math.abs(tx - cx) + Math.abs(ty - cy) > 0.02 ? requestAnimationFrame(tick) : 0;
   };
   const kick = () => {

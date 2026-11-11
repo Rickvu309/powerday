@@ -24,8 +24,8 @@ export async function intro() {
   const dy = stage.top + stage.height / 2 - (bot.top + bot.height / 2);
   const liftFrom = `translateY(${dy}px) scale(1.18)`;
   const hold = play(el.bot, [{ transform: liftFrom }, { transform: liftFrom }], { duration: 1 });
-  play(el.photo, [{ opacity: 0, transform: "scale(1.14)" }, { opacity: 1, transform: "scale(1)" }], {
-    duration: 2600,
+  play(el.photo, [{ opacity: 0 }, { opacity: 1 }], {
+    duration: 1800,
     easing: EASE_OUT,
   });
   await frame();

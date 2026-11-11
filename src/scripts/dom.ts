@@ -18,7 +18,6 @@ const eyeL = $<SVGPathElement>("eyeL");
 const eyeR = $<SVGPathElement>("eyeR");
 
 export const el = {
-  bg: $<HTMLElement>("bg"),
   photo: $<HTMLImageElement>("photo"),
   stage: $<HTMLElement>("stage"),
   bot: $<SVGSVGElement>("bot"),
