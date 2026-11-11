@@ -73,6 +73,7 @@ body {
   -webkit-touch-callout: none;
   cursor: default;
 }
+.mascot3d { width: var(--bot); aspect-ratio: 1; margin-bottom: calc(var(--bot) * -0.02); touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .bot.alive { animation: float 6s var(--ease-in-out) infinite alternate; }
 @keyframes float { to { transform: translateY(-5px); } }
 

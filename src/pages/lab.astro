@@ -1,0 +1,25 @@
+---
+import Base from "../layouts/Base.astro";
+import Background from "../components/Background.astro";
+---
+
+<Base title="Power.day mascot lab" description="Prototype of the 3D mascot.">
+  <meta name="robots" content="noindex" />
+  <script is:inline>document.documentElement.classList.add("ready");</script>
+  <Background />
+
+  <main class="stage" id="stage">
+    <div class="mascot3d" id="mascot3d" role="img" aria-label="Power.day mascot"></div>
+    <h1 class="title" aria-label="Coming soon">
+      <span class="wc"><span class="w w1" aria-hidden="true">Coming</span></span>
+      <span class="wc"><span class="w w2" aria-hidden="true">soon</span></span>
+    </h1>
+    <p class="sub">Power.day is almost here.</p>
+  </main>
+
+  <script>
+    import { mountMascot } from "../scripts/mascot3d";
+    const host = document.getElementById("mascot3d");
+    if (host) mountMascot(host);
+  </script>
+</Base>
