@@ -1,0 +1,12 @@
+bm:v1
+fps(30) s(1440,900) blur(3)
+canvases["main"]
+state(Pixel scatter) #s01
+state(Pixel logo) #s02
+#s01 hold(sec(0.8))
+#s01 to(#s02) sec(2.2) decelerate
+  all(name(px)) sec(1.2) spring(f(2.4),z(0.8)) stagger(from(center),amount(sec(0.8)))
+  all(name(Title)) at(sec(1.4)) sec(0.7) decelerate
+  all(name(Subline)) at(sec(1.6)) sec(0.6) decelerate
+#s02 hold(sec(3))
+  all(name(px)) breathe(sec(2.4))

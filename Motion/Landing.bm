@@ -1,0 +1,64 @@
+bm:v1
+fps(60) s(1440,900) blur(4)
+canvases["main"]
+state(01 PowerHome) #s1
+state(02 Center) #s2
+state(03 Bot) #s3
+state(04 Blink) #s4
+state(05 Look right) #s5
+state(06 Look left) #s6
+state(07 Approach) #s7
+state(08 Press) #s8
+state(09 Hello) #s9
+state(10 Working start) #sa
+state(11 Working end) #sb
+state(12 Done) #sc
+state(13 Coming soon) #sd
+state(14 End blink) #se
+#s1 hold(sec(0.9))
+#s1 to(#s2) sec(0.85) ease(bezier(0.77,0,0.175,1))
+  all(name(old-word)) sec(0.28) exit(sec(0.28))
+  all(name(wall)) delay(sec(0.02))
+  all(name(smile)) delay(sec(0.04))
+  all(name(eyeL)) delay(sec(0.03))
+  all(name(eyeR)) delay(sec(0.05))
+#s2 hold(sec(0.2))
+#s2 to(#s3) sec(1) ease(bezier(0.77,0,0.175,1))
+  all(name(wall)) sec(0.55)
+  all(name(smile)) sec(0.4)
+  all(name(eyeL)) at(sec(0.3)) sec(0.7) snappy
+  all(name(eyeR)) at(sec(0.35)) sec(0.65) snappy
+#s3 hold(sec(0.5))
+#s3 to(#s4) sec(0.08) ease(bezier(0.77,0,0.175,1))
+#s4 to(#s3) sec(0.16) ease(bezier(0.23,1,0.32,1))
+#s3 hold(sec(0.5))
+#s3 to(#s5) sec(0.75) ease(bezier(0.23,1,0.32,1))
+  all(name(eyeL)) at(sec(0.1)) sec(0.5) ease(bezier(0.77,0,0.175,1))
+  all(name(eyeR)) at(sec(0.13)) sec(0.5) ease(bezier(0.77,0,0.175,1))
+#s5 hold(sec(0.2))
+#s5 to(#s6) sec(0.85) ease(bezier(0.77,0,0.175,1))
+  all(name(eyeL)) at(sec(0.08)) sec(0.65) ease(bezier(0.77,0,0.175,1))
+  all(name(eyeR)) at(sec(0.11)) sec(0.65) ease(bezier(0.77,0,0.175,1))
+#s6 hold(sec(0.2))
+#s6 to(#s7) sec(0.6) ease(bezier(0.77,0,0.175,1))
+  all(name(eyeL)) at(sec(0.06)) sec(0.5) ease(bezier(0.77,0,0.175,1))
+  all(name(eyeR)) at(sec(0.08)) sec(0.5) ease(bezier(0.77,0,0.175,1))
+#s7 hold(sec(0.08))
+#s7 to(#s8) sec(0.09) ease(bezier(0.23,1,0.32,1))
+#s8 to(#s9) sec(0.5) spring(f(2.4),z(0.72))
+#s9 hold(sec(0.7))
+#s9 to(#sa) sec(0.4) ease(bezier(0.77,0,0.175,1))
+#sa to(#sb) sec(1.3) ease(linear)
+#sb to(#sc) sec(0.45) spring(f(2.4),z(0.75))
+#sc hold(sec(0.55))
+#sc to(#sd) sec(1.25) ease(bezier(0.77,0,0.175,1))
+  all(name(ring)) sec(0.8)
+  all(name(eyeL)) sec(0.8)
+  all(name(eyeR)) sec(0.8)
+  all(name(cursor)) exit(sec(0))
+  all(name(title)) at(sec(0.7)) sec(0.55) enter(rise(20),ease(bezier(0.23,1,0.32,1)),by(word)) stagger(sec(0.08))
+  all(name(word)) at(sec(0.85)) sec(0.4) enter(rise(14),ease(bezier(0.23,1,0.32,1)))
+#sd hold(sec(1))
+#sd to(#se) sec(0.08) ease(bezier(0.77,0,0.175,1))
+#se to(#sd) sec(0.16) ease(bezier(0.23,1,0.32,1))
+#sd hold(sec(1.3))
