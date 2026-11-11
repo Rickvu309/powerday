@@ -15,10 +15,15 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html { background: var(--bg); }
+html {
+  background: var(--bg);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
 body {
   margin: 0;
-  min-height: 100dvh;
+  min-height: 100svh;
   overflow: hidden;
   background: var(--bg);
   color: var(--ink);
@@ -44,12 +49,12 @@ body {
 
 .stage {
   position: relative;
-  min-height: 100dvh;
+  min-height: 100svh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px 24px 72px;
+  padding: max(32px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) calc(72px + env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
   text-align: center;
 }
 
@@ -59,13 +64,21 @@ body {
   overflow: visible;
   margin-bottom: clamp(-72px, -6vw, -28px);
   touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   cursor: default;
 }
+.bot.alive { animation: float 6s var(--ease-in-out) infinite alternate; }
+@keyframes float { to { transform: translateY(-5px); } }
 .body, .gaze, .eye, .bot { transform-box: fill-box; transform-origin: center; }
 .ring-track, .ring, .ring-burst { fill: none; stroke-linecap: round; }
 .ring-track { stroke: rgba(232, 102, 46, 0.14); stroke-width: 1.4; opacity: 0; }
 .ring { stroke: url(#grad); stroke-width: 2; stroke-dasharray: 100; stroke-dashoffset: 100; opacity: 0; }
+.lead-dot { fill: #fff; }
+.lead-glow { fill: #ffb300; opacity: 0.45; }
+#lead { opacity: 0; transform-origin: 30.55px 33.7px; }
+#sweep { stroke-dashoffset: 0; }
 .ring-burst { stroke: #ff9a3d; stroke-width: 1.4; opacity: 0; transform-box: fill-box; transform-origin: center; }
 .spark { transform-box: fill-box; transform-origin: center; }
 
@@ -76,16 +89,29 @@ body {
   line-height: 1.04;
   letter-spacing: -0.04em;
 }
-.w {
+.wc {
   display: inline-block;
-  padding: 0 0.04em 0.08em;
+  overflow: hidden;
+  padding: 0.02em 0.06em 0.3em;
+  margin: -0.02em -0.06em -0.3em;
+}
+.w {
+  display: block;
+  background-repeat: no-repeat;
+  background-size: 260% 100%, 100% 100%;
+  background-position: 110% 0, 0 0;
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
 }
-.w1 { background-image: linear-gradient(100deg, #e8462a, #f47b2a); }
-.w2 { background-image: linear-gradient(100deg, #f68b2b, #ffb300); }
+.w1 { --c1: #e8462a; --c2: #f47b2a; }
+.w2 { --c1: #f68b2b; --c2: #ffb300; }
+.w {
+  background-image:
+    linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.75) 50%, transparent 62%),
+    linear-gradient(100deg, var(--c1), var(--c2));
+}
 
 .sub {
   margin: clamp(10px, 1.6vw, 18px) 0 0;
@@ -109,11 +135,14 @@ body {
 
 /* Initial hidden states apply only when JS will run the intro. Without JS the
    page renders its final state. */
-.js .glow, .js .title .w, .js .sub, .js .foot { opacity: 0; }
-.js .body { opacity: 0; }
-.js .eye { transform: scale(0); }
-.js.ready .glow, .js.ready .title .w, .js.ready .sub, .js.ready .foot, .js.ready .body { opacity: 1; }
+.js .glow, .js .sub, .js .foot { opacity: 0; }
+.js .title .w { transform: translateY(108%); }
+.js .eye { transform: scaleY(0.08); }
+.js #sweep { stroke-dashoffset: 100; }
+.js.ready .glow, .js.ready .sub, .js.ready .foot { opacity: 1; }
+.js.ready .title .w { transform: none; }
 .js.ready .eye { transform: none; }
+.js.ready #sweep { stroke-dashoffset: 0; }
 
 @media (hover: hover) and (pointer: fine) {
   .bot { cursor: pointer; }
@@ -121,6 +150,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .blob { animation: none; }
-  .js .glow, .js .title .w, .js .sub, .js .foot, .js .body { opacity: 1; }
-  .js .eye { transform: none; }
+  .js .glow, .js .sub, .js .foot { opacity: 1; }
+  .js .title .w, .js .eye { transform: none; }
+  .js #sweep { stroke-dashoffset: 0; }
 }
