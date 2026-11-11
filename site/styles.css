@@ -31,8 +31,15 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.gl { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.no-gl body { background: radial-gradient(60vmax 50vmax at 0% 0%, #ffe9a8, transparent 70%), radial-gradient(60vmax 50vmax at 100% 100%, #ffc58a, transparent 70%), var(--bg); }
+.bg { position: fixed; inset: 0; overflow: hidden; pointer-events: none; transform: scale(1.06); will-change: transform; }
+.photo { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 40% 42%; filter: saturate(0.95); }
+.wash {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 62% at 50% 52%, rgba(255, 251, 243, 0.9) 0%, rgba(255, 251, 243, 0.72) 42%, rgba(255, 251, 243, 0.2) 100%),
+    linear-gradient(180deg, rgba(255, 251, 243, 0.5), rgba(255, 251, 243, 0) 35%);
+}
 
 .stage {
   position: relative;
@@ -112,16 +119,16 @@ body {
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.04em;
-  color: rgba(23, 23, 26, 0.55);
+  color: rgba(23, 23, 26, 0.42);
 }
 
 /* Initial hidden states apply only when JS will run the intro. Without JS the
    page renders its final state. */
-.js .sub, .js .foot { opacity: 0; }
+.js .photo, .js .sub, .js .foot { opacity: 0; }
 .js .title .w { transform: translateY(108%); }
 .js .body { opacity: 0; }
 .js .eye { transform: scaleY(0.08); }
-.js .js.ready .sub, .js.ready .foot, .js.ready .body { opacity: 1; }
+.js .js.ready .photo, .js.ready .sub, .js.ready .foot, .js.ready .body { opacity: 1; }
 .js.ready .title .w { transform: none; }
 .js.ready .eye { transform: none; }
 .js.ready 
@@ -130,7 +137,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .js .sub, .js .foot, .js .body { opacity: 1; }
+  .js .photo, .js .sub, .js .foot, .js .body { opacity: 1; }
   .js .title .w, .js .eye { transform: none; }
   .js }
 
