@@ -1,0 +1,52 @@
+---
+import Base from "../layouts/Base.astro";
+import Background from "../components/Background.astro";
+---
+
+<Base title="Power.day mascot lab 3" description="Plush mascot with outfits.">
+  <meta name="robots" content="noindex" />
+  <script is:inline>document.documentElement.classList.add("ready");</script>
+  <Background />
+
+  <main class="stage" id="stage">
+    <div class="mascot3d" id="mascot3d" role="img" aria-label="Power.day mascot"></div>
+    <div class="dress" role="group" aria-label="Outfit">
+      <button type="button" data-o="none" aria-pressed="true">Plain</button>
+      <button type="button" data-o="scarf" aria-pressed="false">Scarf</button>
+      <button type="button" data-o="beanie" aria-pressed="false">Beanie</button>
+      <button type="button" data-o="bow" aria-pressed="false">Bow</button>
+    </div>
+    <h1 class="title" aria-label="Coming soon">
+      <span class="wc"><span class="w w1" aria-hidden="true">Coming</span></span>
+      <span class="wc"><span class="w w2" aria-hidden="true">soon</span></span>
+    </h1>
+  </main>
+
+  <style>
+    :global(.mascot3d) { width: min(var(--bot) * 1.3, 80vw) !important; }
+    .dress { display: flex; gap: 8px; margin: 0 0 clamp(8px, 1.5vh, 18px); position: relative; z-index: 3; }
+    .dress button {
+      font: 600 14px Inter, sans-serif; padding: 8px 16px; border-radius: 999px; border: 1px solid #e9c9a6;
+      background: rgba(255, 251, 243, 0.85); color: #7a4a22; cursor: pointer;
+      transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1), background 150ms, color 150ms;
+    }
+    .dress button:active { transform: scale(0.96); }
+    .dress button[aria-pressed="true"] { background: #f2742a; border-color: #f2742a; color: #fff; }
+  </style>
+
+  <script>
+    import { mountFurry, type Outfit } from "../scripts/furry";
+    const host = document.getElementById("mascot3d");
+    if (host) {
+      const m = mountFurry(host);
+      const btns = document.querySelectorAll<HTMLButtonElement>(".dress button");
+      const set = (o: Outfit) => {
+        m.setOutfit(o);
+        btns.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.o === o)));
+      };
+      btns.forEach((b) => b.addEventListener("click", () => set(b.dataset.o as Outfit)));
+      const q = new URLSearchParams(location.search).get("o") as Outfit | null;
+      if (q) set(q);
+    }
+  </script>
+</Base>
