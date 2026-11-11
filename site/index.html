@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Power.day · Coming soon</title>
+<meta name="description" content="Power.day is almost here.">
+<meta name="theme-color" content="#FFFBF3">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/styles.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body>
+<div class="glow" aria-hidden="true">
+  <i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i>
+</div>
+
+<main class="stage" id="stage">
+  <svg class="bot" id="bot" viewBox="-34 -30 129 128" role="img" aria-label="Power.day mark" focusable="false">
+    <defs>
+      <linearGradient id="grad" gradientUnits="userSpaceOnUse" x1="0" y1="67" x2="61" y2="0">
+        <stop offset="0" stop-color="#E8462A"/>
+        <stop offset="1" stop-color="#FFB300"/>
+      </linearGradient>
+    </defs>
+    <circle class="ring-track" cx="30.55" cy="33.7" r="46" pathLength="100"/>
+    <circle class="ring" id="ring" cx="30.55" cy="33.7" r="46" pathLength="100" transform="rotate(-90 30.55 33.7)"/>
+    <circle class="ring-burst" id="burst" cx="30.55" cy="33.7" r="46"/>
+    <g id="sparks"></g>
+    <g class="body" id="body">
+      <path fill="url(#grad)" fill-rule="evenodd" d="M22.99 2.02 C27.67 -0.68 33.43 -0.68 38.11 2.02 C38.11 2.02 53.54 10.94 53.54 10.94 C58.22 13.64 61.1 18.63 61.1 24.03 C61.1 24.03 61.1 41.85 61.1 41.85 C61.1 47.25 58.22 52.24 53.54 54.94 C53.54 54.94 55.35 53.9 55.35 53.9 C54.05 54.65 53.41 56.17 53.77 57.62 C53.77 57.62 55.44 64.39 55.44 64.39 C55.66 65.27 55.38 66.21 54.72 66.83 C54.06 67.45 53.11 67.67 52.24 67.4 C52.24 67.4 40.51 63.72 40.51 63.72 C39.61 63.44 38.64 63.55 37.83 64.02 C37.83 64.02 38.11 63.86 38.11 63.86 C33.43 66.56 27.67 66.56 22.99 63.86 C22.99 63.86 7.56 54.94 7.56 54.94 C2.88 52.24 0 47.25 0 41.85 C0 41.85 0 24.03 0 24.03 C0 18.63 2.88 13.64 7.56 10.94 C7.56 10.94 22.99 2.02 22.99 2.02Z M11.13 17.12 C8.66 18.55 7.14 21.18 7.14 24.03 C7.14 24.03 7.14 41.85 7.14 41.85 C7.14 44.7 8.66 47.33 11.13 48.76 C11.13 48.76 26.56 57.67 26.56 57.67 C29.03 59.1 32.07 59.1 34.54 57.67 C34.54 57.67 49.97 48.76 49.97 48.76 C52.44 47.33 53.96 44.7 53.96 41.85 C53.96 41.85 53.96 24.03 53.96 24.03 C53.96 21.18 52.44 18.55 49.97 17.12 C49.97 17.12 34.54 8.21 34.54 8.21 C32.07 6.78 29.03 6.78 26.56 8.21 C26.56 8.21 11.13 17.12 11.13 17.12Z"/>
+      <g class="gaze" id="gaze">
+        <path class="eye" id="eyeL" fill="url(#grad)" d="M17.95 28.53 C17.95 26.56 19.55 24.96 21.52 24.96 C23.49 24.96 25.09 26.56 25.09 28.53 C25.09 28.53 25.09 37.35 25.09 37.35 C25.09 39.32 23.49 40.92 21.52 40.92 C19.55 40.92 17.95 39.32 17.95 37.35 C17.95 37.35 17.95 28.53 17.95 28.53Z"/>
+        <path class="eye" id="eyeR" fill="url(#grad)" d="M36.01 28.53 C36.01 26.56 37.61 24.96 39.58 24.96 C41.55 24.96 43.15 26.56 43.15 28.53 C43.15 28.53 43.15 37.35 43.15 37.35 C43.15 39.32 41.55 40.92 39.58 40.92 C37.61 40.92 36.01 39.32 36.01 37.35 C36.01 37.35 36.01 28.53 36.01 28.53Z"/>
+      </g>
+    </g>
+  </svg>
+
+  <h1 class="title" aria-label="Coming soon"><span class="w w1" aria-hidden="true">Coming</span> <span class="w w2" aria-hidden="true">soon</span></h1>
+  <p class="sub" id="sub">Power.day is almost here.</p>
+</main>
+
+<footer class="foot" id="foot">powerday.work</footer>
+<script src="/main.js" defer></script>
+</body>
+</html>

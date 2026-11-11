@@ -1,0 +1,126 @@
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --bg: #fffbf3;
+  --ink: #17171a;
+  --muted: #5c5c64;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-panel: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.glow { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
+.blob {
+  position: absolute;
+  width: 62vmax;
+  height: 62vmax;
+  border-radius: 50%;
+  opacity: 0.55;
+  will-change: transform;
+}
+.b1 { left: -14vmax; top: -22vmax; background: radial-gradient(circle, #ffd54f 0%, rgba(255, 213, 79, 0) 64%); animation: drift-a 24s var(--ease-in-out) infinite alternate; }
+.b2 { right: -20vmax; bottom: -26vmax; background: radial-gradient(circle, #ff9a3d 0%, rgba(255, 154, 61, 0) 64%); animation: drift-b 29s var(--ease-in-out) infinite alternate; }
+.b3 { left: 28vw; bottom: -34vmax; width: 48vmax; height: 48vmax; opacity: 0.4; background: radial-gradient(circle, #ffb800 0%, rgba(255, 184, 0, 0) 64%); animation: drift-c 21s var(--ease-in-out) infinite alternate; }
+@keyframes drift-a { to { transform: translate3d(14vmax, 10vmax, 0) scale(1.12); } }
+@keyframes drift-b { to { transform: translate3d(-16vmax, -9vmax, 0) scale(0.92); } }
+@keyframes drift-c { to { transform: translate3d(-12vmax, -7vmax, 0) scale(1.18); } }
+
+.stage {
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px 72px;
+  text-align: center;
+}
+
+.bot {
+  width: clamp(300px, 46vw, 460px);
+  height: auto;
+  overflow: visible;
+  margin-bottom: clamp(-72px, -6vw, -28px);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: default;
+}
+.body, .gaze, .eye, .bot { transform-box: fill-box; transform-origin: center; }
+.ring-track, .ring, .ring-burst { fill: none; stroke-linecap: round; }
+.ring-track { stroke: rgba(232, 102, 46, 0.14); stroke-width: 1.4; opacity: 0; }
+.ring { stroke: url(#grad); stroke-width: 2; stroke-dasharray: 100; stroke-dashoffset: 100; opacity: 0; }
+.ring-burst { stroke: #ff9a3d; stroke-width: 1.4; opacity: 0; transform-box: fill-box; transform-origin: center; }
+.spark { transform-box: fill-box; transform-origin: center; }
+
+.title {
+  margin: 0;
+  font-size: clamp(52px, 11.5vw, 120px);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+}
+.w {
+  display: inline-block;
+  padding: 0 0.04em 0.08em;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.w1 { background-image: linear-gradient(100deg, #e8462a, #f47b2a); }
+.w2 { background-image: linear-gradient(100deg, #f68b2b, #ffb300); }
+
+.sub {
+  margin: clamp(10px, 1.6vw, 18px) 0 0;
+  font-size: clamp(17px, 2.1vw, 22px);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--muted);
+}
+
+.foot {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(23, 23, 26, 0.42);
+}
+
+/* Initial hidden states apply only when JS will run the intro. Without JS the
+   page renders its final state. */
+.js .glow, .js .title .w, .js .sub, .js .foot { opacity: 0; }
+.js .body { opacity: 0; }
+.js .eye { transform: scale(0); }
+.js.ready .glow, .js.ready .title .w, .js.ready .sub, .js.ready .foot, .js.ready .body { opacity: 1; }
+.js.ready .eye { transform: none; }
+
+@media (hover: hover) and (pointer: fine) {
+  .bot { cursor: pointer; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blob { animation: none; }
+  .js .glow, .js .title .w, .js .sub, .js .foot, .js .body { opacity: 1; }
+  .js .eye { transform: none; }
+}
