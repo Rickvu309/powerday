@@ -31,21 +31,15 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.glow { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
-.blob {
+.bg { position: fixed; inset: 0; overflow: hidden; pointer-events: none; transform: scale(1.06); will-change: transform; }
+.photo { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 40% 42%; filter: saturate(0.95); }
+.wash {
   position: absolute;
-  width: 62vmax;
-  height: 62vmax;
-  border-radius: 50%;
-  opacity: 0.55;
-  will-change: transform;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 62% at 50% 52%, rgba(255, 251, 243, 0.9) 0%, rgba(255, 251, 243, 0.72) 42%, rgba(255, 251, 243, 0.2) 100%),
+    linear-gradient(180deg, rgba(255, 251, 243, 0.5), rgba(255, 251, 243, 0) 35%);
 }
-.b1 { left: -14vmax; top: -22vmax; background: radial-gradient(circle, #ffd54f 0%, rgba(255, 213, 79, 0) 64%); animation: drift-a 24s var(--ease-in-out) infinite alternate; }
-.b2 { right: -20vmax; bottom: -26vmax; background: radial-gradient(circle, #ff9a3d 0%, rgba(255, 154, 61, 0) 64%); animation: drift-b 29s var(--ease-in-out) infinite alternate; }
-.b3 { left: 28vw; bottom: -34vmax; width: 48vmax; height: 48vmax; opacity: 0.4; background: radial-gradient(circle, #ffb800 0%, rgba(255, 184, 0, 0) 64%); animation: drift-c 21s var(--ease-in-out) infinite alternate; }
-@keyframes drift-a { to { transform: translate3d(14vmax, 10vmax, 0) scale(1.12); } }
-@keyframes drift-b { to { transform: translate3d(-16vmax, -9vmax, 0) scale(0.92); } }
-@keyframes drift-c { to { transform: translate3d(-12vmax, -7vmax, 0) scale(1.18); } }
 
 .stage {
   position: relative;
@@ -130,11 +124,11 @@ body {
 
 /* Initial hidden states apply only when JS will run the intro. Without JS the
    page renders its final state. */
-.js .glow, .js .sub, .js .foot { opacity: 0; }
+.js .photo, .js .sub, .js .foot { opacity: 0; }
 .js .title .w { transform: translateY(108%); }
 .js .body { opacity: 0; }
 .js .eye { transform: scaleY(0.08); }
-.js .js.ready .glow, .js.ready .sub, .js.ready .foot, .js.ready .body { opacity: 1; }
+.js .js.ready .photo, .js.ready .sub, .js.ready .foot, .js.ready .body { opacity: 1; }
 .js.ready .title .w { transform: none; }
 .js.ready .eye { transform: none; }
 .js.ready 
@@ -143,8 +137,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .blob { animation: none; }
-  .js .glow, .js .sub, .js .foot, .js .body { opacity: 1; }
+  .js .photo, .js .sub, .js .foot, .js .body { opacity: 1; }
   .js .title .w, .js .eye { transform: none; }
   .js }
 

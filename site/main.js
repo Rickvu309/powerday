@@ -10,7 +10,7 @@ const finePointer = matchMedia("(hover: hover) and (pointer: fine)").matches;
 const canLinear = CSS.supports("animation-timing-function", "linear(0, 1)");
 
 const el = {
-  glow: document.querySelector(".glow"),
+  bg: $("bg"), photo: $("photo"),
   stage: $("stage"), bot: $("bot"), body: $("body"), gaze: $("gaze"),
   eyeL: $("eyeL"), eyeR: $("eyeR"), burst: $("burst"), sparks: $("sparks"),
   words: [...document.querySelectorAll(".title .w")],
@@ -153,7 +153,7 @@ async function intro() {
   const dy = stage.top + stage.height / 2 - (bot.top + bot.height / 2);
   const liftFrom = `translateY(${dy}px) scale(1.18)`;
   const hold = play(el.bot, [{ transform: liftFrom }, { transform: liftFrom }], { duration: 1 });
-  play(el.glow, [{ opacity: 0 }, { opacity: 1 }], { duration: 1600, easing: EASE_PANEL });
+  play(el.photo, [{ opacity: 0, transform: "scale(1.14)" }, { opacity: 1, transform: "scale(1)" }], { duration: 2600, easing: EASE_OUT });
   await frame();
 
   // 1. Assemble. Particles spiral in and lock to the outline of the mark.
@@ -216,6 +216,7 @@ function startIdle() {
   const tick = () => {
     cx += (tx - cx) * 0.14; cy += (ty - cy) * 0.14;
     el.gaze.style.transform = `translate(${cx.toFixed(2)}px, ${cy.toFixed(2)}px)`;
+    if (finePointer) el.bg.style.transform = `translate3d(${(-cx * 1.4).toFixed(2)}px, ${(-cy * 2.2).toFixed(2)}px, 0) scale(1.06)`;
     raf = Math.abs(tx - cx) + Math.abs(ty - cy) > 0.02 ? requestAnimationFrame(tick) : 0;
   };
   const lookAt = (clientX, clientY) => {
