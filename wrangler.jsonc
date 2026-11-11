@@ -9,5 +9,8 @@
     "run_worker_first": true,
     "not_found_handling": "single-page-application"
   },
-  "routes": [{ "pattern": "powerday.work", "custom_domain": true }]
+  "routes": [
+    { "pattern": "powerday.work", "custom_domain": true },
+    { "pattern": "www.powerday.work", "custom_domain": true }
+  ]
 }
