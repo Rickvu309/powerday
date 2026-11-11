@@ -1,0 +1,20 @@
+---
+import { Picture } from "astro:assets";
+import photo from "../assets/bg.jpg";
+---
+
+<div class="bg" id="bg" aria-hidden="true">
+  <Picture
+    src={photo}
+    formats={["avif", "webp"]}
+    widths={[900, 1600, 2400]}
+    sizes="100vw"
+    alt=""
+    class="photo"
+    id="photo"
+    loading="eager"
+    decoding="async"
+    fetchpriority="high"
+  />
+  <div class="wash"></div>
+</div>

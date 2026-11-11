@@ -1,0 +1,24 @@
+---
+import Base from "../layouts/Base.astro";
+import Background from "../components/Background.astro";
+import Mark from "../components/Mark.astro";
+---
+
+<Base title="Power.day Coming soon" description="Power.day is almost here.">
+  <Background />
+
+  <main class="stage" id="stage">
+    <Mark />
+    <h1 class="title" aria-label="Coming soon">
+      <span class="wc"><span class="w w1" aria-hidden="true">Coming</span></span>
+      <span class="wc"><span class="w w2" aria-hidden="true">soon</span></span>
+    </h1>
+    <p class="sub" id="sub">Power.day is almost here.</p>
+  </main>
+
+  <footer class="foot" id="foot">powerday.work</footer>
+
+  <script>
+    import "../scripts/main";
+  </script>
+</Base>

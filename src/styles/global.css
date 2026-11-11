@@ -15,12 +15,14 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
+
 html {
   background: var(--bg);
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
   overscroll-behavior: none;
 }
+
 body {
   margin: 0;
   min-height: 100svh;
@@ -32,6 +34,7 @@ body {
 }
 
 .bg { position: fixed; inset: 0; overflow: hidden; pointer-events: none; transform: scale(1.06); will-change: transform; }
+.bg picture { display: contents; }
 .photo { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 40% 42%; filter: saturate(0.95); }
 .wash {
   position: absolute;
@@ -40,6 +43,8 @@ body {
     radial-gradient(ellipse 70% 62% at 50% 52%, rgba(255, 251, 243, 0.9) 0%, rgba(255, 251, 243, 0.72) 42%, rgba(255, 251, 243, 0.2) 100%),
     linear-gradient(180deg, rgba(255, 251, 243, 0.5), rgba(255, 251, 243, 0) 35%);
 }
+
+.dust { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 
 .stage {
   position: relative;
@@ -65,10 +70,9 @@ body {
 }
 .bot.alive { animation: float 6s var(--ease-in-out) infinite alternate; }
 @keyframes float { to { transform: translateY(-5px); } }
-.body, .gaze, .eye, .bot { transform-box: fill-box; transform-origin: center; }
-.ring-burst { fill: none; stroke-linecap: round; }
-.ring-burst { stroke: #ff9a3d; stroke-width: 1.4; opacity: 0; transform-box: fill-box; transform-origin: center; }
-.spark { transform-box: fill-box; transform-origin: center; }
+
+.body, .gaze, .eye, .bot, .ring-burst, .spark { transform-box: fill-box; transform-origin: center; }
+.ring-burst { fill: none; stroke: #ff9a3d; stroke-width: 1.4; stroke-linecap: round; opacity: 0; }
 
 .title {
   margin: 0;
@@ -86,6 +90,9 @@ body {
 .w {
   display: block;
   padding-bottom: 0.25em;
+  background-image:
+    linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.75) 50%, transparent 62%),
+    linear-gradient(100deg, var(--c1), var(--c2));
   background-repeat: no-repeat;
   background-size: 260% 100%, 100% 100%;
   background-position: 110% 0, 0 0;
@@ -96,11 +103,6 @@ body {
 }
 .w1 { --c1: #e8462a; --c2: #f47b2a; }
 .w2 { --c1: #f68b2b; --c2: #ffb300; }
-.w {
-  background-image:
-    linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.75) 50%, transparent 62%),
-    linear-gradient(100deg, var(--c1), var(--c2));
-}
 
 .sub {
   margin: clamp(10px, 1.6vw, 18px) 0 0;
@@ -119,19 +121,17 @@ body {
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.04em;
-  color: rgba(23, 23, 26, 0.42);
+  color: rgba(23, 23, 26, 0.55);
 }
 
-/* Initial hidden states apply only when JS will run the intro. Without JS the
-   page renders its final state. */
-.js .photo, .js .sub, .js .foot { opacity: 0; }
+/* Intro start states. They apply only when JS will run the intro, so without JS
+   or under reduced motion the page shows its final state. */
+.js .photo, .js .sub, .js .foot, .js .body { opacity: 0; }
 .js .title .w { transform: translateY(108%); }
-.js .body { opacity: 0; }
 .js .eye { transform: scaleY(0.08); }
-.js .js.ready .photo, .js.ready .sub, .js.ready .foot, .js.ready .body { opacity: 1; }
-.js.ready .title .w { transform: none; }
-.js.ready .eye { transform: none; }
-.js.ready 
+.js.ready .photo, .js.ready .sub, .js.ready .foot, .js.ready .body { opacity: 1; }
+.js.ready .title .w, .js.ready .eye { transform: none; }
+
 @media (hover: hover) and (pointer: fine) {
   .bot { cursor: pointer; }
 }
@@ -139,6 +139,4 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .js .photo, .js .sub, .js .foot, .js .body { opacity: 1; }
   .js .title .w, .js .eye { transform: none; }
-  .js }
-
-.dust { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+}

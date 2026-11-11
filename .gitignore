@@ -1,7 +1,10 @@
-Styles/.gen/
-.brilliant/
 Assets/.thumbs/
+.astro/
+.brilliant/
+dist/
+.DS_Store
 Exports/*.contact.png
 Exports/*.timing.json
-.DS_Store
+node_modules/
+Styles/.gen/
 .wrangler/
