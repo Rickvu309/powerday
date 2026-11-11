@@ -72,13 +72,7 @@ body {
 .bot.alive { animation: float 6s var(--ease-in-out) infinite alternate; }
 @keyframes float { to { transform: translateY(-5px); } }
 .body, .gaze, .eye, .bot { transform-box: fill-box; transform-origin: center; }
-.ring-track, .ring, .ring-burst { fill: none; stroke-linecap: round; }
-.ring-track { stroke: rgba(232, 102, 46, 0.14); stroke-width: 1.4; opacity: 0; }
-.ring { stroke: url(#grad); stroke-width: 2; stroke-dasharray: 100; stroke-dashoffset: 100; opacity: 0; }
-.lead-dot { fill: #fff; }
-.lead-glow { fill: #ffb300; opacity: 0.45; }
-#lead { opacity: 0; transform-origin: 30.55px 33.7px; }
-#sweep { stroke-dashoffset: 0; }
+.ring-burst { fill: none; stroke-linecap: round; }
 .ring-burst { stroke: #ff9a3d; stroke-width: 1.4; opacity: 0; transform-box: fill-box; transform-origin: center; }
 .spark { transform-box: fill-box; transform-origin: center; }
 
@@ -138,20 +132,20 @@ body {
    page renders its final state. */
 .js .glow, .js .sub, .js .foot { opacity: 0; }
 .js .title .w { transform: translateY(108%); }
+.js .body { opacity: 0; }
 .js .eye { transform: scaleY(0.08); }
-.js #sweep { stroke-dashoffset: 100; }
-.js.ready .glow, .js.ready .sub, .js.ready .foot { opacity: 1; }
+.js .js.ready .glow, .js.ready .sub, .js.ready .foot, .js.ready .body { opacity: 1; }
 .js.ready .title .w { transform: none; }
 .js.ready .eye { transform: none; }
-.js.ready #sweep { stroke-dashoffset: 0; }
-
+.js.ready 
 @media (hover: hover) and (pointer: fine) {
   .bot { cursor: pointer; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .blob { animation: none; }
-  .js .glow, .js .sub, .js .foot { opacity: 1; }
+  .js .glow, .js .sub, .js .foot, .js .body { opacity: 1; }
   .js .title .w, .js .eye { transform: none; }
-  .js #sweep { stroke-dashoffset: 0; }
-}
+  .js }
+
+.dust { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
