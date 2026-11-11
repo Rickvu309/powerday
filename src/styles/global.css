@@ -38,12 +38,12 @@ body {
 
 .bg { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
 .bg picture { display: contents; }
-.photo { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 40% 42%; filter: saturate(0.95); }
+.photo { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 72% 35%; filter: saturate(0.95); }
 .wash {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 70% 62% at 50% 52%, rgba(255, 251, 243, 0.9) 0%, rgba(255, 251, 243, 0.72) 42%, rgba(255, 251, 243, 0.2) 100%),
+    radial-gradient(ellipse 66% 60% at 50% 54%, rgba(255, 251, 243, 0.9) 0%, rgba(255, 251, 243, 0.78) 46%, rgba(255, 251, 243, 0.16) 100%),
     linear-gradient(180deg, rgba(255, 251, 243, 0.5), rgba(255, 251, 243, 0) 35%);
 }
 
@@ -125,8 +125,10 @@ body {
 .js.ready .photo, .js.ready .sub, .js.ready .body { opacity: 1; }
 .js.ready .title .w, .js.ready .eye { transform: none; }
 
-/* Phones in portrait are width-bound. */
+/* Phones in portrait are width-bound. A stronger wash keeps the text clear where the tower sits behind it. */
 @media (max-width: 600px) {
+  .photo { object-position: 66% 40%; }
+  .wash { background: radial-gradient(ellipse 95% 52% at 50% 56%, rgba(255, 251, 243, 0.9) 0%, rgba(255, 251, 243, 0.8) 55%, rgba(255, 251, 243, 0.12) 100%), linear-gradient(180deg, rgba(255, 251, 243, 0.4), rgba(255, 251, 243, 0) 35%); }
   .title { font-size: clamp(40px, 13.6vw, 72px); }
 }
 
