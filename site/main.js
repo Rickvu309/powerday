@@ -10,7 +10,6 @@ const finePointer = matchMedia("(hover: hover) and (pointer: fine)").matches;
 const canLinear = CSS.supports("animation-timing-function", "linear(0, 1)");
 
 const el = {
-  bg: $("bg"), photo: $("photo"),
   stage: $("stage"), bot: $("bot"), body: $("body"), gaze: $("gaze"),
   eyeL: $("eyeL"), eyeR: $("eyeR"), burst: $("burst"), sparks: $("sparks"),
   words: [...document.querySelectorAll(".title .w")],
@@ -143,6 +142,135 @@ async function assemble() {
   return cvs;
 }
 
+// Silk-flow background. Domain-warped noise bands in cream, amber and coral, kept light behind the
+// content. `reveal` sends a shockwave out from the mark that paints the field in.
+const VERT = `#version 300 es
+void main() {
+  vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}`;
+const FRAG = `#version 300 es
+precision highp float;
+out vec4 o;
+uniform vec2 uRes, uMouse, uCenter;
+uniform float uTime, uAppear;
+
+float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float noise(vec2 p) {
+  vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0, a = 0.5; mat2 m = mat2(1.6, 1.2, -1.2, 1.6);
+  for (int i = 0; i < 4; i++) { v += a * noise(p); p = m * p; a *= 0.5; }
+  return v;
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / uRes;
+  float asp = uRes.x / uRes.y;
+  vec2 p = (uv - 0.5) * vec2(asp, 1.0);
+  vec2 m = (uMouse - 0.5) * vec2(asp, 1.0);
+  vec2 dm = p - m; float md = length(dm);
+  p += dm / (md + 0.15) * 0.05 * exp(-md * 2.5);
+
+  float t = uTime * 0.06;
+  vec2 q = vec2(fbm(p * 1.1 + vec2(0.0, t)), fbm(p * 1.1 + vec2(5.2, 1.3) - t));
+  float r = fbm(p * 1.3 + 2.2 * q + vec2(1.7, 9.2) + t * 0.7);
+
+  float band = 0.5 + 0.5 * sin((p.x * 0.9 + p.y * 1.4) * 2.6 + r * 5.5 + t * 1.5);
+  float silk = pow(band, 1.8);
+  float cl = r * 16.0;
+  float line = 1.0 - smoothstep(0.0, 1.5 * fwidth(cl) + 0.01, 0.5 - abs(fract(cl) - 0.5));
+
+  vec2 c = (uv - 0.5) * vec2(1.0, 1.15);
+  float e = smoothstep(0.12, 0.85, length(c) * 1.25);
+  float strength = mix(0.1, 1.0, e);
+
+  vec3 cream = vec3(1.0, 0.984, 0.953);
+  vec3 amber = vec3(1.0, 0.72, 0.10);
+  vec3 orange = vec3(1.0, 0.55, 0.20);
+  vec3 coral = vec3(0.93, 0.30, 0.17);
+  vec3 tone = mix(amber, orange, smoothstep(0.3, 0.8, r));
+  tone = mix(tone, coral, smoothstep(0.65, 1.0, silk) * 0.55 * e);
+
+  vec3 col = mix(cream, tone, silk * strength * 0.85);
+  col += vec3(1.0, 0.98, 0.9) * pow(band, 8.0) * 0.12 * strength;
+  col = mix(col, vec3(0.9, 0.45, 0.1), line * 0.10 * (0.35 + e));
+  col += vec3(1.0, 0.8, 0.4) * exp(-md * 3.5) * 0.08;
+
+  float d = length((uv - uCenter) * vec2(asp, 1.0));
+  float front = uAppear * 1.9;
+  float rev = 1.0 - smoothstep(front - 0.35, front, d);
+  float ring = exp(-pow((d - front + 0.18) / 0.07, 2.0)) * step(0.001, uAppear) * (1.0 - uAppear * 0.6);
+  col = mix(cream, col, rev);
+  col = mix(col, amber, ring * 0.35);
+
+  col += (hash(gl_FragCoord.xy + fract(uTime) * 91.0) - 0.5) * 0.018;
+  o = vec4(col, 1.0);
+}`;
+
+function initShader() {
+  const cvs = $("gl");
+  const gl = cvs.getContext("webgl2", { antialias: false, alpha: false, powerPreference: "low-power" });
+  const fail = () => { document.documentElement.classList.add("no-gl"); cvs.remove(); return null; };
+  if (!gl) return fail();
+  const compile = (type, src) => {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null;
+  };
+  const vs = compile(gl.VERTEX_SHADER, VERT), fs = compile(gl.FRAGMENT_SHADER, FRAG);
+  if (!vs || !fs) return fail();
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return fail();
+  gl.useProgram(prog);
+  const u = Object.fromEntries(["uRes", "uMouse", "uCenter", "uTime", "uAppear"].map((n) => [n, gl.getUniformLocation(prog, n)]));
+
+  const quality = (finePointer ? 0.7 : 0.55) * Math.min(devicePixelRatio || 1, 1.5);
+  const resize = () => {
+    cvs.width = Math.max(2, Math.round(innerWidth * quality));
+    cvs.height = Math.max(2, Math.round(innerHeight * quality));
+    gl.viewport(0, 0, cvs.width, cvs.height);
+    gl.uniform2f(u.uRes, cvs.width, cvs.height);
+  };
+  resize();
+  addEventListener("resize", resize);
+
+  let appear = 0, from = 0, dur = 0, mx = 0.5, my = 0.5, tmx = 0.5, tmy = 0.5, frameNo = 0;
+  gl.uniform2f(u.uCenter, 0.5, 0.5);
+  addEventListener("pointermove", (e) => { tmx = e.clientX / innerWidth; tmy = 1 - e.clientY / innerHeight; }, { passive: true });
+
+  const draw = (now) => {
+    if (!reduced) requestAnimationFrame(draw);
+    if (!appear && !from) return;
+    if (!finePointer && (frameNo++ & 1)) return;
+    if (from) {
+      const k = Math.min(1, (now - from) / dur);
+      appear = 1 - Math.pow(1 - k, 3);
+      if (k >= 1) from = 0;
+    }
+    mx += (tmx - mx) * 0.06; my += (tmy - my) * 0.06;
+    gl.uniform1f(u.uTime, reduced ? 12 : now / 1000);
+    gl.uniform1f(u.uAppear, appear);
+    gl.uniform2f(u.uMouse, mx, my);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  };
+  requestAnimationFrame(draw);
+
+  return {
+    reveal(duration) {
+      const r = el.body.getBoundingClientRect();
+      gl.uniform2f(u.uCenter, (r.left + r.width / 2) / innerWidth, 1 - (r.top + r.height / 2) / innerHeight);
+      if (reduced) { appear = 1; draw(performance.now()); return; }
+      from = performance.now(); dur = duration;
+    },
+  };
+}
+
+const shader = initShader();
+
 async function intro() {
   const sBody = spring(2.4, 0.72);
   const sEye = spring(3, 0.62);
@@ -153,13 +281,13 @@ async function intro() {
   const dy = stage.top + stage.height / 2 - (bot.top + bot.height / 2);
   const liftFrom = `translateY(${dy}px) scale(1.18)`;
   const hold = play(el.bot, [{ transform: liftFrom }, { transform: liftFrom }], { duration: 1 });
-  play(el.photo, [{ opacity: 0, transform: "scale(1.14)" }, { opacity: 1, transform: "scale(1)" }], { duration: 2600, easing: EASE_OUT });
   await frame();
 
   // 1. Assemble. Particles spiral in and lock to the outline of the mark.
   const dust = await assemble();
 
-  // 2. Power on. The vector takes over, burst and sparks, the eyes wake up.
+  // 2. Power on. The vector takes over, a shockwave paints the shader, the eyes wake up.
+  shader?.reveal(2600);
   play(el.body, [{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: EASE_OUT });
   dust.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: EASE_OUT, fill: "forwards" }).finished.then(() => dust.remove());
   play(el.burst, [{ opacity: 0.7, transform: "scale(0.72)" }, { opacity: 0, transform: "scale(1.45)" }], { duration: 800, easing: EASE_OUT });
@@ -216,7 +344,6 @@ function startIdle() {
   const tick = () => {
     cx += (tx - cx) * 0.14; cy += (ty - cy) * 0.14;
     el.gaze.style.transform = `translate(${cx.toFixed(2)}px, ${cy.toFixed(2)}px)`;
-    if (finePointer) el.bg.style.transform = `translate3d(${(-cx * 1.4).toFixed(2)}px, ${(-cy * 2.2).toFixed(2)}px, 0) scale(1.06)`;
     raf = Math.abs(tx - cx) + Math.abs(ty - cy) > 0.02 ? requestAnimationFrame(tick) : 0;
   };
   const lookAt = (clientX, clientY) => {
@@ -253,4 +380,5 @@ function startIdle() {
   el.bot.addEventListener("pointercancel", () => release(false));
 }
 
-if (!reduced) intro();
+if (reduced) shader?.reveal(0);
+else intro();
