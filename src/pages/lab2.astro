@@ -1,0 +1,35 @@
+---
+import Base from "../layouts/Base.astro";
+import Background from "../components/Background.astro";
+---
+
+<Base title="Power.day mascot lab 2" description="Plush mascot prototypes.">
+  <meta name="robots" content="noindex" />
+  <script is:inline>document.documentElement.classList.add("ready");</script>
+  <Background />
+
+  <main class="stage" id="stage">
+    <div class="trio">
+      <figure><div class="m" data-style="plush"></div><figcaption>A · Plush</figcaption></figure>
+      <figure><div class="m" data-style="clay"></div><figcaption>B · Soft clay</figcaption></figure>
+      <figure><div class="m" data-style="jelly"></div><figcaption>C · Jelly</figcaption></figure>
+    </div>
+    <h1 class="title" aria-label="Coming soon">
+      <span class="wc"><span class="w w1" aria-hidden="true">Coming</span></span>
+      <span class="wc"><span class="w w2" aria-hidden="true">soon</span></span>
+    </h1>
+  </main>
+
+  <style>
+    .trio { display: flex; gap: clamp(8px, 2vw, 32px); align-items: flex-end; justify-content: center; width: min(1100px, 94vw); }
+    .trio figure { margin: 0; flex: 1 1 0; text-align: center; }
+    .m { width: 100%; aspect-ratio: 1; }
+    figcaption { font: 600 clamp(12px, 1.4vw, 16px) Inter, sans-serif; color: #7a4a22; margin-top: -4%; }
+    :global(.title) { font-size: clamp(32px, 6vw, 96px) !important; }
+  </style>
+
+  <script>
+    import { mountPlush, type Style } from "../scripts/plush";
+    document.querySelectorAll<HTMLElement>(".m").forEach((h) => mountPlush(h, h.dataset.style as Style));
+  </script>
+</Base>
