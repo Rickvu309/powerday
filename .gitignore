@@ -4,3 +4,4 @@ Assets/.thumbs/
 Exports/*.contact.png
 Exports/*.timing.json
 .DS_Store
+.wrangler/
