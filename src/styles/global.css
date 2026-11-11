@@ -12,6 +12,9 @@
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-panel: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  /* One fluid unit for the whole stack. Whichever of width or height binds first sets the scale,
+     so the content fills a 16:10 desktop and still fits a short landscape phone. */
+  --fit: min(1vw, 1.55vh);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -57,11 +60,13 @@ body {
   text-align: center;
 }
 
+.stage { --bot: clamp(min(280px, 60vh), calc(var(--fit) * 34), 760px); }
+
 .bot {
-  width: clamp(300px, 46vw, 460px);
+  width: var(--bot);
   height: auto;
   overflow: visible;
-  margin-bottom: clamp(-72px, -6vw, -28px);
+  margin-bottom: calc(var(--bot) * -0.15);
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
@@ -76,7 +81,7 @@ body {
 
 .title {
   margin: 0;
-  font-size: clamp(52px, 11.5vw, 120px);
+  font-size: clamp(40px, calc(var(--fit) * 8.6), 220px);
   font-weight: 700;
   line-height: 1.04;
   letter-spacing: -0.04em;
@@ -105,38 +110,49 @@ body {
 .w2 { --c1: #f68b2b; --c2: #ffb300; }
 
 .sub {
-  margin: clamp(10px, 1.6vw, 18px) 0 0;
-  font-size: clamp(17px, 2.1vw, 22px);
+  margin: clamp(10px, calc(var(--fit) * 1.2), 28px) 0 0;
+  font-size: clamp(17px, calc(var(--fit) * 1.55), 34px);
   font-weight: 500;
   letter-spacing: -0.01em;
   color: var(--muted);
 }
 
-.foot {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: max(24px, env(safe-area-inset-bottom));
-  text-align: center;
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: rgba(23, 23, 26, 0.55);
-}
-
 /* Intro start states. They apply only when JS will run the intro, so without JS
    or under reduced motion the page shows its final state. */
-.js .photo, .js .sub, .js .foot, .js .body { opacity: 0; }
+.js .photo, .js .sub, .js .body { opacity: 0; }
 .js .title .w { transform: translateY(108%); }
 .js .eye { transform: scaleY(0.08); }
-.js.ready .photo, .js.ready .sub, .js.ready .foot, .js.ready .body { opacity: 1; }
+.js.ready .photo, .js.ready .sub, .js.ready .body { opacity: 1; }
 .js.ready .title .w, .js.ready .eye { transform: none; }
+
+/* Phones in portrait are width-bound. */
+@media (max-width: 600px) {
+  .title { font-size: clamp(40px, 13.6vw, 72px); }
+}
+
+/* Tablets in portrait are width-bound too. */
+@media (orientation: portrait) and (min-width: 601px) {
+  .stage { --bot: 46vw; }
+  .title { font-size: 11vw; }
+  .sub { font-size: clamp(20px, 2.6vw, 30px); margin-top: 2vw; }
+}
+
+/* Short landscape screens, such as a phone on its side, are height-bound. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .stage {
+    --bot: min(46vh, 300px);
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+  }
+  .title { font-size: clamp(32px, 14vh, 90px); }
+  .sub { font-size: 15px; margin-top: 6px; }
+}
 
 @media (hover: hover) and (pointer: fine) {
   .bot { cursor: pointer; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .js .photo, .js .sub, .js .foot, .js .body { opacity: 1; }
+  .js .photo, .js .sub, .js .body { opacity: 1; }
   .js .title .w, .js .eye { transform: none; }
 }

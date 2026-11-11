@@ -97,7 +97,6 @@ export async function intro() {
     delay: 900,
     easing: EASE_OUT,
   });
-  play(el.foot, [{ opacity: 0 }, { opacity: 1 }], { duration: 800, delay: 1400, easing: EASE_OUT });
 
   await sleep(2600);
   squint();

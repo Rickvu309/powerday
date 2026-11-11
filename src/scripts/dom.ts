@@ -27,7 +27,6 @@ export const el = {
   burst: $<SVGCircleElement>("burst"),
   sparks: $<SVGGElement>("sparks"),
   sub: $<HTMLElement>("sub"),
-  foot: $<HTMLElement>("foot"),
   words: [...document.querySelectorAll<HTMLElement>(".title .w")],
   eyeL,
   eyeR,
