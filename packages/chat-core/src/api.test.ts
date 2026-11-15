@@ -39,7 +39,7 @@ describe("createChatApi", () => {
   it("answers 501 on every route an owner has not built yet", async () => {
     const stubs = Object.values(routes).filter((route) => route !== routes.models)
     for (const route of stubs) {
-      const path = route.path.replace(":id", "c1").replace("*", "session")
+      const path = route.path.replaceAll(":id", "c1").replaceAll("*", "session")
       const init = route.method === "POST" ? { method: "POST", body: JSON.stringify(chatRequest) } : {}
       expect((await app.request(path, init)).status, `${route.method} ${route.path}`).toBe(501)
     }
