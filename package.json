@@ -1,0 +1,9 @@
+{
+  "name": "powerday",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.10.1",
+  "engines": {
+    "node": "26.x"
+  }
+}
