@@ -1,3 +1,4 @@
+import { ModelId } from "@powerday/chat-core"
 import { App } from "@/app"
 import { LiveChats, liveChats } from "../live-chats"
 import { asked, longReply, question, reply } from "./replies"
@@ -9,8 +10,8 @@ const chats = liveChats(
     tokens > 0 ? { kind: "reply", text: longReply(tokens) } : { kind: "reply", text: reply, holdAfter: 88 },
   ),
   [asked(question)],
+  ModelId.parse("mock-fast"),
 )
-void chats.open(null).chat.regenerate()
 
 export default function StreamingReply() {
   return (

@@ -32,6 +32,14 @@ export const sourceFindings = (filename, source) => {
   return findings
 }
 
+export const chatSessionFindings = (filename, source) => {
+  if (!/chat-session/.test(source) || /(?:live-chats|chat-session)(?:\.test)?\.tsx?$/.test(filename)) return []
+  return [...source.matchAll(specifiers)]
+    .map((match) => match[1] ?? match[2])
+    .filter((specifier) => /(?:^|\/)chat-session(?:\.[jt]sx?)?$/.test(specifier))
+    .map(() => `${filename}: chat-session is private to live-chats. Use the conversation commands.`)
+}
+
 export const tsconfigFindings = (filename, tsconfig) => {
   const options = tsconfig.compilerOptions ?? {}
   const findings = []
@@ -55,6 +63,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const tsconfig = `${core}/tsconfig.json`
   const findings = [
     ...tsconfigFindings(tsconfig, JSON.parse(fs.readFileSync(path.join(root, tsconfig), "utf8"))),
+    ...sources(path.join(root, "apps/chat/src")).flatMap((file) =>
+      chatSessionFindings(path.relative(root, file), fs.readFileSync(file, "utf8")),
+    ),
     ...sources(path.join(root, core, "src")).flatMap((file) =>
       sourceFindings(path.relative(root, file), fs.readFileSync(file, "utf8")),
     ),

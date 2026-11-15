@@ -3,7 +3,7 @@ import { useSyncExternalStore } from "react"
 
 const prefix = "/c/"
 
-const subscribe = (onChange: () => void) => {
+export const subscribeOpenConversation = (onChange: () => void) => {
   window.addEventListener("popstate", onChange)
   return () => window.removeEventListener("popstate", onChange)
 }
@@ -16,14 +16,15 @@ const decoded = (segment: string) => {
   }
 }
 
-const read = () => {
+export const readOpenConversation = () => {
   const path = window.location.pathname
   if (!path.startsWith(prefix)) return null
   const parsed = ConversationId.safeParse(decoded(path.slice(prefix.length)))
   return parsed.success ? parsed.data : null
 }
 
-export const useOpenConversation = () => useSyncExternalStore(subscribe, read, () => null)
+export const useOpenConversation = () =>
+  useSyncExternalStore(subscribeOpenConversation, readOpenConversation, () => null)
 
 export const openConversation = (id: ConversationId | null) => {
   window.history.pushState(null, "", id === null ? "/" : `${prefix}${encodeURIComponent(id)}`)

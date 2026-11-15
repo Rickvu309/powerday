@@ -1,16 +1,22 @@
-import { Chat } from "@ai-sdk/react"
-import { ConversationId, MessageMetadata, type ChatMessage, type ModelId } from "@powerday/chat-core"
-import { DefaultChatTransport, generateId, type ChatTransport } from "ai"
+import { ConversationId, type ChatMessage, type ModelId } from "@powerday/chat-core"
+import type { ChatTransport } from "ai"
 import { createContext } from "react"
-import { readConversation } from "./read-conversation"
-import { chatFetch, ReplyProblem } from "./reply-problem"
+import type { createSession } from "./chat-session"
+import { readOpenConversation, subscribeOpenConversation } from "../../open-conversation"
+import { ReplyProblem } from "./reply-problem"
 
 type Attempt =
   | { readonly kind: "idle" }
-  | { readonly kind: "pending"; readonly operation: "send" | "retry" }
+  | { readonly kind: "preparing" | "preparation-failed" | "cancelled"; readonly text: string; readonly model: ModelId }
+  | { readonly kind: "pending"; readonly operation: "send" | "retry"; readonly dispatch: boolean }
   | { readonly kind: "failed"; readonly error: Error }
 
-type ConversationView = { readonly attempt: Attempt; readonly stopped: ReadonlySet<string> }
+type Session = ReturnType<typeof createSession>
+type ConversationView = {
+  readonly attempt: Attempt
+  readonly stopped: ReadonlySet<string>
+  readonly Content: Session["Content"] | undefined
+}
 
 const editableDraft = () => {
   let text = ""
@@ -29,34 +35,50 @@ const editableDraft = () => {
   }
 }
 
-export const liveChats = (transport: ChatTransport<ChatMessage>, seed: ChatMessage[] = []) => {
+export const liveChats = (transport?: ChatTransport<ChatMessage>, seed: ChatMessage[] = [], initialModel?: ModelId) => {
   const create = (
     id: ConversationId,
     messages: ChatMessage[] = [],
     initialHistory: "current" | "unloaded" = "unloaded",
   ) => {
-    const chat = new Chat<ChatMessage>({ id, transport, messages, messageMetadataSchema: MessageMetadata.optional() })
+    let session: Session | undefined
+    let attaching: Promise<Session> | undefined
+    const attach = () => {
+      attaching ??= import("./chat-session")
+        .then(({ createSession }) => {
+          session ??= createSession({ id, messages, transport })
+          publish({ ...view, Content: session.Content })
+          return session
+        })
+        .catch((error: unknown) => {
+          attaching = undefined
+          throw error
+        })
+      return attaching
+    }
     const draft = editableDraft()
-    let view: ConversationView = { attempt: { kind: "idle" }, stopped: new Set() }
+    let view: ConversationView = { attempt: { kind: "idle" }, stopped: new Set(), Content: undefined }
     const listeners = new Set<() => void>()
     let history: "current" | "unloaded" | "stale" = initialHistory
     let revision = 0
     let reading: Promise<ChatMessage[]> | undefined
-    const busy = () => chat.status === "submitted" || chat.status === "streaming"
+    const busy = () => session?.chat.status === "submitted" || session?.chat.status === "streaming"
     const publish = (next: ConversationView) => {
       view = next
       for (const listener of listeners) listener()
     }
     const readHistory = () => {
-      reading ??= readConversation(id).finally(() => {
-        reading = undefined
-      })
+      reading ??= attach()
+        .then((session) => session.readHistory())
+        .finally(() => {
+          reading = undefined
+        })
       return reading
     }
     const run = (operation: "send" | "retry", work: () => Promise<void>) => {
-      if (view.attempt.kind === "pending" || busy()) return false
+      if (!["idle", "failed"].includes(view.attempt.kind) || busy()) return false
       revision++
-      publish({ ...view, attempt: { kind: "pending", operation } })
+      publish({ ...view, attempt: { kind: "pending", operation, dispatch: operation === "send" } })
       void work().then(
         () => publish({ ...view, attempt: { kind: "idle" } }),
         (error: unknown) =>
@@ -67,8 +89,50 @@ export const liveChats = (transport: ChatTransport<ChatMessage>, seed: ChatMessa
       )
       return true
     }
+    const prepare = ({ text, model }: { text: string; model: ModelId }) => {
+      const request = { text, model }
+      const intent = { kind: "preparing", ...request } as const
+      publish({ ...view, attempt: intent })
+      const cancel = () => {
+        if (view.attempt === intent) publish({ ...view, attempt: { ...request, kind: "cancelled" } })
+      }
+      const unsubscribe =
+        typeof window === "undefined"
+          ? () => {}
+          : subscribeOpenConversation(() => {
+              if (readOpenConversation() !== id) cancel()
+            })
+      if (typeof window !== "undefined") window.addEventListener("pagehide", cancel, { once: true })
+      void attach()
+        .then(
+          ({ chat }) => {
+            if (view.attempt !== intent) return
+            publish({ ...view, attempt: { kind: "idle" } })
+            run("send", () => chat.sendMessage({ text: request.text }, { body: { model: request.model } }))
+          },
+          () => {
+            if (view.attempt === intent) publish({ ...view, attempt: { ...request, kind: "preparation-failed" } })
+          },
+        )
+        .finally(() => {
+          unsubscribe()
+          if (typeof window !== "undefined") window.removeEventListener("pagehide", cancel)
+        })
+    }
+    if (messages.length > 0)
+      void attach().then(({ chat }) => {
+        if (initialModel !== undefined) run("send", () => chat.regenerate({ body: { model: initialModel } }))
+      })
     return {
-      chat,
+      id,
+      retryPreparation: () => {
+        const attempt = view.attempt
+        if (attempt.kind === "preparation-failed" || attempt.kind === "cancelled") prepare(attempt)
+      },
+      discardPreparation: () => {
+        if (view.attempt.kind === "preparation-failed" || view.attempt.kind === "cancelled")
+          publish({ ...view, attempt: { kind: "idle" } })
+      },
       draft,
       read: () => view,
       subscribe: (listener: () => void) => {
@@ -77,8 +141,10 @@ export const liveChats = (transport: ChatTransport<ChatMessage>, seed: ChatMessa
       },
       needsLoad: () => history !== "current",
       load: async () => {
-        if (history === "current" || busy() || view.attempt.kind === "pending") return
+        if (history === "current" || busy() || !["idle", "failed"].includes(view.attempt.kind)) return
         const started = revision
+        const { chat } = await attach()
+        if (revision !== started || busy() || !["idle", "failed"].includes(view.attempt.kind)) return
         try {
           const messages = await readHistory()
           if (revision !== started || busy()) return
@@ -100,23 +166,22 @@ export const liveChats = (transport: ChatTransport<ChatMessage>, seed: ChatMessa
       send: ({ text, model }: { text: string; model: ModelId }): ConversationId | undefined => {
         const said = text.trim()
         if (said === "") return undefined
-        if (
-          !run("send", async () => {
-            draft.edit("")
-            await chat.sendMessage({ text: said }, { body: { model } })
-          })
-        )
-          return undefined
+        if (!["idle", "failed"].includes(view.attempt.kind) || busy()) return undefined
+        revision++
+        draft.edit("")
+        prepare({ text: said, model })
         promote(id)
         return id
       },
       retry: ({ model }: { model: ModelId }) => {
-        if (!chat.messages.some((message) => message.role === "user")) return
+        const chat = session?.chat
+        if (chat === undefined || !chat.messages.some((message) => message.role === "user")) return
         run("retry", async () => {
           const question = chat.messages.findLast((message) => message.role === "user")
           if (question === undefined) return
           const error = chat.error
           if (error instanceof ReplyProblem && [401, 422, 429, 501].includes(error.status)) {
+            publish({ ...view, attempt: { kind: "pending", operation: "retry", dispatch: true } })
             await chat.regenerate({ body: { model } })
             return
           }
@@ -128,17 +193,21 @@ export const liveChats = (transport: ChatTransport<ChatMessage>, seed: ChatMessa
           }
           const savedQuestion = saved?.find((message) => message.id === question.id && message.role === "user")
           if (saved === undefined || savedQuestion === undefined) {
+            publish({ ...view, attempt: { kind: "pending", operation: "retry", dispatch: true } })
             await chat.regenerate({ body: { model } })
           } else {
             chat.messages = saved
             if (saved.some((message) => message.metadata?.reply?.state === "streaming")) throw new ReplyProblem(409)
             history = "current"
             publish({ ...view, stopped: new Set() })
+            publish({ ...view, attempt: { kind: "pending", operation: "retry", dispatch: true } })
             await chat.sendMessage({ role: "user", parts: savedQuestion.parts }, { body: { model } })
           }
         })
       },
       stopDisplay: () => {
+        const chat = session?.chat
+        if (chat === undefined) return
         revision++
         history = "stale"
         const last = chat.messages.at(-1)
@@ -148,12 +217,12 @@ export const liveChats = (transport: ChatTransport<ChatMessage>, seed: ChatMessa
     }
   }
   const conversations = new Map<ConversationId, ReturnType<typeof create>>()
-  let draft = create(ConversationId.parse(generateId()), seed, "current")
-  conversations.set(ConversationId.parse(draft.chat.id), draft)
+  let draft = create(ConversationId.parse(crypto.randomUUID()), seed, "current")
+  conversations.set(draft.id, draft)
   function promote(id: ConversationId): void {
-    if (draft.chat.id !== id) return
-    draft = create(ConversationId.parse(generateId()), [], "current")
-    conversations.set(ConversationId.parse(draft.chat.id), draft)
+    if (draft.id !== id) return
+    draft = create(ConversationId.parse(crypto.randomUUID()), [], "current")
+    conversations.set(draft.id, draft)
   }
   return {
     open: (id: ConversationId | null) => {
@@ -168,14 +237,4 @@ export const liveChats = (transport: ChatTransport<ChatMessage>, seed: ChatMessa
 export type LiveChatStore = ReturnType<typeof liveChats>
 export type LiveConversation = ReturnType<LiveChatStore["open"]>
 
-export const LiveChats = createContext(
-  liveChats(
-    new DefaultChatTransport<ChatMessage>({
-      api: "/api/chat",
-      fetch: chatFetch,
-      prepareSendMessagesRequest: ({ id, messages, body }) => ({
-        body: { id, model: body?.model, message: messages.findLast((message) => message.role === "user") },
-      }),
-    }),
-  ),
-)
+export const LiveChats = createContext(liveChats())

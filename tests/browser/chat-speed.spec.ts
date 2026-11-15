@@ -24,12 +24,16 @@ for (let run = 1; run <= 5; run++) {
       observer.observe({ type: kind })
       const started = performance.now()
       const inputDelays: number[] = []
+      const keyEvents: { receivedAt: number; dispatchedAt: number; delay: number }[] = []
       const keyToPaint: number[] = []
       let maxShift = 0
       let frames = 0
       let keyStarted = 0
       const onKey = (event: KeyboardEvent) => {
-        inputDelays.push(Math.max(0, performance.now() - event.timeStamp))
+        const receivedAt = performance.now()
+        const delay = Math.max(0, receivedAt - event.timeStamp)
+        inputDelays.push(delay)
+        keyEvents.push({ receivedAt, dispatchedAt: event.timeStamp, delay })
         keyStarted = performance.now()
       }
       const onInput = () => {
@@ -54,6 +58,8 @@ for (let run = 1; run <= 5; run++) {
         frames: number
         maxShift: number
         inputDelays: number[]
+        keyEvents: { receivedAt: number; dispatchedAt: number; delay: number }[]
+        longFrames: { startTime: number; duration: number; detail: unknown }[]
         keyToPaint: number[]
         tokens: number
       }>((resolve) => {
@@ -73,6 +79,12 @@ for (let run = 1; run <= 5; run++) {
             frames,
             maxShift,
             inputDelays,
+            keyEvents,
+            longFrames: entries.map((entry) => ({
+              startTime: entry.startTime,
+              duration: entry.duration,
+              detail: entry.toJSON(),
+            })),
             keyToPaint,
             tokens: Number(
               performance
@@ -91,6 +103,21 @@ for (let run = 1; run <= 5; run++) {
     const path = testInfo.outputPath("speed.json")
     await writeFile(path, JSON.stringify(result, null, 2))
     await testInfo.attach("speed.json", { path, contentType: "application/json" })
+    const worst = result.keyEvents.toSorted((a, b) => b.delay - a.delay)[0]
+    console.info(
+      "streaming input measurement",
+      JSON.stringify({
+        ...result,
+        longFrames: result.longFrames
+          .filter(
+            (frame) =>
+              worst !== undefined &&
+              frame.startTime <= worst.receivedAt &&
+              frame.startTime + frame.duration >= worst.dispatchedAt,
+          )
+          .slice(0, 5),
+      }),
+    )
     expect(result.tokens).toBe(5000)
     expect(result.frames).toBeGreaterThan(50)
     expect(result.inputDelays.length).toBeGreaterThanOrEqual(30)

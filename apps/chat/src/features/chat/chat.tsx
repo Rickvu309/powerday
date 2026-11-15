@@ -1,26 +1,21 @@
 import type { ConversationId } from "@powerday/chat-core"
-import { useChat } from "@ai-sdk/react"
-import { lazy, Suspense, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react"
+import { useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react"
 import { useModels } from "@/features/model-picker/model-choice"
 import { openConversation, useOpenConversation } from "@/open-conversation"
 import { Composer } from "./composer"
-import { LiveChats, type LiveChatStore } from "./live-chats"
+import { LiveChats, type LiveConversation } from "./live-chats"
 import { Suggestions } from "./suggestions"
 import { problemOf } from "./reply-problem"
 import { Button } from "@/components/ui/button"
 
-const loadThread = () => import("./thread")
-const Thread = lazy(loadThread)
-
 export function Chat() {
   const live = useContext(LiveChats)
   const open = useOpenConversation()
-  return <ChatSession key={open ?? "draft"} open={open} live={live} />
+  const conversation = live.open(open)
+  return <ChatSession key={conversation.id} open={open} conversation={conversation} />
 }
 
-function ChatSession({ open, live }: { open: ConversationId | null; live: LiveChatStore }) {
-  const conversation = live.open(open)
-  const { messages, status, error } = useChat({ chat: conversation.chat, throttle: 32 })
+function ChatSession({ open, conversation }: { open: ConversationId | null; conversation: LiveConversation }) {
   const view = useSyncExternalStore(conversation.subscribe, conversation.read)
   const [history, setHistory] = useState<{ state: "loading" | "ready" } | { state: "error"; error: unknown }>({
     state: open === null || !conversation.needsLoad() ? "ready" : "loading",
@@ -45,11 +40,7 @@ function ChatSession({ open, live }: { open: ConversationId | null; live: LiveCh
   }, [open, conversation, attempt])
   const { models } = useModels()
   const model = models.state === "ready" ? models.chosen : undefined
-  const busy = status === "submitted" || status === "streaming"
-
-  useEffect(() => {
-    void loadThread()
-  }, [])
+  const busy = view.attempt.kind === "pending" && view.attempt.dispatch
 
   const send = useCallback(
     (text: string): boolean => {
@@ -78,23 +69,43 @@ function ChatSession({ open, live }: { open: ConversationId | null; live: LiveCh
             Retry
           </Button>
         </div>
-      ) : messages.length === 0 ? (
-        <Suggestions ready={model !== undefined} onPick={send} />
+      ) : view.attempt.kind === "preparing" ||
+        view.attempt.kind === "preparation-failed" ||
+        view.attempt.kind === "cancelled" ? (
+        <div className="m-auto flex max-w-sm flex-col gap-4 p-4 text-sm">
+          <p>{view.attempt.text}</p>
+          {view.attempt.kind === "preparing" ? (
+            <p role="status">Getting your conversation ready…</p>
+          ) : (
+            <div role="alert">
+              <p>Your question hasn’t been sent. Try again, or reload if the problem continues.</p>
+              <Button variant="outline" onClick={conversation.retryPreparation}>
+                Try again
+              </Button>
+              <Button variant="ghost" onClick={conversation.discardPreparation}>
+                Discard question
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : view.Content ? (
+        <view.Content
+          empty={<Suggestions ready={model !== undefined} onPick={send} />}
+          stopped={view.stopped}
+          attemptError={view.attempt.kind === "failed" ? view.attempt.error : undefined}
+          onRetry={retry}
+        />
       ) : (
-        <Suspense fallback={<div className="flex-1" />}>
-          <Thread
-            messages={messages}
-            status={status}
-            error={view.attempt.kind === "failed" ? view.attempt.error : error}
-            stopped={view.stopped}
-            onRetry={retry}
-          />
-        </Suspense>
+        <Suggestions ready={model !== undefined} onPick={send} />
       )}
       <Composer
         draft={conversation.draft}
         busy={busy}
-        ready={model !== undefined && history.state === "ready" && view.attempt.kind !== "pending"}
+        ready={
+          model !== undefined &&
+          history.state === "ready" &&
+          (view.attempt.kind === "idle" || view.attempt.kind === "failed")
+        }
         onSend={send}
         onStop={conversation.stopDisplay}
       />
