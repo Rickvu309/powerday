@@ -10,7 +10,7 @@ const unused = (): never => {
 
 const deps: ChatDeps = {
   catalog: parseCatalog(catalogConfig),
-  store: { list: unused, get: unused, claim: unused, save: unused },
+  store: { list: unused, get: unused, claim: unused, save: unused, rename: unused, delete: unused, search: unused },
   ledger: { record: unused, spent: unused, allowance: unused },
   gateway: { model: unused },
   auth: { user: unused, handle: unused },
@@ -37,7 +37,15 @@ describe("createChatApi", () => {
   })
 
   it("answers 501 on every route an owner has not built yet", async () => {
-    const stubs = Object.values(routes).filter((route) => route !== routes.models && route !== routes.chat)
+    const built: readonly unknown[] = [
+      routes.models,
+      routes.chat,
+      routes.conversations,
+      routes.conversation,
+      routes.rename,
+      routes.delete,
+    ]
+    const stubs = Object.values(routes).filter((route) => !built.includes(route))
     for (const route of stubs) {
       const path = route.path.replaceAll(":id", "c1").replaceAll("*", "session")
       const init = route.method === "POST" ? { method: "POST", body: JSON.stringify(chatRequest) } : {}

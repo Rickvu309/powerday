@@ -13,7 +13,7 @@ export type Read<Value> =
 export type Reader<Value> = (request: RouteRequest) => Read<Value> | Promise<Read<Value>>
 
 export type Route<Value> = {
-  readonly method: "GET" | "POST" | "ALL"
+  readonly method: "GET" | "POST" | "PATCH" | "DELETE" | "ALL"
   readonly path: string
   readonly read: Reader<Value>
 }

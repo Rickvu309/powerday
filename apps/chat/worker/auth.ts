@@ -5,6 +5,6 @@ const notImplemented = (): never => {
 }
 
 export const auth: (env: Cloudflare.Env) => Auth = () => ({
-  user: notImplemented,
+  user: async () => undefined,
   handle: notImplemented,
 })
