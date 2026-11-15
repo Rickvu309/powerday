@@ -1,0 +1,9 @@
+{
+  "semi": false,
+  "singleQuote": false,
+  "printWidth": 120,
+  "tabWidth": 2,
+  "trailingComma": "all",
+  "sortPackageJson": false,
+  "ignorePatterns": ["pnpm-lock.yaml", "apps/landing/src", "dist", ".astro"]
+}

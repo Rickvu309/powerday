@@ -1,0 +1,21 @@
+{
+  "categories": {
+    "correctness": "off",
+    "suspicious": "off",
+    "pedantic": "off",
+    "perf": "off",
+    "style": "off",
+    "restriction": "off",
+    "nursery": "off"
+  },
+  "jsPlugins": [
+    {
+      "name": "powerday",
+      "specifier": "./index.js"
+    }
+  ],
+  "rules": {
+    "powerday/no-comments": "error",
+    "powerday/no-raw": "error"
+  }
+}
