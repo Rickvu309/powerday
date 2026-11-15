@@ -1,4 +1,4 @@
-import { Hono } from "hono"
+import { Hono, type MiddlewareHandler } from "hono"
 import type { Auth } from "./auth.js"
 import type { Catalog } from "./catalog.js"
 import type { ConversationStore } from "./conversation.js"
@@ -36,6 +36,12 @@ const mount = <Value>(app: Hono, deps: ChatDeps, route: Route<Value>, handle: Ha
 
 export const createChatApi = (deps: ChatDeps): Hono => {
   const app = new Hono()
+  const signedIn: MiddlewareHandler = async (c, next) => {
+    if ((await deps.auth.user(c.req.raw)) === undefined) return c.json({ error: "signed out" }, 401)
+    return next()
+  }
+  app.post(routes.chat.path, signedIn)
+  app.use(`${routes.conversations.path}/*`, signedIn)
   mount(app, deps, routes.chat, chat.handle)
   mount(app, deps, routes.models, models.handle)
   mount(app, deps, routes.conversations, conversations.handle)
