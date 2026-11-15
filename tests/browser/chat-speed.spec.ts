@@ -58,7 +58,7 @@ for (let run = 1; run <= 5; run++) {
         tokens: number
       }>((resolve) => {
         const interval = setInterval(() => {
-          if (document.querySelector('button[aria-label="Stop"]')) return
+          if (document.querySelector('button[aria-label="Stop display"]')) return
           clearInterval(interval)
           cancelAnimationFrame(frame)
           entries.push(...observer.takeRecords())
@@ -86,7 +86,7 @@ for (let run = 1; run <= 5; run++) {
     })
 
     await input.pressSequentially("Keep typing while the reply arrives", { delay: 40 })
-    await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeHidden({ timeout: 45_000 })
+    await expect(page.getByRole("button", { name: "Stop display", exact: true })).toBeHidden({ timeout: 45_000 })
     const result = await measure
     const path = testInfo.outputPath("speed.json")
     await writeFile(path, JSON.stringify(result, null, 2))

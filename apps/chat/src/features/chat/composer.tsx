@@ -53,7 +53,7 @@ export const Composer = memo(function Composer({
         </PromptInputBody>
         <PromptInputFooter className="justify-end px-3 pb-3">
           <PromptInputSubmit
-            aria-label={busy ? "Stop" : "Send"}
+            aria-label={busy ? "Stop display" : "Send"}
             className="rounded-full"
             status={busy ? "streaming" : "ready"}
             disabled={!busy && (empty || !ready)}

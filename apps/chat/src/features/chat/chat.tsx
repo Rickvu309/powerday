@@ -1,12 +1,13 @@
-import type { ConversationId } from "@powerday/chat-core"
+import { ConversationId } from "@powerday/chat-core"
 import { useChat } from "@ai-sdk/react"
-import { lazy, Suspense, useCallback, useContext, useEffect, useState } from "react"
+import { lazy, Suspense, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { useModels } from "@/features/model-picker/model-choice"
 import { openConversation, useOpenConversation } from "@/open-conversation"
 import { Composer } from "./composer"
 import { LiveChats, type LiveChatStore } from "./live-chats"
 import { Suggestions } from "./suggestions"
-import { problemOf } from "./reply-problem"
+import { readConversation } from "./read-conversation"
+import { problemOf, ReplyProblem } from "./reply-problem"
 import { Button } from "@/components/ui/button"
 
 const loadThread = () => import("./thread")
@@ -44,6 +45,8 @@ function ChatSession({ open, live }: { open: ConversationId | null; live: LiveCh
   }, [open, live, chat, attempt])
   const { models } = useModels()
   const model = models.state === "ready" ? models.chosen : undefined
+  const [retryError, setRetryError] = useState<Error>()
+  const retrying = useRef(false)
   const [stopped, setStopped] = useState<ReadonlySet<string>>(new Set())
   const busy = status === "submitted" || status === "streaming"
 
@@ -53,7 +56,8 @@ function ChatSession({ open, live }: { open: ConversationId | null; live: LiveCh
 
   const send = useCallback(
     (text: string) => {
-      if (model === undefined) return
+      if (model === undefined || retrying.current) return
+      setRetryError(undefined)
       void sendMessage({ text }, { body: { model: model.id } })
       if (open === null) openConversation(live.start())
     },
@@ -61,8 +65,39 @@ function ChatSession({ open, live }: { open: ConversationId | null; live: LiveCh
   )
 
   const retry = useCallback(() => {
-    if (model !== undefined) void regenerate({ body: { model: model.id } })
-  }, [model, regenerate])
+    if (model === undefined || retrying.current || busy) return
+    retrying.current = true
+    setRetryError(undefined)
+    void (async () => {
+      try {
+        const question = chat.messages.findLast((message) => message.role === "user")
+        if (question === undefined) return
+        if (error instanceof ReplyProblem && [401, 422, 429, 501].includes(error.status)) {
+          await regenerate({ body: { model: model.id } })
+          return
+        }
+        let saved
+        try {
+          saved = await readConversation(ConversationId.parse(chat.id))
+        } catch (error) {
+          if (!(error instanceof ReplyProblem && error.status === 404)) throw error
+        }
+        const savedQuestion = saved?.find((message) => message.id === question.id && message.role === "user")
+        if (saved === undefined || savedQuestion === undefined) {
+          await regenerate({ body: { model: model.id } })
+        } else {
+          chat.messages = saved
+          if (saved.some((message) => message.metadata?.reply?.state === "streaming")) throw new ReplyProblem(409)
+          setStopped(new Set())
+          await sendMessage({ role: "user", parts: savedQuestion.parts }, { body: { model: model.id } })
+        }
+      } catch (error) {
+        setRetryError(error instanceof Error ? error : new Error("Retry failed"))
+      } finally {
+        retrying.current = false
+      }
+    })()
+  }, [model, busy, chat, error, regenerate, sendMessage])
 
   const halt = useCallback(() => {
     const last = chat.messages.at(-1)
@@ -87,7 +122,7 @@ function ChatSession({ open, live }: { open: ConversationId | null; live: LiveCh
         <Suggestions ready={model !== undefined} onPick={send} />
       ) : (
         <Suspense fallback={<div className="flex-1" />}>
-          <Thread messages={messages} status={status} error={error} stopped={stopped} onRetry={retry} />
+          <Thread messages={messages} status={status} error={retryError ?? error} stopped={stopped} onRetry={retry} />
         </Suspense>
       )}
       <Composer busy={busy} ready={model !== undefined && history.state === "ready"} onSend={send} onStop={halt} />

@@ -38,11 +38,11 @@ export const settled = async (page: Page, screen: string) => {
     await page.getByRole("button", { name: /Model:/ }).click()
     await expect(page.getByRole("menuitemradio", { name: /Mock Reasoning/ })).toBeVisible()
   } else if (screen.includes("streaming")) {
-    await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Stop display", exact: true })).toBeVisible()
     await expect(page.locator(".is-assistant")).toContainText("hook")
   } else if (screen.includes("error") || screen.includes("signed-out") || screen.includes("unavailable")) {
     await expect(page.getByRole("alert")).toBeVisible()
-  } else if (screen.includes("stopped")) await expect(page.getByText("You stopped this reply.")).toBeVisible()
+  } else if (screen.includes("stopped")) await expect(page.getByText("Reply interrupted.")).toBeVisible()
   else await expect(page.locator("table")).toBeVisible()
   await page.evaluate(() => document.fonts.ready)
 }

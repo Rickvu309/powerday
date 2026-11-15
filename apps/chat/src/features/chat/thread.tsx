@@ -101,8 +101,12 @@ const Answer = memo(function Answer({
           return null
         })}
       </MessageContent>
-      {stopped || message.metadata?.reply?.state === "stopped" ? (
-        <p className="text-sm text-muted-foreground">You stopped this reply.</p>
+      {stopped ? (
+        <p className="text-sm text-muted-foreground">
+          Display paused. The reply continues on the server. Reopen this chat to see the full answer.
+        </p>
+      ) : message.metadata?.reply?.state === "stopped" ? (
+        <p className="text-sm text-muted-foreground">Reply interrupted.</p>
       ) : null}
       {streaming ? null : (
         <MessageActions
@@ -171,7 +175,14 @@ export default function Thread({ messages, status, error, stopped, onRetry }: Th
               message={message}
               streaming={status === "streaming" && message === last}
               stopped={stopped.has(message.id)}
-              onRetry={status === "ready" && message === last ? onRetry : undefined}
+              onRetry={
+                status === "ready" &&
+                error === undefined &&
+                message.metadata?.reply?.state !== "failed" &&
+                message === last
+                  ? onRetry
+                  : undefined
+              }
             />
           ),
         )}
@@ -180,11 +191,15 @@ export default function Thread({ messages, status, error, stopped, onRetry }: Th
             <span className="size-3 rounded-full bg-foreground motion-safe:animate-pulse" />
           </span>
         ) : null}
-        {status === "error" || last?.metadata?.reply?.state === "failed" ? (
+        {error !== undefined || status === "error" || last?.metadata?.reply?.state === "failed" ? (
           <Note tone="problem" text={problemOf(error)} onRetry={onRetry} />
         ) : null}
         {status === "ready" && last?.role === "user" && stopped.has(last.id) ? (
-          <Note tone="quiet" text="You stopped this reply." onRetry={onRetry} />
+          <Note
+            tone="quiet"
+            text="Display paused. The reply continues on the server. Reopen this chat to see the full answer."
+            onRetry={onRetry}
+          />
         ) : null}
       </ConversationContent>
       <ConversationScrollButton aria-label="Jump to latest" />

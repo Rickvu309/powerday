@@ -45,7 +45,7 @@ test("Enter sends only the latest user message, opens its URL, and keeps focus",
 test("the composer grows to its cap and preserves a draft while stopping", async ({ page }) => {
   await page.goto("/screens/02-streaming-reply")
   const input = page.getByRole("textbox", { name: "Message" })
-  await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Stop display", exact: true })).toBeVisible()
   const initial = await input.boundingBox()
   await input.fill(Array.from({ length: 30 }, (_, i) => `Line ${i}`).join("\n"))
   await expect.poll(async () => (await input.boundingBox())?.height).toBeGreaterThan(initial?.height ?? 0)
@@ -53,8 +53,10 @@ test("the composer grows to its cap and preserves a draft while stopping", async
   const draft = await input.inputValue()
   await input.press("Enter")
   await expect(input).toHaveValue(draft)
-  await page.getByRole("button", { name: "Stop", exact: true }).click()
-  await expect(page.getByText("You stopped this reply.")).toBeVisible()
+  await page.getByRole("button", { name: "Stop display", exact: true }).click()
+  await expect(
+    page.getByText("Display paused. The reply continues on the server. Reopen this chat to see the full answer."),
+  ).toBeVisible()
   await expect(input).toHaveValue(draft)
   await expect(input).toBeFocused()
 })
@@ -65,6 +67,7 @@ for (const [status, text] of [
   [500, "Something went wrong with this reply. Try again."],
 ] as const) {
   test(`${status} keeps the question and retries with the chosen model`, async ({ page }) => {
+    await page.route("**/api/conversations/*", (route) => route.fulfill({ status: 404, json: { error: "not found" } }))
     let tries = 0
     await page.route("**/api/chat", async (route) => {
       tries++
@@ -203,7 +206,7 @@ test("scrolling up releases auto-scroll and jump returns to the latest", async (
   await jump.click()
   await expect.poll(() => scroll.evaluate((e) => e.scrollHeight - e.clientHeight - e.scrollTop)).toBeLessThanOrEqual(2)
   await expect(jump).toBeHidden()
-  await page.getByRole("button", { name: "Stop", exact: true }).click()
+  await page.getByRole("button", { name: "Stop display", exact: true }).click()
 })
 
 test("scrolling up during initial smooth scrolling releases the growing reply", async ({ page }) => {
@@ -219,5 +222,70 @@ test("scrolling up during initial smooth scrolling releases the growing reply", 
   const height = await scroll.evaluate((e) => e.scrollHeight)
   await expect.poll(() => scroll.evaluate((e) => e.scrollHeight)).toBeGreaterThan(height + 100)
   expect(await scroll.evaluate((e) => e.scrollTop)).toBeLessThanOrEqual(top + 2)
-  await page.getByRole("button", { name: "Stop", exact: true }).click()
+  await page.getByRole("button", { name: "Stop display", exact: true }).click()
+})
+
+test("Retry refreshes saved history and appends a distinct question", async ({ page }) => {
+  const conversation = {
+    id: "retry-saved",
+    owner: "person",
+    title: "Saved",
+    model: "mock-fast",
+    createdAt: "2026-11-15T00:00:00.000Z",
+    updatedAt: "2026-11-15T00:00:00.000Z",
+  }
+  const messages = [
+    { id: "q", role: "user", parts: [{ type: "text", text: "My question" }] },
+    { id: "a", role: "assistant", parts: [{ type: "text", text: "Authoritative answer" }] },
+  ]
+  await page.route("**/api/conversations/retry-saved", (route) => route.fulfill({ json: { conversation, messages } }))
+  const requests: unknown[] = []
+  await page.route("**/api/chat", async (route) => {
+    requests.push(route.request().postDataJSON())
+    await route.fulfill({ contentType: "text/event-stream", body: replyStream("New answer") })
+  })
+  await page.goto("/c/retry-saved")
+  await expect(page.locator(".is-assistant")).toContainText("Authoritative answer")
+  await page.getByRole("button", { name: "Retry", exact: true }).dblclick()
+  await expect(page.locator(".is-assistant").last()).toContainText("New answer")
+  await expect(page.locator(".is-user")).toHaveText(["My question", "My question"])
+  await expect(page.locator(".is-assistant").first()).toContainText("Authoritative answer")
+  expect(requests).toEqual([
+    {
+      id: "retry-saved",
+      model: "mock-fast",
+      message: { id: expect.not.stringMatching(/^q$/), role: "user", parts: [{ type: "text", text: "My question" }] },
+    },
+  ])
+})
+
+test("Retry waits for a reply that is still running on the server", async ({ page }) => {
+  await page.route("**/api/conversations/running", (route) =>
+    route.fulfill({
+      json: {
+        conversation: {
+          id: "running",
+          owner: "person",
+          title: "Running",
+          model: "mock-fast",
+          createdAt: "2026-11-15T00:00:00.000Z",
+          updatedAt: "2026-11-15T00:00:00.000Z",
+        },
+        messages: [
+          { id: "q", role: "user", parts: [{ type: "text", text: "Keep answering" }] },
+          { id: "a", role: "assistant", parts: [], metadata: { reply: { state: "streaming" } } },
+        ],
+      },
+    }),
+  )
+  const posts: unknown[] = []
+  await page.route("**/api/chat", async (route) => {
+    posts.push(route.request().postDataJSON())
+    await route.fulfill({ status: 409, json: { error: "already in progress" } })
+  })
+  await page.goto("/c/running")
+  await page.getByRole("button", { name: "Retry", exact: true }).click()
+  await expect(page.getByRole("alert")).toContainText("A reply is still running or this attempt was already accepted.")
+  expect(posts).toHaveLength(0)
+  await expect(page.locator(".is-user")).toHaveText("Keep answering")
 })

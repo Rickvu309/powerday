@@ -10,6 +10,10 @@ export class ReplyProblem extends Error {
 
 const problemByStatus = new Map([
   [401, "Sign in to continue. Your message is still here."],
+  [
+    409,
+    "A reply is still running or this attempt was already accepted. Reopen this chat to see the saved reply, then retry.",
+  ],
   [404, "This conversation could not be found."],
   [422, "This model is no longer available. Choose another model and retry."],
   [429, "You've reached your usage limit. Try again after it resets."],
