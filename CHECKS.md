@@ -22,6 +22,7 @@ A rule with a check fails `pnpm check`, which `ci` runs. A rule marked review is
 | No comments, no lint suppressions. The one exception is `@ts-expect-error` in a `*.proof.ts` file, which proves a type rejects bad input | lint: `no-comments`, and the comment scan in `tooling/oxlint-plugin-powerday/lint-tree.js` for CSS, YAML (workflows included) and Astro markup |
 | No raw hex or color mix outside a `tokens.css` or `-art` file, no sized arbitrary class near the scale, no blanket transition | lint: `no-raw` |
 | `apps/landing/src` and `apps/landing/public` keep the comments and raw colors they had before these rules | lint skips both through `unlinted` in `lint-tree.js`, and the formatter skips `src` through `ignorePatterns` in `.oxfmtrc.json` |
+| Only the retained conversation owner imports the private SDK session | `scripts/boundaries.mjs` and `scripts/boundaries.test.mjs` |
 | Every app and package typechecks | the `typecheck` step runs `astro check` in each project under `apps/` and `packages/` that has an `astro.config.mjs`, and `tsc -b` on every other one with a `tsconfig.json` (`scripts/typecheck.mjs`) |
 | The chat shell and every design state load with no console error | `pnpm test:browser`, which `ci` runs after `pnpm check` |
 | Generated shadcn code follows the comment rule | lint. `scripts/strip-comments.mjs` removes what shadcn adds |

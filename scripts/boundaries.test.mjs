@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { sourceFindings, tsconfigFindings } from "./boundaries.mjs"
+import { sourceFindings, tsconfigFindings, chatSessionFindings } from "./boundaries.mjs"
 
 const flagged = (source, filename = "core.ts") => sourceFindings(filename, source).length
 
@@ -26,3 +26,8 @@ assert.equal(tsconfigFindings("t", { compilerOptions: { lib: ["es2023", "webwork
 assert.equal(tsconfigFindings("t", { compilerOptions: { lib: ["es2023", "DOM"], types: [] } }).length, 1, "DOM lib")
 assert.equal(tsconfigFindings("t", { compilerOptions: { lib: ["es2023"], types: ["node"] } }).length, 1, "node types")
 assert.equal(tsconfigFindings("t", { compilerOptions: { lib: ["es2023"] } }).length, 1, "default types")
+
+assert.equal(chatSessionFindings("chat.tsx", 'import { createSession } from "./chat-session"').length, 1)
+assert.equal(chatSessionFindings("screens/example.tsx", 'const session = import("../chat-session")').length, 1)
+assert.equal(chatSessionFindings("live-chats.ts", 'const session = import("./chat-session")').length, 0)
+assert.equal(chatSessionFindings("composer.tsx", 'import type { LiveConversation } from "./live-chats"').length, 0)
