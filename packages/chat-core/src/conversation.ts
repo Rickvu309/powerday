@@ -58,6 +58,11 @@ export const titleOf = (messages: readonly ChatMessage[]): string => {
 export type ConversationStore = {
   readonly list: (owner: UserId, before: Cursor | undefined) => Promise<ConversationPage>
   readonly get: (owner: UserId, id: ConversationId) => Promise<SavedConversation | undefined>
+  readonly claim: (
+    conversation: Conversation,
+    message: ChatMessage,
+    reply: ChatMessage,
+  ) => Promise<SavedConversation | undefined>
   readonly save: (conversation: Conversation, messages: readonly ChatMessage[]) => Promise<void>
   readonly rename: (owner: UserId, id: ConversationId, title: string) => Promise<boolean>
   readonly delete: (owner: UserId, id: ConversationId) => Promise<boolean>

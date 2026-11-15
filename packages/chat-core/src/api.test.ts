@@ -10,7 +10,7 @@ const unused = (): never => {
 
 const deps: ChatDeps = {
   catalog: parseCatalog(catalogConfig),
-  store: { list: unused, get: unused, save: unused, rename: unused, delete: unused, search: unused },
+  store: { list: unused, get: unused, claim: unused, save: unused, rename: unused, delete: unused, search: unused },
   ledger: { record: unused, spent: unused, allowance: unused },
   gateway: { model: unused },
   auth: { user: unused, handle: unused },
