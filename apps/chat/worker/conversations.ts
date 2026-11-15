@@ -7,5 +7,6 @@ const notImplemented = (): never => {
 export const conversationStore: (env: Cloudflare.Env) => ConversationStore = () => ({
   list: notImplemented,
   get: notImplemented,
+  claim: notImplemented,
   save: notImplemented,
 })
