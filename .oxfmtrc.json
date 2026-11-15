@@ -5,5 +5,5 @@
   "tabWidth": 2,
   "trailingComma": "all",
   "sortPackageJson": false,
-  "ignorePatterns": ["pnpm-lock.yaml", "apps/landing/src", "dist", ".astro"]
+  "ignorePatterns": ["AGENTS.md", "CHECKS.md", "pnpm-lock.yaml", "apps/landing/src", "dist", ".astro"]
 }
