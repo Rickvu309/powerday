@@ -77,7 +77,7 @@ export const liveChats = (transport: ChatTransport<ChatMessage>, seed: ChatMessa
       },
       needsLoad: () => history !== "current",
       load: async () => {
-        if (history === "current") return
+        if (history === "current" || busy() || view.attempt.kind === "pending") return
         const started = revision
         try {
           const messages = await readHistory()

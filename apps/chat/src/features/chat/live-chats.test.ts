@@ -121,3 +121,26 @@ it("keeps a newly admitted local conversation current before its first reply", a
   expect(fetch).not.toHaveBeenCalled()
   await vi.waitFor(() => expect(reopened.read().attempt.kind).toBe("idle"))
 })
+
+it("keeps completed output when a history refresh opened during streaming arrives late", async () => {
+  const response = hold(Response.json(saved))
+  let reads = 0
+  vi.stubGlobal("fetch", async () => (++reads === 1 ? Response.json(saved) : response.promise))
+  const finish = hold(undefined)
+  const conversation = liveChats(transportFor(finish.promise)).open(id)
+  await conversation.load()
+  conversation.stopDisplay()
+  conversation.send({ text: "New question", model })
+  await vi.waitFor(() => expect(conversation.chat.status).toBe("streaming"))
+  const refresh = conversation.load()
+  finish.release()
+  await vi.waitFor(() => expect(conversation.read().attempt.kind).toBe("idle"))
+  response.release()
+  await refresh
+  expect(
+    conversation.chat.messages.some((message) =>
+      message.parts.some((part) => part.type === "text" && part.text === "New answer"),
+    ),
+  ).toBe(true)
+  expect(reads).toBe(1)
+})
