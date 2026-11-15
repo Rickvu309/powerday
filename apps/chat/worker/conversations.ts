@@ -1,5 +1,7 @@
+import { safeValidateUIMessages } from "ai"
 import {
   Conversation,
+  MessageMetadata,
   cursorAfter,
   pageSize,
   type ChatMessage,
@@ -27,6 +29,53 @@ export const matchQuery = (query: string) =>
     .join(" AND ")
 
 export const conversationStore = ({ DB: db }: Cloudflare.Env): ConversationStore => ({
+  claim: async (conversation, message, reply) => {
+    const { id, owner } = conversation
+    const [claimed, , history] = await db.batch<Record<string, unknown>>([
+      db
+        .prepare(
+          `INSERT INTO conversations (id, owner, title, model, created_at, updated_at)
+           SELECT ?1, ?2, ?3, ?4, ?5, ?6
+           WHERE NOT EXISTS (
+             SELECT 1 FROM messages WHERE owner = ?2 AND conversation = ?1
+             AND (id IN (?7, ?8) OR json_extract(body, '$.metadata.reply.state') = 'streaming')
+           )
+           ON CONFLICT (owner, id) DO UPDATE SET model = excluded.model, updated_at = excluded.updated_at
+           RETURNING ${columns}`,
+        )
+        .bind(
+          id,
+          owner,
+          conversation.title,
+          conversation.model,
+          conversation.createdAt.getTime(),
+          conversation.updatedAt.getTime(),
+          message.id,
+          reply.id,
+        ),
+      db
+        .prepare(
+          `INSERT INTO messages (id, owner, conversation, position, body)
+           SELECT json_extract(pair.value, '$.id'), ?2, ?1,
+             (SELECT coalesce(max(position), -1) + 1 FROM messages WHERE owner = ?2 AND conversation = ?1) + pair.key,
+             pair.value
+           FROM json_each(?3) AS pair WHERE changes() = 1`,
+        )
+        .bind(id, owner, JSON.stringify([message, reply])),
+      db
+        .prepare(`SELECT body FROM messages WHERE owner = ?2 AND conversation = ?1 AND changes() = 2 ORDER BY position`)
+        .bind(id, owner),
+    ])
+    const row = claimed?.results[0]
+    if (row === undefined) return undefined
+    const messages: unknown[] = (history?.results ?? []).map((each) => JSON.parse(String(each.body)))
+    const validated = await safeValidateUIMessages<ChatMessage>({
+      messages,
+      metadataSchema: MessageMetadata.optional(),
+    })
+    if (!validated.success) throw validated.error
+    return { conversation: Conversation.parse(row), messages: validated.data }
+  },
   list: async (owner, before) => {
     const rows = await db
       .prepare(
