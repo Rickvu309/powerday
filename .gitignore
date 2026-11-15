@@ -8,3 +8,5 @@ Exports/*.timing.json
 node_modules/
 Styles/.gen/
 .wrangler/
+test-results/
+playwright-report/

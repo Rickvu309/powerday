@@ -6,9 +6,16 @@ import { rawExtensions, rawFindings } from "./rules/no-raw.js"
 import { scanSource, scannedExtensions } from "./scan-comments.js"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
-const lintPaths = [".github", "apps", "packages", "scripts", "tooling", "vitest.config.mts"].filter((relative) =>
-  fs.existsSync(path.join(root, relative)),
-)
+const lintPaths = [
+  ".github",
+  "apps",
+  "packages",
+  "scripts",
+  "tests",
+  "tooling",
+  "playwright.config.ts",
+  "vitest.config.mts",
+].filter((relative) => fs.existsSync(path.join(root, relative)))
 const unlinted = ["apps/landing/src", "apps/landing/public"]
 const skipDirectories = new Set(["node_modules", "dist", ".astro"])
 

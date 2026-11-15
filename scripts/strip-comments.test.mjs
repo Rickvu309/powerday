@@ -35,5 +35,13 @@ const expected = [
   "",
 ].join("\n")
 
-assert.equal(stripComments("example.tsx", source), expected, "strips line, trailing, block and JSX comments, and keeps block braces")
-assert.equal(stripComments("clean.ts", "export const c = 1\n"), "export const c = 1\n", "leaves code without comments alone")
+assert.equal(
+  stripComments("example.tsx", source),
+  expected,
+  "strips line, trailing, block and JSX comments, and keeps block braces",
+)
+assert.equal(
+  stripComments("clean.ts", "export const c = 1\n"),
+  "export const c = 1\n",
+  "leaves code without comments alone",
+)
