@@ -31,7 +31,7 @@ A rule with a check fails `pnpm check`, which `ci` runs. A rule marked review is
 | Run `pnpm check` after your last edit, before every push | `pnpm check` records the files it passed, and the `pre-push` hook that `pnpm install` sets up refuses any other commit. A checkout from before this hook has no `scripts/pre-push.mjs`, so the hook lets its pushes through and `ci` is the only guard |
 | Every lint rule and check has a test | review. `pnpm test:tooling` runs every `*.test.js` in the plugin and every `scripts/*.test.mjs` with no list to edit |
 | A new check starts in `warnSteps` in `scripts/check.mjs` and blocks only after it has caught a real fault with no false stop. A check that guards secrets blocks from the start | review |
-| `main` takes only a squash of a PR that passed `ci` | review. `main` has no branch protection yet |
+| `main` takes only a squash of a PR that passed `ci` | the `main` ruleset: a pull request, the required `ci` check and a squash merge queue, with no deletion, no force push and no bypass |
 | No file or folder named `utils`, `helpers` or `common`, one word per idea | review |
 | Extend before you build a parallel version, reduced motion shows the finished state | review |
 | Titles and PR bodies follow the rules in `AGENTS.md` | review |
