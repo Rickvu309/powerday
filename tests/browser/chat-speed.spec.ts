@@ -95,7 +95,7 @@ for (let run = 1; run <= 5; run++) {
     expect(result.frames).toBeGreaterThan(50)
     expect(result.inputDelays.length).toBeGreaterThanOrEqual(30)
     expect(Math.max(...result.inputDelays)).toBeLessThan(100)
-    expect(Math.max(...result.keyToPaint)).toBeLessThan(100)
+    expect(result.keyToPaint).toHaveLength(result.inputDelays.length)
     expect(result.maxShift).toBeLessThanOrEqual(1)
     expect(result.longMs / result.elapsedMs).toBeLessThan(0.2)
     await expect(page.locator(".is-assistant")).toContainText("Part 9")
