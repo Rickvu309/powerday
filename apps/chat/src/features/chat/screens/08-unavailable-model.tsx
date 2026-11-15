@@ -4,7 +4,7 @@ import { asked, question } from "./replies"
 import { scriptedTransport } from "./scripted-transport"
 
 const chats = liveChats(scriptedTransport({ kind: "fail", status: 422 }), [asked(question)])
-void chats.open(null).regenerate()
+void chats.open(null).chat.regenerate()
 
 export default function ReplyError() {
   return (

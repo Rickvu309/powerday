@@ -157,6 +157,40 @@ test("a draft survives Enter while Retry waits for saved history", async ({ page
   await expect(input).toHaveValue("Keep this unsent draft")
 })
 
+test("returning to a chat preserves its pending Retry gate", async ({ page }) => {
+  const held = Promise.withResolvers<void>()
+  let reads = 0
+  let generations = 0
+  await page.route("**/api/conversations/saved", async (route) => {
+    if (++reads > 1) await held.promise
+    await route.fulfill({ json: savedConversation })
+  })
+  await page.route("**/api/chat", (route) => {
+    generations++
+    return route.fulfill({ contentType: "text/event-stream", body: replyStream("Only one retry") })
+  })
+  await page.goto("/c/saved")
+  await expect(page.locator(".is-assistant")).toContainText("My saved answer")
+  await page.getByRole("button", { name: "Retry", exact: true }).click()
+  await expect.poll(() => reads).toBe(2)
+  try {
+    await page.getByRole("button", { name: "New chat", exact: true }).click()
+    await page.goBack()
+    await expect(page.locator(".is-assistant")).toContainText("My saved answer")
+    await page.getByRole("textbox", { name: "Message" }).fill("Draft after returning")
+    await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled()
+    await page.getByRole("button", { name: "Retry", exact: true }).evaluate((button) => {
+      if (button instanceof HTMLButtonElement) button.click()
+    })
+  } finally {
+    held.resolve()
+  }
+  await expect(page.locator(".is-assistant").last()).toContainText("Only one retry")
+  expect(generations).toBe(1)
+  expect(reads).toBe(2)
+  await expect(page.getByRole("textbox", { name: "Message" })).toHaveValue("Draft after returning")
+})
+
 test("sidebar reopening refreshes a paused reply after the server completes", async ({ page }) => {
   let completed = false
   let paused = false
@@ -242,9 +276,11 @@ test("reopening an unaccepted paused request keeps the question available", asyn
   await page.getByRole("textbox", { name: "Message" }).fill("Keep my unanswered question")
   await page.getByRole("textbox", { name: "Message" }).press("Enter")
   await page.getByRole("button", { name: "Stop display", exact: true }).click()
+  await page.getByRole("textbox", { name: "Message" }).fill("Private unsent draft")
   await page.getByRole("button", { name: "New chat", exact: true }).click()
   await page.goBack()
   await expect(page.locator(".is-user")).toContainText("Keep my unanswered question")
+  await expect(page.getByRole("textbox", { name: "Message" })).toHaveValue("Private unsent draft")
   await page.getByRole("textbox", { name: "Message" }).fill("A new draft")
   await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled()
 })

@@ -1,71 +1,75 @@
 import { ArrowUpIcon, SquareIcon } from "lucide-react"
-import { memo, useRef, useState } from "react"
-import {
-  PromptInput,
-  PromptInputBody,
-  PromptInputFooter,
-  PromptInputSubmit,
-  PromptInputTextarea,
-} from "@/components/ai-elements/prompt-input"
+import { memo, useRef, useSyncExternalStore } from "react"
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group"
+import type { LiveConversation } from "./live-chats"
 
 const finePointer = matchMedia("(pointer: fine)").matches
 
 export const Composer = memo(function Composer({
+  draft,
   busy,
   ready,
   onSend,
   onStop,
 }: {
+  draft: LiveConversation["draft"]
   busy: boolean
   ready: boolean
-  onSend: (text: string) => void
+  onSend: (text: string) => boolean
   onStop: () => void
 }) {
+  const text = useSyncExternalStore(draft.subscribe, draft.read)
   const field = useRef<HTMLTextAreaElement>(null)
-  const [empty, setEmpty] = useState(true)
-  const refocus = () => {
-    field.current?.focus()
-  }
+  const empty = text.trim() === ""
   return (
     <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-4">
-      <PromptInput
-        className="*:data-[slot=input-group]:rounded-3xl *:data-[slot=input-group]:bg-card! *:data-[slot=input-group]:has-disabled:opacity-100! *:data-[slot=input-group]:shadow-sm *:data-[slot=input-group]:has-focus-visible:border-muted-foreground/40! *:data-[slot=input-group]:has-focus-visible:ring-0!"
-        onSubmit={({ text }) => {
-          const said = text.trim()
-          if (said === "" || busy || !ready) return
-          onSend(said)
-          setEmpty(true)
-          refocus()
+      <form
+        className="w-full"
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (empty || busy || !ready) return
+          if (onSend(text)) field.current?.focus()
         }}
       >
-        <PromptInputBody>
-          <PromptInputTextarea
+        <InputGroup className="overflow-hidden rounded-3xl bg-card! shadow-sm has-disabled:opacity-100! has-focus-visible:border-muted-foreground/40! has-focus-visible:ring-0!">
+          <InputGroupTextarea
             ref={field}
+            name="message"
             aria-label="Message"
             placeholder="Message Power Chat"
             autoFocus={finePointer}
-            className="min-h-14 px-4 pt-4 text-base md:text-base"
-            onChange={(event) => setEmpty(event.currentTarget.value.trim() === "")}
+            value={text}
+            className="max-h-48 min-h-14 px-4 pt-4 text-base md:text-base"
+            onChange={(event) => draft.edit(event.currentTarget.value)}
             onKeyDown={(event) => {
-              if (busy && event.key === "Enter" && !event.shiftKey) event.preventDefault()
+              if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return
+              event.preventDefault()
+              if (!empty && !busy && ready) event.currentTarget.form?.requestSubmit()
             }}
           />
-        </PromptInputBody>
-        <PromptInputFooter className="justify-end px-3 pb-3">
-          <PromptInputSubmit
-            aria-label={busy ? "Stop display" : "Send"}
-            className="rounded-full"
-            status={busy ? "streaming" : "ready"}
-            disabled={!busy && (empty || !ready)}
-            onStop={() => {
-              onStop()
-              refocus()
-            }}
-          >
-            {busy ? <SquareIcon className="fill-current" /> : <ArrowUpIcon />}
-          </PromptInputSubmit>
-        </PromptInputFooter>
-      </PromptInput>
+          <InputGroupAddon align="block-end" className="justify-end gap-1 px-3 pb-3">
+            <InputGroupButton
+              type={busy ? "button" : "submit"}
+              aria-label={busy ? "Stop display" : "Send"}
+              className="rounded-full"
+              size="icon-sm"
+              variant="default"
+              disabled={!busy && (empty || !ready)}
+              onClick={
+                busy
+                  ? (event) => {
+                      event.preventDefault()
+                      onStop()
+                      field.current?.focus()
+                    }
+                  : undefined
+              }
+            >
+              {busy ? <SquareIcon className="fill-current" /> : <ArrowUpIcon />}
+            </InputGroupButton>
+          </InputGroupAddon>
+        </InputGroup>
+      </form>
     </div>
   )
 })

@@ -10,7 +10,7 @@ const chats = liveChats(
   ),
   [asked(question)],
 )
-void chats.open(null).regenerate()
+void chats.open(null).chat.regenerate()
 
 export default function StreamingReply() {
   return (
