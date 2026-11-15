@@ -9,7 +9,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const lintPaths = ["apps", "packages", "scripts", "tooling", "vitest.config.mts"].filter((relative) =>
   fs.existsSync(path.join(root, relative)),
 )
-export const unlinted = ["apps/landing/src", "apps/landing/public"]
+const unlinted = ["apps/landing/src", "apps/landing/public"]
 const skipDirectories = new Set(["node_modules", "dist", ".astro"])
 
 const oxlint = spawnSync(

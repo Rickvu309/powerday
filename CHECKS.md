@@ -9,12 +9,12 @@ A rule with a check fails `pnpm check`, which `ci` runs. A rule marked review is
 | A reply is saved even when the user leaves | review |
 | The chat core imports no runtime-specific API | review |
 | Act only on issues, pull requests and comments from `quanvu309` | review |
-| Fork pull requests get no secrets: no workflow runs on `pull_request_target` or `workflow_run`, and every workflow sets top-level `permissions` | `scripts/workflows.mjs`, the `workflows` step. It guards secrets, so it blocked from the start |
+| Fork pull requests get no secrets: no workflow runs on `pull_request_target` or `workflow_run`, and every workflow sets top-level `permissions` | `scripts/workflows.mjs`, the `workflows` step. It guards secrets, so it blocks from the start |
 | No prices, margins or system prompts in the repo | review |
 | Code is formatted | the `format` step runs `oxfmt --check` with `.oxfmtrc.json` |
 | No comments, no lint suppressions | lint: `no-comments`, and the comment scan in `tooling/oxlint-plugin-powerday/lint-tree.js` for CSS, YAML and Astro markup |
 | No raw hex or color mix outside a `tokens.css` or `-art` file, no sized arbitrary class near the scale, no blanket transition | lint: `no-raw` |
-| `apps/landing/src` and `apps/landing/public` keep the comments and raw colors they had before these rules | `unlinted` in `lint-tree.js` and `ignorePatterns` in `.oxfmtrc.json` skip them |
+| `apps/landing/src` and `apps/landing/public` keep the comments and raw colors they had before these rules | lint skips both through `unlinted` in `lint-tree.js`, and the formatter skips `src` through `ignorePatterns` in `.oxfmtrc.json` |
 | Every Astro app typechecks | the `typecheck` step runs `astro check` in each project under `apps/` and `packages/` that has an `astro.config.mjs` (`scripts/typecheck.mjs`) |
 | Every workspace builds | the `build` step runs each workspace's `build` script |
 | Unit tests run with nothing built | `pnpm check` runs tests before typecheck and build |

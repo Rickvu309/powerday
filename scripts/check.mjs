@@ -27,7 +27,6 @@ export const recordFailure = (failed, name, warned = warnSteps) => {
   return "fail"
 }
 
-const showOnSuccess = new Set(["lint"])
 const all = process.argv.includes("--all")
 const failed = []
 
@@ -43,7 +42,7 @@ const run = ([name, command, args]) =>
       if (status !== 0) {
         process.stderr.write(`${output}${recordFailure(failed, name)} ${name} ${seconds}s\n`)
       } else {
-        process.stdout.write(`${showOnSuccess.has(name) ? output : ""}ok ${name} ${seconds}s\n`)
+        process.stdout.write(`ok ${name} ${seconds}s\n`)
       }
       resolve()
     }

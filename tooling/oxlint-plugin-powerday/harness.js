@@ -19,22 +19,7 @@ export const lintSource = (relativeName, source, rules) => {
     fs.mkdirSync(path.dirname(filePath), { recursive: true })
     fs.writeFileSync(filePath, source)
     const configPath = path.join(fixtureRoot, "oxlintrc.json")
-    fs.writeFileSync(
-      configPath,
-      JSON.stringify({
-        categories: {
-          correctness: "off",
-          suspicious: "off",
-          pedantic: "off",
-          perf: "off",
-          style: "off",
-          restriction: "off",
-          nursery: "off",
-        },
-        jsPlugins: [{ name: "powerday", specifier: path.join(pluginRoot, "index.js") }],
-        rules,
-      }),
-    )
+    fs.writeFileSync(configPath, configFor(rules))
     const result = spawnSync(oxlint, ["--config", configPath, "--format", "unix", filePath], {
       encoding: "utf8",
     })

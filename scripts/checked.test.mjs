@@ -23,15 +23,12 @@ const configured = (key) => {
 }
 const identity =
   configured("user.email") === "" ? ["-c", "user.name=fixture", "-c", "user.email=fixture@example.com"] : []
-const git = (cwd, ...args) => {
-  const options = typeof args.at(-1) === "object" ? args.pop() : {}
-  return execFileSync("git", [...identity, "-c", "commit.gpgsign=false", ...args], {
+const git = (cwd, ...args) =>
+  execFileSync("git", [...identity, "-c", "commit.gpgsign=false", ...args], {
     cwd,
     encoding: "utf8",
-    stdio: [options.input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
-    input: options.input,
+    stdio: ["ignore", "pipe", "pipe"],
   }).trim()
-}
 const root = path.join(folder, "repo")
 const remote = path.join(folder, "remote.git")
 fs.mkdirSync(path.join(root, "scripts"), { recursive: true })

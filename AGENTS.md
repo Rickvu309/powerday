@@ -7,7 +7,7 @@ Power Chat is a chat app at chat.powerday.work. A signed-in user chats with the 
 1. **Provider keys never reach the browser.** Every model call leaves from our server.
 2. **The platform owner decides models and limits by config, not code.** Adding a model, turning one off or changing a limit is a config change.
 3. **A reply is saved even when the user leaves.** The server finishes the reply and stores it whether or not the browser is still there.
-4. **The chat core imports no runtime-specific API.** `packages/chat-core` runs on plain Node and on Cloudflare Workers alike. Bindings and runtime APIs enter through an app's entry point.
+4. **The chat core imports no runtime-specific API.** `packages/chat-core` runs on plain Node and on Cloudflare Workers. Bindings and runtime APIs enter through an app's entry point.
 
 Prefer the simple system. Do not keep complexity because it exists, or add machinery because it looks impressive. Fight scope creep.
 
