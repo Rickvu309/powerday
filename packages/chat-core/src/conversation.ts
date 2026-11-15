@@ -19,5 +19,10 @@ export type SavedConversation = {
 export type ConversationStore = {
   readonly list: (owner: UserId) => Promise<readonly Conversation[]>
   readonly get: (owner: UserId, id: ConversationId) => Promise<SavedConversation | undefined>
+  readonly claim: (
+    conversation: Conversation,
+    message: ChatMessage,
+    reply: ChatMessage,
+  ) => Promise<SavedConversation | undefined>
   readonly save: (conversation: Conversation, messages: readonly ChatMessage[]) => Promise<void>
 }
