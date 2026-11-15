@@ -14,14 +14,17 @@
     "test": "pnpm test:unit && pnpm test:tooling",
     "test:unit": "vitest run",
     "test:tooling": "node scripts/tooling-tests.mjs",
-    "build": "pnpm -r --if-present run build"
+    "build": "pnpm -r --if-present run build",
+    "test:browser": "playwright test"
   },
   "devDependencies": {
     "@astrojs/compiler": "^4.0.0",
+    "@playwright/test": "1.65.0",
     "oxc-parser": "^0.157.0",
     "oxfmt": "0.78.0",
     "oxlint": "^1.93.0",
     "postcss": "^8.5.32",
+    "typescript": "7.0.2",
     "vitest": "5.1.0",
     "yaml": "^2.9.1"
   }

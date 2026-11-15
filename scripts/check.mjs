@@ -10,6 +10,7 @@ export const stages = [
     ["format", "pnpm", ["exec", "oxfmt", "--check"]],
     ["lint", "pnpm", ["lint"]],
     ["workflows", "node", ["scripts/workflows.mjs"]],
+    ["boundaries", "node", ["scripts/boundaries.mjs"]],
     ["test", "pnpm", ["test:unit"]],
     ["tooling", "pnpm", ["test:tooling"]],
   ],
@@ -19,7 +20,7 @@ export const stages = [
 
 export const onCi = (env) => env.CI === "true" || env.CI === "1"
 
-export const warnSteps = new Set()
+export const warnSteps = new Set(["boundaries"])
 
 export const recordFailure = (failed, name, warned = warnSteps) => {
   if (warned.has(name)) return "warn"

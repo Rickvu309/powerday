@@ -22,13 +22,18 @@ Prefer the simple system. Do not keep complexity because it exists, or add machi
 - `ci` runs `pnpm check` on every PR, merge queue entry and push to `main`. Run it after your last edit, before every push. It runs format, lint, the workflow check, unit and tooling tests, then typecheck, then every workspace's build. `git push` refuses a commit whose files no `pnpm check` saw pass. Never `--no-verify`. `pnpm check --all` keeps going after a failure and lists every failing step.
 - `pnpm install` also installs the push guard. `pnpm exec oxfmt` writes the formatting that `format` checks.
 - `pnpm dev` inside `apps/landing` starts the landing.
+- `pnpm dev` inside `apps/chat` starts the chat app and its Worker on a local D1. `npx wrangler d1 migrations apply power-chat --local` creates the tables there.
+- `pnpm test:browser` builds the chat app and runs the Playwright tests in `tests/browser` against `vite preview`. `ci` runs it after `pnpm check`.
+- `pnpm dlx shadcn@4.23.0 add <component>` inside `apps/chat` adds a generated component. Run `node scripts/strip-comments.mjs <each added file>` and `pnpm exec oxfmt` after it.
 - `pnpm run deploy` inside `apps/landing` publishes the live powerday.work with `wrangler deploy`. Deploy only when the owner asks. `npx wrangler deploy --dry-run` proves a deploy without publishing.
 
 ## Where code lives
 
 - `apps/landing` is the powerday.work landing, an Astro static site behind its Worker, `src/worker.js`. Its `src/` and `public/` predate these rules, so format and lint skip them.
-- `apps/chat` is the chat app, the Worker that serves the chat API and the UI. The next PR creates it.
-- `packages/chat-core` is the chat core on Hono and the AI SDK. It imports nothing from Cloudflare, and its tests pass on plain Node. The next PR creates it.
+- `apps/chat` is the chat app. One Worker serves `/api/*` and the Vite and React UI. `worker/index.ts` builds the deps and does not change. Each adapter has its own file: `worker/gateway.ts`, `worker/conversations.ts`, `worker/usage.ts` and `worker/auth.ts`. D1 migrations live in `migrations/`, numbered. The model catalog is the `CATALOG` var in `wrangler.jsonc`.
+- `apps/chat/src/features/<feature>/` holds one feature: `chat`, `sidebar`, `model-picker` or `auth`. `src/app.tsx` lays them out. A design state is a file `src/features/<feature>/screens/<id>-<name>.tsx`, served at `/screens/<id>-<name>` with no list to edit. `src/components/ui` and `src/components/ai-elements` come from shadcn. Compose them in a feature instead of editing them. Colors live in `src/styles/tokens.css`. The open conversation lives in the URL (`/` is a new chat, `/c/<id>` an open one). Read it with `useOpenConversation` and change it with `openConversation` from `src/open-conversation.ts`, so the sidebar and the chat never share state any other way.
+- `packages/chat-core` is the chat core on Hono and the AI SDK. It imports nothing from Cloudflare, and its tests pass on plain Node. It exports only `src/index.ts`. Each domain has one module: `catalog.ts`, `message.ts`, `conversation.ts`, `usage.ts`, `gateway.ts`, `auth.ts` and `ids.ts`. `routes.ts` is the route table, and each route's reader and handler live in `src/routes/<name>.ts`. The time and new ids come from the deps, never from `Date.now()` or `crypto`.
+- `tests/browser` holds the Playwright tests.
 - `tooling/oxlint-plugin-powerday` holds the lint rules. `scripts/` holds the check runner, the push guard and the other checks, each with its `*.test.mjs` beside it.
 - `Assets/`, `Exports/`, `Motion/`, `Styles/` and `main.bl` are the brand and motion design sources. No build reads them.
 
