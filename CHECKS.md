@@ -11,6 +11,12 @@ A rule with a check fails `pnpm check`, which `ci` runs. A rule marked review is
 | The chat core takes the time and new ids from its deps | the `boundaries` step refuses `Date.now()`, `new Date()`, `Math.random()` and `crypto.randomUUID()` outside tests in `packages/chat-core` |
 | Act only on issues, pull requests and comments from `quanvu309` | review |
 | Fork pull requests get no secrets: no workflow runs on `pull_request_target` or `workflow_run`, and every workflow sets top-level `permissions` | `scripts/workflows.mjs`, the `workflows` step. It guards secrets, so it blocks from the start |
+| Workflows are valid GitHub Actions, and their shell passes shellcheck where it is installed | `scripts/actionlint.mjs`, the `actionlint` step, runs a pinned, checksummed actionlint. It starts in `warnSteps` |
+| A PR runs the workspace steps only for what it changed, and the merge queue and `main` run everything | `scripts/affected.test.mjs` and `scripts/check.test.mjs` |
+| Deploy and preview run only after `ci` passed, only with `DEPLOY_ENABLED` and the token, never for a fork, and only for changed apps. A preview skips the chat when D1 migrations change, because it runs on the production database | `scripts/deploy-plan.test.mjs`. It also fails when the wrangler the workflows pin drifts from the lockfile's |
+| A red `main` or a red deploy opens one issue, and the next green run closes it | `scripts/deploy-plan.test.mjs` tests `scripts/red-issue.mjs` |
+| `pnpm land` stops on a wrong base, a bad title, a conflict with `origin/main` or a failed check, never reruns, and follows the queue to merged | `scripts/land.test.mjs`, `scripts/land-follow.test.mjs`, `scripts/merge-queue.test.mjs` |
+| PRs over 400 hand-written lines, visible changes with no before / after images and changes to what `ci` checks are labelled | `bar`, which never blocks. `scripts/bar.test.mjs` |
 | No prices, margins or system prompts in the repo | review |
 | Code is formatted | the `format` step runs `oxfmt --check` with `.oxfmtrc.json` |
 | No comments, no lint suppressions. The one exception is `@ts-expect-error` in a `*.proof.ts` file, which proves a type rejects bad input | lint: `no-comments`, and the comment scan in `tooling/oxlint-plugin-powerday/lint-tree.js` for CSS, YAML (workflows included) and Astro markup |
@@ -25,7 +31,7 @@ A rule with a check fails `pnpm check`, which `ci` runs. A rule marked review is
 | Run `pnpm check` after your last edit, before every push | `pnpm check` records the files it passed, and the `pre-push` hook that `pnpm install` sets up refuses any other commit. A checkout from before this hook has no `scripts/pre-push.mjs`, so the hook lets its pushes through and `ci` is the only guard |
 | Every lint rule and check has a test | review. `pnpm test:tooling` runs every `*.test.js` in the plugin and every `scripts/*.test.mjs` with no list to edit |
 | A new check starts in `warnSteps` in `scripts/check.mjs` and blocks only after it has caught a real fault with no false stop. A check that guards secrets blocks from the start | review |
-| `main` takes only a squash of a PR that passed `ci` | review. `main` has no branch protection yet |
+| `main` takes only a squash of a PR that passed `ci` | the `main` ruleset: a pull request, the required `ci` check and a squash merge queue, with no deletion, no force push and no bypass |
 | No file or folder named `utils`, `helpers` or `common`, one word per idea | review |
 | Extend before you build a parallel version, reduced motion shows the finished state | review |
 | Titles and PR bodies follow the rules in `AGENTS.md` | review |

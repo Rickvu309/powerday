@@ -1,0 +1,34 @@
+name: bar
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - edited
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: bar-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  bar:
+    name: bar
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          LABEL: ${{ github.event.pull_request.head.repo.full_name == github.repository && '--label' || '--no-label' }}
+        run: node scripts/bar.mjs "$GITHUB_REPOSITORY" "$NUMBER" "$LABEL"

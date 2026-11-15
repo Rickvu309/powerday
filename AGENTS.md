@@ -20,12 +20,16 @@ Prefer the simple system. Do not keep complexity because it exists, or add machi
 ## Commands
 
 - `ci` runs `pnpm check` on every PR, merge queue entry and push to `main`. Run it after your last edit, before every push. It runs format, lint, the workflow check, unit and tooling tests, then typecheck, then every workspace's build. `git push` refuses a commit whose files no `pnpm check` saw pass. Never `--no-verify`. `pnpm check --all` keeps going after a failure and lists every failing step.
+- On a PR, `ci` runs the workspace steps (`test`, `typecheck`, `build`, `pnpm test:browser`) only for the workspaces the PR changed and the ones that use them. A change outside `apps/`, `packages/` and the docs runs everything, and so do the merge queue and `main`. `node scripts/affected.mjs origin/main HEAD` prints the scope, and `POWERDAY_ONLY="apps/landing" pnpm check` runs it.
+- `pnpm land --title "<title>" --body-file <file>` checks the base and title, tries the merge with `origin/main`, runs `pnpm check`, pushes with a lease, opens the PR, adds it to the merge queue and follows it to merged or says why the queue dropped it. It never reruns. `pnpm land --check` stops after the check. `pnpm land --status` says where the PR stands, and `pnpm land --watch` follows it.
+- After `ci` passes on `main`, `deploy` deploys each app whose files changed, chat after its D1 migrations. A same-repo PR gets a preview of each changed app at the alias `pr-<number>`, linked in one comment. Chat gets none when the PR changes a D1 migration, and a fork PR gets none. Both run only when the repo variable `DEPLOY_ENABLED` is `true` and the repo secret `CLOUDFLARE_API_TOKEN` exists, and otherwise say in the job summary why they skipped. `DEPLOY_ENABLED=true HAS_TOKEN=true node scripts/deploy-plan.mjs deploy origin/main HEAD` prints the plan and deploys nothing.
+- `bar` labels each same-repo PR (for a fork PR it only prints the list in its job log): `changes-ci`, `needs-before-after` for a visible change with no `## Before / after` images, `over-400-lines` for more than 400 hand-written added lines, and its areas from `scripts/areas.json`. It never blocks. `weekly` writes the week's merged PRs, median open-to-merge time, rebased PRs and PRs by author into its job summary every Monday.
 - `pnpm install` also installs the push guard. `pnpm exec oxfmt` writes the formatting that `format` checks.
 - `pnpm dev` inside `apps/landing` starts the landing.
 - `pnpm dev` inside `apps/chat` starts the chat app and its Worker on a local D1. `npx wrangler d1 migrations apply power-chat --local` creates the tables there.
 - `pnpm test:browser` builds the chat app and runs the Playwright tests in `tests/browser` against `vite preview`. `ci` runs it after `pnpm check`.
 - `pnpm dlx shadcn@4.23.0 add <component>` inside `apps/chat` adds a generated component. Run `node scripts/strip-comments.mjs <each added file>` and `pnpm exec oxfmt` after it.
-- `pnpm run deploy` inside `apps/landing` publishes the live powerday.work with `wrangler deploy`. Deploy only when the owner asks. `npx wrangler deploy --dry-run` proves a deploy without publishing.
+- `pnpm run deploy` inside `apps/landing` publishes the live powerday.work with `wrangler deploy`. Deploy by hand only when the owner asks. `npx wrangler deploy --dry-run` proves a deploy without publishing.
 
 ## Where code lives
 
@@ -48,7 +52,7 @@ Prefer the simple system. Do not keep complexity because it exists, or add machi
 - Test behavior that can break, at the lowest layer that fails. Tests never retry.
 - Do not commit plans, research notes or scratch files. A merged PR is the record. `docs/goals.md` is the one exception.
 - A PR or commit title is one line of at most 72 characters: an imperative verb, then the one outcome. No full stop at the end, no list of everything inside, no `fix:` or WIP prefix, no PR number. The rest goes in the body, after a blank line in a commit.
-- A PR body has these sections, in this order, each only when it applies: `## Why`, `## What changes`, `## Proof`, `## Not done`.
+- A PR body has these sections, in this order, each only when it applies: `## Why`, `## What changes`, `## Proof`, `## Before / after`, `## Not done`. `.github/pull_request_template.md` holds them.
 
 ## How agents work here
 

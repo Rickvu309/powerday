@@ -21,6 +21,10 @@ try {
       `typecheck builds every other project with a tsconfig.json, and leaves Astro to astro check\n${tsc}`,
     )
   }
+  const scoped = [...astroProjects(root, ["apps/chat"]), ...tscProjects(root, ["apps/chat"])]
+  if (JSON.stringify(scoped) !== JSON.stringify(["apps/chat"])) {
+    throw new Error(`a scoped typecheck checks only the projects in scope\n${scoped}`)
+  }
 } finally {
   fs.rmSync(root, { recursive: true, force: true })
 }

@@ -1,26 +1,35 @@
 import { spawn } from "node:child_process"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { scopeFrom } from "./affected.mjs"
 import { stampChecked, workingTree } from "./checked.mjs"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
-export const stages = [
-  [
-    ["format", "pnpm", ["exec", "oxfmt", "--check"]],
-    ["lint", "pnpm", ["lint"]],
-    ["workflows", "node", ["scripts/workflows.mjs"]],
-    ["boundaries", "node", ["scripts/boundaries.mjs"]],
-    ["test", "pnpm", ["test:unit"]],
-    ["tooling", "pnpm", ["test:tooling"]],
-  ],
-  [["typecheck", "pnpm", ["typecheck"]]],
-  [["build", "pnpm", ["build"]]],
-]
+const filters = (scope) => (scope === "all" ? [] : scope.flatMap((dir) => ["--filter", `./${dir}`]))
+
+export const stagesFor = (scope) => {
+  const scoped = (step) => (scope === "all" || scope.length > 0 ? [step] : [])
+  return [
+    [
+      ["format", "pnpm", ["exec", "oxfmt", "--check"]],
+      ["lint", "pnpm", ["lint"]],
+      ["workflows", "node", ["scripts/workflows.mjs"]],
+      ["actionlint", "node", ["scripts/actionlint.mjs"]],
+      ["boundaries", "node", ["scripts/boundaries.mjs"]],
+      ...scoped(["test", "pnpm", ["test:unit", ...(scope === "all" ? [] : scope)]]),
+      ["tooling", "pnpm", ["test:tooling"]],
+    ],
+    scoped(["typecheck", "pnpm", ["typecheck"]]),
+    scoped(["build", "pnpm", ["-r", "--if-present", ...filters(scope), "run", "build"]]),
+  ].filter((stage) => stage.length > 0)
+}
+
+export const stages = stagesFor("all")
 
 export const onCi = (env) => env.CI === "true" || env.CI === "1"
 
-export const warnSteps = new Set(["boundaries"])
+export const warnSteps = new Set(["boundaries", "actionlint"])
 
 export const recordFailure = (failed, name, warned = warnSteps) => {
   if (warned.has(name)) return "warn"
@@ -55,9 +64,11 @@ const run = ([name, command, args]) =>
   })
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const checkedTree = onCi(process.env) ? undefined : workingTree(root)
+  const scope = scopeFrom(process.env)
+  const checkedTree = onCi(process.env) || scope !== "all" ? undefined : workingTree(root)
+  if (scope !== "all") console.log(`only ${scope.length === 0 ? "the steps every change needs" : scope.join(", ")}`)
 
-  for (const stage of stages) {
+  for (const stage of stagesFor(scope)) {
     await Promise.all(stage.map(run))
     if (failed.length > 0 && !all) break
   }

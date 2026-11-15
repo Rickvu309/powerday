@@ -1,4 +1,4 @@
-import { onCi, recordFailure, stages, warnSteps } from "./check.mjs"
+import { onCi, recordFailure, stages, stagesFor, warnSteps } from "./check.mjs"
 
 const requiredSteps = ["format", "lint", "workflows", "test", "tooling", "typecheck", "build"]
 const stageOf = (name) => stages.findIndex((stage) => stage.some(([step]) => step === name))
@@ -30,4 +30,24 @@ for (const name of warnSteps) {
 }
 for (const name of requiredSteps) {
   if (warnSteps.has(name)) throw new Error(`${name} already blocks and cannot go back to warnSteps`)
+}
+
+const stepsOf = (scope) =>
+  Object.fromEntries(
+    stagesFor(scope)
+      .flat()
+      .map(([name, , args]) => [name, args.join(" ")]),
+  )
+const landing = stepsOf(["apps/landing"])
+if (landing.test !== "test:unit apps/landing")
+  throw new Error(`a landing-only check tests other workspaces: ${landing.test}`)
+if (landing.build !== "-r --if-present --filter ./apps/landing run build") {
+  throw new Error(`a landing-only check builds other workspaces: ${landing.build}`)
+}
+const untouched = stepsOf([])
+for (const name of ["test", "typecheck", "build"]) {
+  if (name in untouched) throw new Error(`a change to no workspace still runs ${name}`)
+}
+for (const name of ["format", "lint", "workflows", "tooling"]) {
+  if (!(name in untouched)) throw new Error(`a change to no workspace skips ${name}, which every change needs`)
 }

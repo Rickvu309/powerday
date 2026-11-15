@@ -1,0 +1,68 @@
+name: preview
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  preview:
+    name: preview
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ALIAS: pr-${{ github.event.pull_request.number }}
+      WRANGLER: wrangler@4.162.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .node-version
+      - id: plan
+        env:
+          DEPLOY_ENABLED: ${{ vars.DEPLOY_ENABLED }}
+          HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+          FORK: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+        run: node scripts/deploy-plan.mjs preview HEAD^1 HEAD
+      - if: steps.plan.outputs.apps != '[]'
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
+      - if: steps.plan.outputs.apps != '[]'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - if: steps.plan.outputs.apps != '[]'
+        run: pnpm install --frozen-lockfile
+      - if: contains(fromJSON(steps.plan.outputs.apps), 'landing')
+        continue-on-error: true
+        working-directory: apps/landing
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          pnpm build
+          pnpm dlx "$WRANGLER" versions upload --preview-alias "$ALIAS" --message "$ALIAS" 2>&1 | tee "$RUNNER_TEMP/landing.log"
+      - if: contains(fromJSON(steps.plan.outputs.apps), 'chat')
+        continue-on-error: true
+        working-directory: apps/chat
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          pnpm build
+          pnpm dlx "$WRANGLER" versions upload --preview-alias "$ALIAS" --message "$ALIAS" 2>&1 | tee "$RUNNER_TEMP/chat.log"
+      - if: always() && steps.plan.outputs.apps != '[]' && steps.plan.outputs.apps != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPS: ${{ steps.plan.outputs.apps }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/preview-comment.mjs "$GITHUB_REPOSITORY" "$NUMBER" "$APPS" "$RUNNER_TEMP"

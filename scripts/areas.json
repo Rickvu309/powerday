@@ -1,0 +1,9 @@
+{
+  "landing": ["apps/landing/"],
+  "chat-ui": ["apps/chat/src/", "apps/chat/index.html", "tests/browser/"],
+  "chat-worker": ["apps/chat/worker/", "apps/chat/migrations/", "apps/chat/wrangler.jsonc"],
+  "chat-core": ["packages/chat-core/"],
+  "delivery": [".github/", "scripts/", "tooling/"],
+  "docs": ["docs/", "AGENTS.md", "CHECKS.md", "README.md"],
+  "brand": ["Assets/", "Exports/", "Motion/", "Styles/", "main.bl"]
+}
