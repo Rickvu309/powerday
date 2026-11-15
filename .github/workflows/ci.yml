@@ -11,8 +11,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   ci:
@@ -23,22 +23,68 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+          fetch-depth: 2
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - id: scope
+        if: github.event_name == 'pull_request'
+        run: node scripts/affected.mjs HEAD^1 HEAD | tee -a "$GITHUB_OUTPUT"
       - run: pnpm check
+        env:
+          POWERDAY_ONLY: ${{ steps.scope.outputs.only }}
       - id: playwright-version
+        if: steps.scope.outputs.browser != 'false'
         run: echo "version=$(pnpm exec playwright --version | awk 'NF { print $NF }')" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        if: steps.scope.outputs.browser != 'false'
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-shell-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
-      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+      - if: steps.scope.outputs.browser != 'false' && steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --only-shell chromium
-      - run: pnpm test:browser
+      - if: steps.scope.outputs.browser != 'false'
+        run: pnpm test:browser
         env:
           POWERDAY_CHAT_BUILT: "1"
+
+  preview:
+    needs: ci
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/preview.yml
+    permissions:
+      contents: read
+      pull-requests: write
+    secrets: inherit
+
+  deploy:
+    needs: ci
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/deploy.yml
+    permissions:
+      contents: read
+      issues: write
+    secrets: inherit
+
+  main-red:
+    needs: ci
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RESULT: ${{ needs.ci.result }}
+          LINE: ci ${{ needs.ci.result }} on main at ${{ github.sha }}. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/red-issue.mjs main-red "main is red" "$RESULT" "$LINE"

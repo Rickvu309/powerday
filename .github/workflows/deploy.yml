@@ -1,0 +1,83 @@
+name: deploy
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      apps: ${{ steps.plan.outputs.apps }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .node-version
+      - id: plan
+        env:
+          BEFORE: ${{ github.event.before }}
+          DEPLOY_ENABLED: ${{ vars.DEPLOY_ENABLED }}
+          HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+        run: |
+          git fetch --quiet --depth=1 origin "$BEFORE" || echo "could not fetch $BEFORE, so every app counts as changed"
+          node scripts/deploy-plan.mjs deploy "$BEFORE" HEAD
+
+  deploy:
+    name: deploy ${{ matrix.app }}
+    needs: plan
+    if: needs.plan.outputs.apps != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.plan.outputs.apps) }}
+    concurrency:
+      group: deploy-${{ matrix.app }}
+      cancel-in-progress: false
+    env:
+      APP: ${{ matrix.app }}
+      WRANGLER: wrangler@4.162.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - id: newer
+        run: |
+          git fetch --quiet --depth=1 origin main
+          node scripts/deploy-plan.mjs superseded "$APP"
+      - if: steps.newer.outputs.superseded != 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.newer.outputs.superseded != 'true'
+        run: pnpm --filter "@powerday/$APP" build
+      - if: steps.newer.outputs.superseded != 'true' && matrix.app == 'chat'
+        working-directory: apps/chat
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm dlx "$WRANGLER" d1 migrations apply power-chat --remote
+      - if: steps.newer.outputs.superseded != 'true'
+        working-directory: apps/${{ matrix.app }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: pnpm dlx "$WRANGLER" deploy --message "${GITHUB_SHA::12}"
+      - if: always() && steps.newer.outputs.superseded != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RESULT: ${{ job.status }}
+          LINE: ${{ matrix.app }} deploy of ${{ github.sha }} ended in ${{ job.status }}. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/red-issue.mjs "$APP-deploy-red" "$APP deploy is red" "$RESULT" "$LINE"
