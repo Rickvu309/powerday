@@ -144,19 +144,80 @@ test("reasoning, markdown tables, code copy, and reply copy work", async ({ page
 })
 
 test("scrolling up releases auto-scroll and jump returns to the latest", async ({ page }) => {
-  await page.goto("/screens/02-streaming-reply?tokens=5000")
+  await page.addInitScript(() => {
+    const fetch = window.fetch
+    window.fetch = (input, init) => {
+      if (input !== "/api/chat") return fetch(input, init)
+      const encoder = new TextEncoder()
+      const body = new ReadableStream({
+        start(controller) {
+          const send = (chunk: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`))
+          send({ type: "start", messageId: "reply" })
+          send({ type: "text-start", id: "text" })
+          const append = () =>
+            send({
+              type: "text-delta",
+              id: "text",
+              delta: "A paragraph to read while the reply continues.\n\n".repeat(60),
+            })
+          append()
+          window.addEventListener("continue-reply", append)
+          init?.signal?.addEventListener(
+            "abort",
+            () => {
+              window.removeEventListener("continue-reply", append)
+              controller.close()
+            },
+            { once: true },
+          )
+        },
+      })
+      return Promise.resolve(new Response(body, { headers: { "content-type": "text/event-stream" } }))
+    }
+  })
+  await page.goto("/")
+  await expect(page.getByRole("button", { name: /Model: Mock Fast/ })).toBeVisible()
+  await page.getByRole("textbox", { name: "Message" }).fill("Give me a long reply")
+  await page.getByRole("textbox", { name: "Message" }).press("Enter")
   const log = page.getByRole("log")
   const scroll = log.locator(":scope > div").first()
   await expect.poll(() => scroll.evaluate((e) => e.scrollHeight - e.clientHeight)).toBeGreaterThan(1000)
+  await expect.poll(() => scroll.evaluate((e) => e.scrollHeight - e.clientHeight - e.scrollTop)).toBeLessThanOrEqual(2)
+  await expect(log).toHaveAttribute("aria-busy", "true")
+  const bottom = await scroll.evaluate((e) => e.scrollTop)
   await scroll.hover()
   await page.mouse.wheel(0, -900)
   const jump = page.getByRole("button", { name: "Jump to latest" })
   await expect(jump).toBeVisible()
+  await expect.poll(() => scroll.evaluate((e) => e.scrollTop)).toBeLessThan(bottom - 500)
   const top = await scroll.evaluate((e) => e.scrollTop)
-  const content = await log.innerText()
-  await expect.poll(() => log.innerText()).not.toBe(content)
-  expect(await scroll.evaluate((e) => e.scrollTop)).toBeLessThanOrEqual(top + 2)
+  for (let chunk = 0; chunk < 3; chunk++) {
+    const height = await scroll.evaluate((e) => e.scrollHeight)
+    await page.evaluate(() => window.dispatchEvent(new Event("continue-reply")))
+    await expect.poll(() => scroll.evaluate((e) => e.scrollHeight)).toBeGreaterThan(height + 1000)
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    await expect(log).toHaveAttribute("aria-busy", "true")
+    expect(await scroll.evaluate((e) => e.scrollTop)).toBeLessThanOrEqual(top + 2)
+    await expect(jump).toBeVisible()
+  }
   await jump.click()
+  await expect.poll(() => scroll.evaluate((e) => e.scrollHeight - e.clientHeight - e.scrollTop)).toBeLessThanOrEqual(2)
   await expect(jump).toBeHidden()
+  await page.getByRole("button", { name: "Stop", exact: true }).click()
+})
+
+test("scrolling up during initial smooth scrolling releases the growing reply", async ({ page }) => {
+  await page.goto("/screens/02-streaming-reply?tokens=5000")
+  const log = page.getByRole("log")
+  const scroll = log.locator(":scope > div").first()
+  await expect.poll(() => scroll.evaluate((e) => e.scrollHeight - e.clientHeight)).toBeGreaterThan(1000)
+  await expect(log).toHaveAttribute("aria-busy", "true")
+  await scroll.hover({ position: { x: 24, y: 100 } })
+  await page.mouse.wheel(0, -900)
+  await expect(page.getByRole("button", { name: "Jump to latest" })).toBeVisible()
+  const top = await scroll.evaluate((e) => e.scrollTop)
+  const height = await scroll.evaluate((e) => e.scrollHeight)
+  await expect.poll(() => scroll.evaluate((e) => e.scrollHeight)).toBeGreaterThan(height + 100)
+  expect(await scroll.evaluate((e) => e.scrollTop)).toBeLessThanOrEqual(top + 2)
   await page.getByRole("button", { name: "Stop", exact: true }).click()
 })
