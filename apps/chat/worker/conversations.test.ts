@@ -136,9 +136,9 @@ describe("the conversation routes on D1", () => {
       waitUntil: unused,
     } satisfies ChatDeps)
 
-  it("shows a signed-out visitor no chats and refuses to open one", async () => {
-    expect(await (await api().request("/api/conversations")).json()).toEqual({ conversations: [] })
-    expect(await (await api().request("/api/conversations?q=hello")).json()).toEqual({ found: [] })
+  it("refuses signed-out list, search and read requests", async () => {
+    expect((await api().request("/api/conversations")).status).toBe(401)
+    expect((await api().request("/api/conversations?q=hello")).status).toBe(401)
     expect((await api().request("/api/conversations/private")).status).toBe(401)
   })
 

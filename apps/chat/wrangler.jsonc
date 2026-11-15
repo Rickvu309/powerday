@@ -19,6 +19,9 @@
     },
   ],
   "vars": {
+    "APP_URL": "https://chat.powerday.work",
+    "MAIL_FROM": "Power Chat <sign-in@powerday.work>",
+    "ALLOWLIST": [],
     "CATALOG": {
       "providers": [{ "id": "mock", "kind": "mock", "label": "Mock" }],
       "models": [

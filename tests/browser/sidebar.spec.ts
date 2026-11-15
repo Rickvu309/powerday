@@ -1,5 +1,16 @@
 import { expect, test } from "@playwright/test"
 
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/auth/get-session", (route) =>
+    route.fulfill({
+      json: {
+        session: { id: "sidebar-sample" },
+        user: { id: "sample", email: "sample@powerday.work" },
+      },
+    }),
+  )
+})
+
 test("saved chats show grouped by age and the next page loads on scroll", async ({ page }) => {
   await page.goto("/screens/22-sidebar-many")
   const sidebar = page.locator("[data-sidebar=sidebar]")
