@@ -3,7 +3,7 @@ import { builtinModules } from "node:module"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
-export const core = "packages/chat-core"
+const core = "packages/chat-core"
 
 const builtins = new Set(builtinModules)
 const specifiers = /\bfrom\s+["']([^"']+)["']|\bimport\s*(?:\(\s*)?["']([^"']+)["']/g

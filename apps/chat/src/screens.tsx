@@ -3,7 +3,10 @@ import { lazy, type ComponentType } from "react"
 const files = import.meta.glob<{ default: ComponentType }>("./features/*/screens/*.tsx")
 
 const screens = new Map(
-  Object.entries(files).map(([file, load]) => [`/screens/${file.slice(file.lastIndexOf("/") + 1, -4)}`, lazy(load)]),
+  Object.entries(files).map(([file, load]) => [
+    `/screens/${file.slice(file.lastIndexOf("/") + 1, -".tsx".length)}`,
+    lazy(load),
+  ]),
 )
 
 if (screens.size !== Object.keys(files).length) throw new Error("two screens share an id")

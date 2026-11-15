@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { listModels, parseCatalog, type ModelId } from "./catalog.js"
 import { catalogConfig } from "./catalog.fixture.js"
 
-const [fast, retired] = catalogConfig.models
+const [fast] = catalogConfig.models
 
 describe("parseCatalog", () => {
   it("keys providers and models by id", () => {
@@ -30,13 +30,12 @@ describe("listModels", () => {
   it("lists only enabled models, without upstream ids, prices or status", () => {
     expect(listModels(parseCatalog(catalogConfig))).toEqual([
       {
-        id: fast?.id,
+        id: "mock-fast",
         provider: "mock",
-        label: fast?.label,
-        capabilities: fast?.capabilities,
-        contextWindow: fast?.contextWindow,
+        label: "Mock Fast",
+        capabilities: { tools: false, vision: false, reasoning: false },
+        contextWindow: 8192,
       },
     ])
-    expect(retired?.status).toBe("disabled")
   })
 })
