@@ -1,0 +1,162 @@
+import { expect, test } from "@playwright/test"
+import { replyStream, withModels } from "./chat-fixtures"
+
+test.beforeEach(async ({ page }) => {
+  await withModels(page)
+})
+
+test("Enter sends only the latest user message, opens its URL, and keeps focus", async ({ page }) => {
+  const requests: unknown[] = []
+  await page.route("**/api/chat", async (route) => {
+    requests.push(route.request().postDataJSON())
+    await route.fulfill({ contentType: "text/event-stream", body: replyStream("The answer arrived.") })
+  })
+  await page.goto("/")
+  const input = page.getByRole("textbox", { name: "Message" })
+  await expect(page.getByRole("button", { name: /Model: Mock Fast/ })).toBeVisible()
+  await input.fill("First line")
+  await input.press("Shift+Enter")
+  await input.press("End")
+  await input.press("a")
+  expect(requests).toHaveLength(0)
+  await expect(input).toHaveValue("First line\na")
+  await input.press("Enter")
+  await expect(page).toHaveURL(/\/c\/[A-Za-z0-9_-]+$/)
+  await expect(page.locator(".is-assistant")).toContainText("The answer arrived.")
+  await expect(input).toBeEmpty()
+  await expect(input).toBeFocused()
+  await input.fill("Follow up")
+  await input.press("Enter")
+  await expect.poll(() => requests.length).toBe(2)
+  expect(requests).toEqual([
+    {
+      id: expect.any(String),
+      model: "mock-fast",
+      message: { id: expect.any(String), role: "user", parts: [{ type: "text", text: "First line\na" }] },
+    },
+    {
+      id: expect.any(String),
+      model: "mock-fast",
+      message: { id: expect.any(String), role: "user", parts: [{ type: "text", text: "Follow up" }] },
+    },
+  ])
+})
+
+test("the composer grows to its cap and preserves a draft while stopping", async ({ page }) => {
+  await page.goto("/screens/02-streaming-reply")
+  const input = page.getByRole("textbox", { name: "Message" })
+  await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeVisible()
+  const initial = await input.boundingBox()
+  await input.fill(Array.from({ length: 30 }, (_, i) => `Line ${i}`).join("\n"))
+  await expect.poll(async () => (await input.boundingBox())?.height).toBeGreaterThan(initial?.height ?? 0)
+  expect((await input.boundingBox())?.height).toBeLessThanOrEqual(192)
+  const draft = await input.inputValue()
+  await input.press("Enter")
+  await expect(input).toHaveValue(draft)
+  await page.getByRole("button", { name: "Stop", exact: true }).click()
+  await expect(page.getByText("You stopped this reply.")).toBeVisible()
+  await expect(input).toHaveValue(draft)
+  await expect(input).toBeFocused()
+})
+
+for (const [status, text] of [
+  [401, "Sign in to continue. Your message is still here."],
+  [422, "This model is no longer available. Choose another model and retry."],
+  [500, "Something went wrong with this reply. Try again."],
+] as const) {
+  test(`${status} keeps the question and retries with the chosen model`, async ({ page }) => {
+    let tries = 0
+    await page.route("**/api/chat", async (route) => {
+      tries++
+      if (tries === 1) return route.fulfill({ status, json: { error: "refused" } })
+      expect(route.request().postDataJSON().model).toBe("mock-reasoning")
+      await route.fulfill({ contentType: "text/event-stream", body: replyStream("Recovered.") })
+    })
+    await page.goto("/")
+    await expect(page.getByRole("button", { name: /Model:/ })).toBeVisible()
+    await page.getByRole("textbox", { name: "Message" }).fill("Keep my question")
+    await page.getByRole("textbox", { name: "Message" }).press("Enter")
+    await expect(page.getByRole("alert")).toContainText(text)
+    await expect(page.locator(".is-user")).toHaveText("Keep my question")
+    await page.getByRole("button", { name: /Model:/ }).click()
+    await page.getByRole("menuitemradio", { name: /Mock Reasoning/ }).click()
+    await page.getByRole("button", { name: "Retry", exact: true }).click()
+    await expect(page.locator(".is-assistant")).toContainText("Recovered.")
+    await expect(page.getByRole("alert")).toHaveCount(0)
+  })
+}
+
+test("model choice survives a reload and removed models fall back", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: /Model:/ }).click()
+  const choice = page.getByRole("menuitemradio", { name: /Mock Reasoning/ })
+  await expect(choice).toContainText("Tools · Vision · Reasoning")
+  await choice.click()
+  await page.reload()
+  await expect(page.getByRole("button", { name: "Model: Mock Reasoning" })).toBeVisible()
+  await page.route("**/api/models", (route) => route.fulfill({ json: { models: [] } }))
+  await page.reload()
+  await expect(page.getByText("No models available")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled()
+})
+
+test("a saved conversation reloads before accepting a follow-up", async ({ page }) => {
+  await page.route("**/api/conversations/saved", (route) =>
+    route.fulfill({
+      json: {
+        conversation: {
+          id: "saved",
+          owner: "person",
+          title: "Saved",
+          model: "mock-fast",
+          createdAt: "2026-11-15T00:00:00.000Z",
+          updatedAt: "2026-11-15T00:00:00.000Z",
+        },
+        messages: [
+          { id: "q", role: "user", parts: [{ type: "text", text: "My saved question" }] },
+          { id: "a", role: "assistant", parts: [{ type: "text", text: "My saved answer" }] },
+        ],
+      },
+    }),
+  )
+  await page.goto("/c/saved")
+  await expect(page.locator(".is-user")).toHaveText("My saved question")
+  await expect(page.locator(".is-assistant")).toContainText("My saved answer")
+  await page.reload()
+  await expect(page.locator(".is-assistant")).toContainText("My saved answer")
+})
+
+test("reasoning, markdown tables, code copy, and reply copy work", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"])
+  await page.goto("/screens/03-long-reply")
+  await expect(page.locator("table")).toHaveCount(1)
+  await page.getByText("Thought process", { exact: true }).click()
+  await expect(page.getByText(/They want fewer requests while typing/)).toBeVisible()
+  const scroll = page.getByRole("log").locator(":scope > div").first()
+  await scroll.evaluate((element) => {
+    element.scrollTop = 0
+  })
+  const codeCopy = page.locator('[data-streamdown="code-block"]').first().getByRole("button", { name: /copy/i })
+  await codeCopy.click()
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain("export function useDebounced")
+  await page.locator(".is-assistant").getByRole("button", { name: "Copy", exact: true }).click()
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain("| Approach |")
+})
+
+test("scrolling up releases auto-scroll and jump returns to the latest", async ({ page }) => {
+  await page.goto("/screens/02-streaming-reply?tokens=5000")
+  const log = page.getByRole("log")
+  const scroll = log.locator(":scope > div").first()
+  await expect.poll(() => scroll.evaluate((e) => e.scrollHeight - e.clientHeight)).toBeGreaterThan(1000)
+  await scroll.hover()
+  await page.mouse.wheel(0, -900)
+  const jump = page.getByRole("button", { name: "Jump to latest" })
+  await expect(jump).toBeVisible()
+  const top = await scroll.evaluate((e) => e.scrollTop)
+  const content = await log.innerText()
+  await expect.poll(() => log.innerText()).not.toBe(content)
+  expect(await scroll.evaluate((e) => e.scrollTop)).toBeLessThanOrEqual(top + 2)
+  await jump.click()
+  await expect(jump).toBeHidden()
+  await page.getByRole("button", { name: "Stop", exact: true }).click()
+})
