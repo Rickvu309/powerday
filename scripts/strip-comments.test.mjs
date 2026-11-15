@@ -45,3 +45,13 @@ assert.equal(
   "export const c = 1\n",
   "leaves code without comments alone",
 )
+assert.equal(
+  stripComments("joined.ts", "export const kind = (value: unknown) => typeof/**/value\n"),
+  "export const kind = (value: unknown) => typeof value\n",
+  "keeps the space a comment stood for between two words",
+)
+assert.equal(
+  stripComments("twice.tsx", "export const d = () => <div>{/* one */ /* two */}<b /></div>\n"),
+  "export const d = () => <div><b /></div>\n",
+  "removes a JSX container holding two comments once",
+)

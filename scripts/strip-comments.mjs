@@ -14,21 +14,34 @@ const emptyContainers = (node, found = []) => {
   return found
 }
 
+const removals = (comments, containers) => {
+  const ranges = comments.map((comment) => {
+    const container = containers.find((node) => node.start <= comment.start && comment.end <= node.end)
+    return { start: container?.start ?? comment.start, end: container?.end ?? comment.end }
+  })
+  const unique = ranges.filter(
+    (range, index) => ranges.findIndex((other) => other.start === range.start && other.end === range.end) === index,
+  )
+  return unique
+    .filter((range) => !unique.some((other) => other !== range && other.start <= range.start && range.end <= other.end))
+    .toSorted((first, second) => second.start - first.start)
+}
+
+const joinsTokens = (before, after) => /[\w$]$/u.test(before) && /^[\w$]/u.test(after)
+
 export const stripComments = (filename, source) => {
   const parsed = parseSync(filename, source)
-  const containers = emptyContainers(parsed.program)
   let text = source
-  for (const comment of parsed.comments.toReversed()) {
-    const container = containers.find((node) => node.start <= comment.start && comment.end <= node.end)
-    const start = container?.start ?? comment.start
-    const end = container?.end ?? comment.end
+  for (const { start, end } of removals(parsed.comments, emptyContainers(parsed.program))) {
     const lineStart = text.lastIndexOf("\n", start - 1) + 1
     const newline = text.indexOf("\n", end)
     const lineEnd = newline === -1 ? text.length : newline
     if (blank(text.slice(lineStart, start)) && blank(text.slice(end, lineEnd))) {
       text = text.slice(0, lineStart) + text.slice(lineEnd + 1)
     } else {
-      text = text.slice(0, start).replace(/[ \t]+$/, "") + text.slice(end)
+      const before = text.slice(0, start)
+      const after = text.slice(end)
+      text = joinsTokens(before, after) ? `${before} ${after}` : before.replace(/[ \t]+$/u, "") + after
     }
   }
   return text

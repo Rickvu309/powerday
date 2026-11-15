@@ -7,7 +7,7 @@ A rule with a check fails `pnpm check`, which `ci` runs. A rule marked review is
 | Provider keys never reach the browser | review |
 | The platform owner decides models and limits by config, not code | review |
 | A reply is saved even when the user leaves | review |
-| The chat core imports no runtime-specific API | `scripts/boundaries.mjs`, the `boundaries` step, refuses `node:`, `cloudflare:`, `@cloudflare/*`, `wrangler` and Node builtins in `packages/chat-core`. It starts in `warnSteps`. The `typecheck` step refuses DOM, Node and Workers globals there, because its tsconfig has no DOM lib and `"types": []` |
+| The chat core imports no runtime-specific API | `scripts/boundaries.mjs`, the `boundaries` step, refuses `node:`, `cloudflare:`, `@cloudflare/*`, `wrangler` and Node builtins in `packages/chat-core`. It starts in `warnSteps`. The `typecheck` step refuses DOM and Node globals there, because its tsconfig has no DOM lib and `"types": []`. Workers globals such as `self` and `caches` still typecheck, because `Request`, `Response` and streams come from the `webworker` lib, so review catches those |
 | The chat core takes the time and new ids from its deps | the `boundaries` step refuses `Date.now()`, `new Date()`, `Math.random()` and `crypto.randomUUID()` outside tests in `packages/chat-core` |
 | Act only on issues, pull requests and comments from `quanvu309` | review |
 | Fork pull requests get no secrets: no workflow runs on `pull_request_target` or `workflow_run`, and every workflow sets top-level `permissions` | `scripts/workflows.mjs`, the `workflows` step. It guards secrets, so it blocks from the start |

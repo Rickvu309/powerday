@@ -1,0 +1,23 @@
+import { ConversationId } from "@powerday/chat-core"
+import { useSyncExternalStore } from "react"
+
+const prefix = "/c/"
+
+const subscribe = (onChange: () => void) => {
+  window.addEventListener("popstate", onChange)
+  return () => window.removeEventListener("popstate", onChange)
+}
+
+const read = () => {
+  const path = window.location.pathname
+  if (!path.startsWith(prefix)) return null
+  const parsed = ConversationId.safeParse(decodeURIComponent(path.slice(prefix.length)))
+  return parsed.success ? parsed.data : null
+}
+
+export const useOpenConversation = () => useSyncExternalStore(subscribe, read, () => null)
+
+export const openConversation = (id: ConversationId | null) => {
+  window.history.pushState(null, "", id === null ? "/" : `${prefix}${encodeURIComponent(id)}`)
+  window.dispatchEvent(new PopStateEvent("popstate"))
+}
