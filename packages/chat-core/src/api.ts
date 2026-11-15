@@ -28,7 +28,8 @@ export type ChatDeps = {
 
 const mount = <Value>(app: Hono, deps: ChatDeps, route: Route<Value>, handle: Handler<Value>) =>
   app.on(route.method, route.path, async (c) => {
-    const body = route.method === "POST" ? await c.req.json().catch(() => undefined) : undefined
+    const body =
+      route.method === "POST" || route.method === "PATCH" ? await c.req.json().catch(() => undefined) : undefined
     const read = await route.read({ params: c.req.param(), query: c.req.query(), body })
     if (!read.ok) return c.json({ error: read.refusal }, 400)
     return handle(read.value, { deps, request: c.req.raw })
@@ -40,6 +41,8 @@ export const createChatApi = (deps: ChatDeps): Hono => {
   mount(app, deps, routes.models, models.handle)
   mount(app, deps, routes.conversations, conversations.handle)
   mount(app, deps, routes.conversation, conversation.handle)
+  mount(app, deps, routes.rename, conversation.rename)
+  mount(app, deps, routes.delete, conversation.remove)
   mount(app, deps, routes.auth, auth.handle)
   return app
 }
