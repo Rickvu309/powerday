@@ -52,7 +52,7 @@ Prefer the simple system. Do not keep complexity because it exists, or add machi
 - Test behavior that can break, at the lowest layer that fails. Tests never retry.
 - Do not commit plans, research notes or scratch files. A merged PR is the record. `docs/goals.md` is the one exception.
 - A PR or commit title is one line of at most 72 characters: an imperative verb, then the one outcome. No full stop at the end, no list of everything inside, no `fix:` or WIP prefix, no PR number. The rest goes in the body, after a blank line in a commit.
-- A PR body has these sections, in this order, each only when it applies: `## Why`, `## What changes`, `## Proof`, `## Not done`.
+- A PR body has these sections, in this order, each only when it applies: `## Why`, `## What changes`, `## Proof`, `## Before / after`, `## Not done`. `.github/pull_request_template.md` holds them.
 
 ## How agents work here
 

@@ -9,6 +9,7 @@
   "scripts": {
     "prepare": "node scripts/install-hooks.mjs",
     "check": "node scripts/check.mjs",
+    "land": "node scripts/land.mjs",
     "lint": "node tooling/oxlint-plugin-powerday/lint-tree.js",
     "typecheck": "node scripts/typecheck.mjs",
     "test": "pnpm test:unit && pnpm test:tooling",
