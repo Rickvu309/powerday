@@ -1,21 +1,28 @@
 {
   "name": "powerday",
-  "type": "module",
-  "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
-    "check": "astro check",
-    "deploy": "astro build && wrangler deploy"
+  "type": "module",
+  "packageManager": "pnpm@12.10.1",
+  "engines": {
+    "node": "26.x"
   },
-  "dependencies": {
-    "astro": "^7.4.10",
-    "sharp": "^0.35.5"
+  "scripts": {
+    "prepare": "node scripts/install-hooks.mjs",
+    "check": "node scripts/check.mjs",
+    "lint": "node tooling/oxlint-plugin-powerday/lint-tree.js",
+    "typecheck": "node scripts/typecheck.mjs",
+    "test": "pnpm test:unit && pnpm test:tooling",
+    "test:unit": "vitest run",
+    "test:tooling": "node scripts/tooling-tests.mjs",
+    "build": "pnpm -r --if-present run build"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.12",
-    "typescript": "^6.0.3"
+    "@astrojs/compiler": "^4.0.0",
+    "oxc-parser": "^0.157.0",
+    "oxfmt": "0.78.0",
+    "oxlint": "^1.93.0",
+    "postcss": "^8.5.32",
+    "vitest": "5.1.0",
+    "yaml": "^2.9.1"
   }
 }
