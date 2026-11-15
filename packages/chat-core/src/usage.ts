@@ -10,6 +10,7 @@ export const Usage = z
 export type Usage = z.infer<typeof Usage>
 
 export type UsageEvent = Usage & {
+  readonly estimated: boolean
   readonly user: UserId
   readonly conversation: ConversationId
   readonly message: string

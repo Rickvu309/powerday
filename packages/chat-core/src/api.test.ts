@@ -24,7 +24,7 @@ const app = createChatApi(deps)
 const chatRequest = {
   id: "c1",
   model: "mock-fast",
-  messages: [{ id: "m1", role: "user", parts: [{ type: "text", text: "Hello" }] }],
+  message: { id: "m1", role: "user", parts: [{ type: "text", text: "Hello" }] },
 }
 
 describe("createChatApi", () => {
@@ -39,6 +39,7 @@ describe("createChatApi", () => {
   it("answers 501 on every route an owner has not built yet", async () => {
     const built: readonly unknown[] = [
       routes.models,
+      routes.chat,
       routes.conversations,
       routes.conversation,
       routes.rename,
