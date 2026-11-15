@@ -24,7 +24,7 @@ const app = createChatApi(deps)
 const chatRequest = {
   id: "c1",
   model: "mock-fast",
-  messages: [{ id: "m1", role: "user", parts: [{ type: "text", text: "Hello" }] }],
+  message: { id: "m1", role: "user", parts: [{ type: "text", text: "Hello" }] },
 }
 
 describe("createChatApi", () => {

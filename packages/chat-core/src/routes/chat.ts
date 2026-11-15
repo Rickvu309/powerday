@@ -1,28 +1,28 @@
-import { consumeStream, convertToModelMessages, safeValidateUIMessages, streamText, type LanguageModelUsage } from "ai"
+import { consumeStream, convertToModelMessages, streamText, type LanguageModelUsage } from "ai"
 import * as z from "zod"
 import { ModelId } from "../catalog.js"
 import { ConversationId } from "../ids.js"
-import { MessageMetadata, type ChatMessage, type Reply } from "../message.js"
+import { type ChatMessage, type Reply } from "../message.js"
 import type { Usage } from "../usage.js"
 import type { Handler, Reader } from "../wire.js"
 
-export type ChatRequest = {
-  readonly id: ConversationId
-  readonly model: ModelId
-  readonly messages: readonly ChatMessage[]
-}
-
-const Envelope = z.object({ id: ConversationId, model: ModelId, messages: z.array(z.unknown()).min(1) })
-
-export const read: Reader<ChatRequest> = async ({ body }) => {
-  const envelope = Envelope.safeParse(body)
-  if (!envelope.success) return { ok: false, refusal: "body" }
-  const messages = await safeValidateUIMessages<ChatMessage>({
-    messages: envelope.data.messages,
-    metadataSchema: MessageMetadata.optional(),
+const Envelope = z
+  .strictObject({
+    id: ConversationId,
+    model: ModelId,
+    message: z.strictObject({
+      id: z.string().min(1).max(128),
+      role: z.literal("user"),
+      parts: z.array(z.strictObject({ type: z.literal("text"), text: z.string().min(1) })).min(1),
+    }),
   })
-  if (!messages.success || messages.data.at(-1)?.role !== "user") return { ok: false, refusal: "messages" }
-  return { ok: true, value: { id: envelope.data.id, model: envelope.data.model, messages: messages.data } }
+  .readonly()
+
+export type ChatRequest = z.infer<typeof Envelope>
+
+export const read: Reader<ChatRequest> = ({ body }) => {
+  const envelope = Envelope.safeParse(body)
+  return envelope.success ? { ok: true, value: envelope.data } : { ok: false, refusal: "body" }
 }
 
 const failure = "The model failed to answer."
@@ -41,13 +41,6 @@ const titleOf = (messages: readonly ChatMessage[]) => {
   return (first?.text ?? "").replace(/\s+/g, " ").trim().slice(0, 80)
 }
 
-const keepSavedReplies = (saved: readonly ChatMessage[], sent: readonly ChatMessage[]) => {
-  const replies = new Map(
-    saved.filter((message) => message.role === "assistant").map((message) => [message.id, message]),
-  )
-  return sent.map((message) => replies.get(message.id) ?? message)
-}
-
 export const handle: Handler<ChatRequest> = async (input, { deps, request }) => {
   const started = deps.clock.now()
   const user = await deps.auth.user(request)
@@ -56,10 +49,13 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
   if (entry === undefined) return refuse(422, `model ${input.model} is not in the catalog`)
   if (entry.status === "disabled") return refuse(422, `model ${input.model} is disabled`)
 
+  const prior = await deps.store.get(user, input.id)
+  const messages = [...(prior?.messages ?? []), input.message]
+
   let failed = false
   const result = streamText({
     model: deps.gateway.model(entry),
-    messages: await convertToModelMessages([...input.messages]),
+    messages: await convertToModelMessages([...messages]),
     onError: ({ error }) => {
       failed = true
       console.error(error)
@@ -76,13 +72,13 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
     const conversation = {
       id: input.id,
       owner: user,
-      title: saved?.conversation.title ?? titleOf(input.messages),
+      title: saved?.conversation.title ?? titleOf(messages),
       model: entry.id,
       createdAt: saved?.conversation.createdAt ?? now,
       updatedAt: now,
     }
     await Promise.all([
-      deps.store.save(conversation, [...keepSavedReplies(saved?.messages ?? [], input.messages), message]),
+      deps.store.save(conversation, [...messages, message]),
       usage === undefined
         ? undefined
         : deps.ledger.record({
@@ -98,7 +94,7 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
 
   return result.toUIMessageStreamResponse<ChatMessage>({
     headers: { "Server-Timing": `overhead;dur=${deps.clock.now().getTime() - started.getTime()}` },
-    originalMessages: [...input.messages],
+    originalMessages: [...messages],
     generateMessageId: deps.ids.message,
     messageMetadata: ({ part }) => (part.type === "start" ? { model: entry.id } : undefined),
     onEnd: ({ responseMessage, isAborted }) => finish(responseMessage, isAborted),
