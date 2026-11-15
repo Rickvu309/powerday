@@ -95,6 +95,29 @@ describe("createAuth", () => {
     expect(await signedIn(closed.auth, opened)).toBeUndefined()
   })
 
+  it("revokes existing sessions in both the API gate and browser endpoints after an allowlist change", async () => {
+    const open = setup()
+    await requestLink(open.auth, "eve@example.com")
+    const opened = await open.auth.handle(new Request(linkIn(open.mails[0])))
+    expect(await signedIn(open.auth, opened)).toEqual(expect.any(String))
+    const cookie = opened.headers
+      .getSetCookie()
+      .map((header) => header.split(";")[0])
+      .join("; ")
+    const closed = setup({ allowlist: ["powerday.work"] }, open.tables)
+    expect(await signedIn(closed.auth, opened)).toBeUndefined()
+    const get = (path: string) => closed.auth.handle(new Request(`${local}/api/auth/${path}`, { headers: { cookie } }))
+    expect(await (await get("get-session")).json()).toBeNull()
+    expect((await get("list-sessions")).status).toBe(401)
+    const logout = await closed.auth.handle(
+      new Request(`${local}/api/auth/sign-out`, {
+        method: "POST",
+        headers: { cookie, origin: local },
+      }),
+    )
+    expect(logout.status).toBe(200)
+  })
+
   it("expires a mailed link after ten minutes", async () => {
     vi.useFakeTimers({ toFake: ["Date"] })
     const { auth, mails } = setup()

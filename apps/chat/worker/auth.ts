@@ -3,6 +3,7 @@ import { Allowlist, createAuth, resend, type Auth, type Sender } from "@powerday
 declare global {
   namespace Cloudflare {
     interface Env {
+      LOCAL_AUTH?: string
       APP_URL: string
       MAIL_FROM: string
       ALLOWLIST?: unknown
@@ -23,8 +24,18 @@ const mailLog =
       .run()
   }
 
-export const auth = (env: Cloudflare.Env): Auth =>
-  createAuth({
+export const auth = (env: Cloudflare.Env): Auth => {
+  const local = env.LOCAL_AUTH === "true" && !env.BETTER_AUTH_SECRET
+  if (!local && (!env.BETTER_AUTH_SECRET || !env.RESEND_API_KEY || !env.MAIL_FROM))
+    return {
+      user: async () => undefined,
+      handle: async () =>
+        Response.json(
+          { error: "Sign-in unavailable: configure the auth secret and email delivery." },
+          { status: 503, headers: { "cache-control": "no-store" } },
+        ),
+    }
+  return createAuth({
     database: env.DB,
     site: env.BETTER_AUTH_SECRET ? { url: env.APP_URL, secret: env.BETTER_AUTH_SECRET } : "loopback",
     google:
@@ -36,3 +47,4 @@ export const auth = (env: Cloudflare.Env): Auth =>
       ? resend({ key: env.RESEND_API_KEY, from: env.MAIL_FROM })
       : mailLog(env.DB, env.MAIL_FROM),
   })
+}

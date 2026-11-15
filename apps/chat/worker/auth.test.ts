@@ -24,7 +24,7 @@ beforeAll(async () => {
 afterAll(async () => platform?.dispose())
 
 test("an invite-only Worker refuses outsiders before logging mail to local D1", async () => {
-  const instance = auth({ ...platform.env, ALLOWLIST: ["powerday.work", "ada@example.com"] })
+  const instance = auth({ ...platform.env, LOCAL_AUTH: "true", ALLOWLIST: ["powerday.work", "ada@example.com"] })
   const request = (email: string) =>
     instance.handle(
       new Request("http://localhost:5173/api/auth/sign-in/magic-link", {

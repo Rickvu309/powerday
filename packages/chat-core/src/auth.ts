@@ -100,14 +100,31 @@ export const createAuth = (config: AuthConfig): Auth => {
     },
   })
   const methods: readonly SignInMethod[] = config.google === undefined ? ["email"] : ["email", "google"]
+  const session = async (request: Request) => {
+    const headers = new Headers(request.headers)
+    headers.set("host", new URL(request.url).host)
+    const found = await instance.api.getSession({ headers })
+    return found === null || !allows(config.allowlist, found.user.email) ? null : found
+  }
   return {
     user: async (request) => {
-      const found = await instance.api.getSession({ headers: request.headers })
-      return found === null || !allows(config.allowlist, found.user.email) ? undefined : UserId.parse(found.user.id)
+      const found = await session(request)
+      return found === null ? undefined : UserId.parse(found.user.id)
     },
-    handle: (request) =>
-      new URL(request.url).pathname === "/api/auth/methods"
-        ? Promise.resolve(Response.json({ methods }))
-        : instance.handler(request),
+    handle: async (request) => {
+      const path = new URL(request.url).pathname.replace(/\/+$/, "")
+      if (path === "/api/auth/methods") return Response.json({ methods })
+      const publicFlow =
+        path === "/api/auth/sign-out" ||
+        path === "/api/auth/error" ||
+        path.startsWith("/api/auth/sign-in/") ||
+        path.startsWith("/api/auth/callback/") ||
+        path === "/api/auth/magic-link/verify"
+      if (!publicFlow && (await session(request)) === null)
+        return path === "/api/auth/get-session"
+          ? Response.json(null, { headers: { "cache-control": "no-store" } })
+          : Response.json({ error: "unauthorized" }, { status: 401 })
+      return instance.handler(request)
+    },
   }
 }
