@@ -1,0 +1,38 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "power-chat",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-11-10",
+  "workers_dev": false,
+  "routes": [{ "pattern": "chat.powerday.work", "custom_domain": true }],
+  "observability": { "enabled": true },
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"],
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "power-chat",
+      "database_id": "ee568fee-a696-44f5-97b4-ec36978233a5",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "vars": {
+    "CATALOG": {
+      "providers": [{ "id": "mock", "kind": "mock", "label": "Mock" }],
+      "models": [
+        {
+          "id": "mock",
+          "provider": "mock",
+          "upstreamId": "mock",
+          "label": "Mock",
+          "status": "enabled",
+          "capabilities": { "tools": false, "vision": false, "reasoning": false },
+          "contextWindow": 8192,
+          "price": "mock",
+        },
+      ],
+    },
+  },
+}
