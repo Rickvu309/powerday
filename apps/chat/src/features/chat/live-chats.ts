@@ -10,6 +10,7 @@ export const liveChats = (transport: ChatTransport<ChatMessage>, seed: ChatMessa
     new Chat<ChatMessage>({ id, transport, messages, messageMetadataSchema: MessageMetadata.optional() })
   const opened = new Map<ConversationId, Chat<ChatMessage>>()
   const loading = new Map<ConversationId, Promise<void>>()
+  const stale = new Set<ConversationId>()
   let draft = create(ConversationId.parse(generateId()), seed)
   const open = (id: ConversationId | null) => {
     if (id === null) return draft
@@ -20,16 +21,22 @@ export const liveChats = (transport: ChatTransport<ChatMessage>, seed: ChatMessa
 
   return {
     open,
+    needsLoad: (id: ConversationId) => open(id).messages.length === 0 || stale.has(id),
+    refreshOnOpen: (id: ConversationId) => void stale.add(id),
     load: (id: ConversationId) => {
       const chat = open(id)
-      if (chat.messages.length > 0) return Promise.resolve()
+      if (chat.messages.length > 0 && !stale.has(id)) return Promise.resolve()
       const pending =
         loading.get(id) ??
-        readConversation(id).then((messages) => {
-          chat.messages = messages
-        })
+        readConversation(id)
+          .then((messages) => {
+            if (chat.status === "submitted" || chat.status === "streaming") return
+            chat.messages = messages
+            if (messages.some((message) => message.metadata?.reply?.state === "streaming")) stale.add(id)
+            else stale.delete(id)
+          })
+          .finally(() => loading.delete(id))
       loading.set(id, pending)
-      void pending.catch(() => loading.delete(id))
       return pending
     },
     start: () => {

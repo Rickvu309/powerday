@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test"
-import { replyStream, withModels } from "./chat-fixtures"
+import { replyStream, savedConversation, withModels } from "./chat-fixtures"
 
 test.beforeEach(async ({ page }) => {
   await withModels(page)
@@ -127,6 +127,101 @@ test("a saved conversation reloads before accepting a follow-up", async ({ page 
   await expect(page.locator(".is-assistant")).toContainText("My saved answer")
   await page.reload()
   await expect(page.locator(".is-assistant")).toContainText("My saved answer")
+})
+
+test("a draft survives Enter while Retry waits for saved history", async ({ page }) => {
+  const held = Promise.withResolvers<void>()
+  let reads = 0
+  await page.route("**/api/conversations/saved", async (route) => {
+    reads++
+    if (reads > 1) await held.promise
+    await route.fulfill({ json: savedConversation })
+  })
+  await page.route("**/api/chat", (route) =>
+    route.fulfill({ contentType: "text/event-stream", body: replyStream("Retried answer") }),
+  )
+  await page.goto("/c/saved")
+  await expect(page.locator(".is-assistant")).toContainText("My saved answer")
+  await page.getByRole("button", { name: "Retry", exact: true }).click()
+  await expect.poll(() => reads).toBe(2)
+  const input = page.getByRole("textbox", { name: "Message" })
+  try {
+    await input.fill("Keep this unsent draft")
+    await input.press("Enter")
+    await expect(input).toHaveValue("Keep this unsent draft")
+    await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled()
+  } finally {
+    held.resolve()
+  }
+  await expect(page.locator(".is-assistant").last()).toContainText("Retried answer")
+  await expect(input).toHaveValue("Keep this unsent draft")
+})
+
+test("sidebar reopening refreshes a paused reply after the server completes", async ({ page }) => {
+  let completed = false
+  let paused = false
+  await page.route("**/api/conversations", (route) =>
+    route.fulfill({ json: { conversations: [savedConversation.conversation] } }),
+  )
+  await page.route("**/api/conversations/saved", (route) =>
+    route.fulfill({
+      json: {
+        ...savedConversation,
+        messages: paused
+          ? [
+              ...savedConversation.messages,
+              { id: "q2", role: "user", parts: [{ type: "text", text: "Continue" }] },
+              {
+                id: "reply",
+                role: "assistant",
+                parts: completed ? [{ type: "text", text: "PARTIAL FINAL SAVED ANSWER" }] : [],
+                ...(completed ? {} : { metadata: { model: "mock-fast", reply: { state: "streaming" } } }),
+              },
+            ]
+          : savedConversation.messages,
+      },
+    }),
+  )
+  await page.addInitScript(() => {
+    const fetch = window.fetch
+    window.fetch = (input, init) => {
+      if (input !== "/api/chat") return fetch(input, init)
+      const encoder = new TextEncoder()
+      return Promise.resolve(
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              for (const chunk of [
+                { type: "start", messageId: "reply" },
+                { type: "text-start", id: "text" },
+                { type: "text-delta", id: "text", delta: "PARTIAL" },
+              ])
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`))
+              init?.signal?.addEventListener("abort", () => controller.close(), { once: true })
+            },
+          }),
+          { headers: { "content-type": "text/event-stream" } },
+        ),
+      )
+    }
+  })
+  await page.goto("/c/saved")
+  await expect(page.locator(".is-assistant")).toContainText("My saved answer")
+  await page.getByRole("textbox", { name: "Message" }).fill("Continue")
+  await page.getByRole("textbox", { name: "Message" }).press("Enter")
+  await expect(page.locator(".is-assistant").last()).toHaveText("PARTIAL")
+  await page.getByRole("button", { name: "Stop display", exact: true }).click()
+  await expect(page.getByText(/Display paused/)).toBeVisible()
+  paused = true
+  await page.getByRole("button", { name: "New chat", exact: true }).click()
+  await page.getByRole("link", { name: "Saved", exact: true }).click()
+  await expect(page.getByRole("status")).toContainText("still running on the server")
+  completed = true
+  await page.getByRole("button", { name: "New chat", exact: true }).click()
+  await expect(page).toHaveURL(/\/$/)
+  await page.getByRole("link", { name: "Saved", exact: true }).click()
+  await expect(page.locator(".is-assistant").last()).toContainText("FINAL SAVED ANSWER")
+  await expect(page.getByText(/Display paused/)).toHaveCount(0)
 })
 
 test("reasoning, markdown tables, code copy, and reply copy work", async ({ page, context }) => {

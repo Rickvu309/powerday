@@ -1,6 +1,6 @@
 import { ConversationId } from "@powerday/chat-core"
 import { useChat } from "@ai-sdk/react"
-import { lazy, Suspense, useCallback, useContext, useEffect, useRef, useState } from "react"
+import { lazy, Suspense, useCallback, useContext, useEffect, useState } from "react"
 import { useModels } from "@/features/model-picker/model-choice"
 import { openConversation, useOpenConversation } from "@/open-conversation"
 import { Composer } from "./composer"
@@ -23,12 +23,12 @@ function ChatSession({ open, live }: { open: ConversationId | null; live: LiveCh
   const chat = live.open(open)
   const { messages, status, error, sendMessage, regenerate, stop } = useChat({ chat, throttle: 32 })
   const [history, setHistory] = useState<{ state: "loading" | "ready" } | { state: "error"; error: unknown }>({
-    state: open === null || chat.messages.length > 0 ? "ready" : "loading",
+    state: open === null || !live.needsLoad(open) ? "ready" : "loading",
   })
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
-    if (open === null || chat.messages.length > 0) return
+    if (open === null || !live.needsLoad(open)) return
     let current = true
     setHistory({ state: "loading" })
     void live.load(open).then(
@@ -46,7 +46,7 @@ function ChatSession({ open, live }: { open: ConversationId | null; live: LiveCh
   const { models } = useModels()
   const model = models.state === "ready" ? models.chosen : undefined
   const [retryError, setRetryError] = useState<Error>()
-  const retrying = useRef(false)
+  const [retrying, setRetrying] = useState(false)
   const [stopped, setStopped] = useState<ReadonlySet<string>>(new Set())
   const busy = status === "submitted" || status === "streaming"
 
@@ -56,17 +56,17 @@ function ChatSession({ open, live }: { open: ConversationId | null; live: LiveCh
 
   const send = useCallback(
     (text: string) => {
-      if (model === undefined || retrying.current) return
+      if (model === undefined || retrying) return
       setRetryError(undefined)
       void sendMessage({ text }, { body: { model: model.id } })
       if (open === null) openConversation(live.start())
     },
-    [model, sendMessage, open, live],
+    [model, sendMessage, open, live, retrying],
   )
 
   const retry = useCallback(() => {
-    if (model === undefined || retrying.current || busy) return
-    retrying.current = true
+    if (model === undefined || retrying || busy) return
+    setRetrying(true)
     setRetryError(undefined)
     void (async () => {
       try {
@@ -94,16 +94,17 @@ function ChatSession({ open, live }: { open: ConversationId | null; live: LiveCh
       } catch (error) {
         setRetryError(error instanceof Error ? error : new Error("Retry failed"))
       } finally {
-        retrying.current = false
+        setRetrying(false)
       }
     })()
-  }, [model, busy, chat, error, regenerate, sendMessage])
+  }, [model, busy, chat, error, regenerate, sendMessage, retrying])
 
   const halt = useCallback(() => {
     const last = chat.messages.at(-1)
     if (last !== undefined) setStopped((ids) => new Set(ids).add(last.id))
+    live.refreshOnOpen(ConversationId.parse(chat.id))
     void stop()
-  }, [chat, stop])
+  }, [chat, stop, live])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -125,7 +126,12 @@ function ChatSession({ open, live }: { open: ConversationId | null; live: LiveCh
           <Thread messages={messages} status={status} error={retryError ?? error} stopped={stopped} onRetry={retry} />
         </Suspense>
       )}
-      <Composer busy={busy} ready={model !== undefined && history.state === "ready"} onSend={send} onStop={halt} />
+      <Composer
+        busy={busy}
+        ready={model !== undefined && history.state === "ready" && !retrying}
+        onSend={send}
+        onStop={halt}
+      />
     </div>
   )
 }

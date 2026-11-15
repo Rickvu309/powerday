@@ -19,6 +19,21 @@ export const models = [
 
 export const withModels = (page: Page) => page.route("**/api/models", (route) => route.fulfill({ json: { models } }))
 
+export const savedConversation = {
+  conversation: {
+    id: "saved",
+    owner: "person",
+    title: "Saved",
+    model: "mock-fast",
+    createdAt: "2026-11-15T00:00:00.000Z",
+    updatedAt: "2026-11-15T00:00:00.000Z",
+  },
+  messages: [
+    { id: "q", role: "user", parts: [{ type: "text", text: "My saved question" }] },
+    { id: "a", role: "assistant", parts: [{ type: "text", text: "My saved answer" }] },
+  ],
+}
+
 export const replyStream = (text: string) =>
   [
     { type: "start", messageId: "reply" },

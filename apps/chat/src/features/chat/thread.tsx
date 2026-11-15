@@ -191,6 +191,11 @@ export default function Thread({ messages, status, error, stopped, onRetry }: Th
             <span className="size-3 rounded-full bg-foreground motion-safe:animate-pulse" />
           </span>
         ) : null}
+        {status === "ready" && last?.metadata?.reply?.state === "streaming" ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            The reply is still running on the server. Reopen this chat after it finishes to see the full answer.
+          </p>
+        ) : null}
         {error !== undefined || status === "error" || last?.metadata?.reply?.state === "failed" ? (
           <Note tone="problem" text={problemOf(error)} onRetry={onRetry} />
         ) : null}
