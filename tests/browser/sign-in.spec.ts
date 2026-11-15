@@ -76,3 +76,19 @@ test("a failed session lookup offers a retry without exposing the composer", asy
   await page.getByRole("button", { name: "Try again" }).click()
   await expect(page.getByRole("heading", { name: "Sign in to Power Chat" })).toBeVisible()
 })
+
+test("changing account in another tab clears client memory on return", async ({ page }) => {
+  let email = "ada@example.com"
+  await page.route("**/api/auth/get-session", (route) =>
+    route.fulfill({
+      json: { user: { id: email, email }, session: { id: `session-${email}` } },
+    }),
+  )
+  await page.goto("/")
+  await expect(page.getByRole("button", { name: email })).toBeVisible()
+  await page.evaluate(() => Reflect.set(window, "previousAccountCache", { title: "Ada's private chat" }))
+  email = "bob@example.com"
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")))
+  await expect(page.getByRole("button", { name: email })).toBeVisible()
+  expect(await page.evaluate(() => Reflect.get(window, "previousAccountCache"))).toBeUndefined()
+})

@@ -1,3 +1,4 @@
+import { UserId } from "@powerday/chat-core"
 import { useEffect, useState } from "react"
 
 export type Failure = "not-invited" | "unsent" | "expired" | "unfinished"
@@ -6,7 +7,7 @@ export type Account =
   | { readonly status: "loading" }
   | { readonly status: "unavailable" }
   | { readonly status: "signed-out"; readonly google: boolean; readonly failure: Failure | undefined }
-  | { readonly status: "signed-in"; readonly email: string }
+  | { readonly status: "signed-in"; readonly userId: UserId; readonly sessionId: string; readonly email: string }
 
 const redirectFailures: Readonly<Record<string, Failure>> = {
   INVALID_TOKEN: "expired",
@@ -35,7 +36,10 @@ export const loadAccount = async (): Promise<Account> => {
     }
     const [session, methods] = await Promise.all([read("/api/auth/get-session"), read("/api/auth/methods")])
     const email = field(field(session, "user"), "email")
-    if (typeof email === "string") return { status: "signed-in", email }
+    const userId = UserId.safeParse(field(field(session, "user"), "id"))
+    const sessionId = field(field(session, "session"), "id")
+    if (typeof email === "string" && userId.success && typeof sessionId === "string")
+      return { status: "signed-in", email, userId: userId.data, sessionId }
     const offered = field(methods, "methods")
     if (session !== null || !Array.isArray(offered)) return { status: "unavailable" }
     return { status: "signed-out", google: offered.includes("google"), failure: takeRedirectFailure() }
@@ -44,15 +48,38 @@ export const loadAccount = async (): Promise<Account> => {
   }
 }
 
+export const sameAccount = (previous: Account, current: Account): boolean =>
+  previous.status === "signed-in" && current.status === "signed-in"
+    ? previous.userId === current.userId && previous.sessionId === current.sessionId
+    : previous.status === current.status
+
 let loaded: Promise<Account> | undefined
+let checking: Promise<void> | undefined
+
+const checkSession = () => {
+  checking ??= Promise.all([loaded, loadAccount()])
+    .then(([previous, current]) => {
+      if (previous !== undefined && !sameAccount(previous, current)) location.reload()
+    })
+    .finally(() => {
+      checking = undefined
+    })
+}
 
 export function useAccount(): Account {
   const [account, setAccount] = useState<Account>({ status: "loading" })
   useEffect(() => {
     let current = true
     void (loaded ??= loadAccount()).then((found) => current && setAccount(found))
+    const visible = () => {
+      if (document.visibilityState === "visible") checkSession()
+    }
+    window.addEventListener("focus", checkSession)
+    document.addEventListener("visibilitychange", visible)
     return () => {
       current = false
+      window.removeEventListener("focus", checkSession)
+      document.removeEventListener("visibilitychange", visible)
     }
   }, [])
   return account

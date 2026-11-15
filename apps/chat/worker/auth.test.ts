@@ -12,7 +12,7 @@ beforeAll(async () => {
     persist: false,
     remoteBindings: false,
   })
-  const migration = readFileSync(fileURLToPath(new URL("../migrations/0002_auth.sql", import.meta.url).href), "utf8")
+  const migration = readFileSync(fileURLToPath(new URL("../migrations/0003_auth.sql", import.meta.url).href), "utf8")
   await platform.env.DB.batch(
     migration
       .split(";")

@@ -1,5 +1,6 @@
+import { UserId } from "@powerday/chat-core"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { continueWithGoogle, loadAccount, signOut } from "./session"
+import { continueWithGoogle, loadAccount, sameAccount, signOut } from "./session"
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -23,4 +24,17 @@ describe("account requests", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("offline", { status: 503 })))
     expect(await signOut()).toBe(false)
   })
+})
+
+it("treats a different owner or session as a different account", () => {
+  const ada = {
+    status: "signed-in",
+    userId: UserId.parse("ada"),
+    sessionId: "session-ada",
+    email: "ada@example.com",
+  } as const
+  expect(sameAccount(ada, { ...ada })).toBe(true)
+  expect(sameAccount(ada, { ...ada, userId: UserId.parse("bob") })).toBe(false)
+  expect(sameAccount(ada, { ...ada, sessionId: "another-session" })).toBe(false)
+  expect(sameAccount(ada, { status: "signed-out", google: false, failure: undefined })).toBe(false)
 })
