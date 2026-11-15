@@ -17,6 +17,9 @@ const consoleErrors = (page: Page) => {
 
 test("the shell lays out the sidebar, the empty thread and the composer", async ({ page }) => {
   const errors = consoleErrors(page)
+  await page.route("**/api/auth/get-session", (route) =>
+    route.fulfill({ json: { user: { id: "ada", email: "ada@example.com" }, session: { id: "session-ada" } } }),
+  )
   await page.goto("/")
   await expect(page.getByRole("heading", { name: "How can I help you today?" })).toBeVisible()
   await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible()

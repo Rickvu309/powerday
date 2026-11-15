@@ -17,7 +17,16 @@ export const models = [
   },
 ]
 
-export const withModels = (page: Page) => page.route("**/api/models", (route) => route.fulfill({ json: { models } }))
+export const withChatFixtures = (page: Page) =>
+  Promise.all([
+    page.route("**/api/models", (route) => route.fulfill({ json: { models } })),
+    page.route("**/api/auth/get-session", (route) =>
+      route.fulfill({
+        json: { session: { id: "chat-sample" }, user: { id: "person", email: "person@powerday.work" } },
+      }),
+    ),
+    page.route("**/api/conversations", (route) => route.fulfill({ json: { conversations: [] } })),
+  ])
 
 export const savedConversation = {
   conversation: {

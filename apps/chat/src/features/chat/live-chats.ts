@@ -3,7 +3,7 @@ import { ConversationId, MessageMetadata, type ChatMessage } from "@powerday/cha
 import { DefaultChatTransport, generateId, type ChatTransport } from "ai"
 import { createContext } from "react"
 import { readConversation } from "./read-conversation"
-import { chatFetch } from "./reply-problem"
+import { chatFetch, ReplyProblem } from "./reply-problem"
 
 export const liveChats = (transport: ChatTransport<ChatMessage>, seed: ChatMessage[] = []) => {
   const create = (id: ConversationId, messages: ChatMessage[] = []) =>
@@ -34,6 +34,16 @@ export const liveChats = (transport: ChatTransport<ChatMessage>, seed: ChatMessa
             chat.messages = messages
             if (messages.some((message) => message.metadata?.reply?.state === "streaming")) stale.add(id)
             else stale.delete(id)
+          })
+          .catch((error: unknown) => {
+            if (
+              error instanceof ReplyProblem &&
+              error.status === 404 &&
+              chat.messages.length > 0 &&
+              chat.messages.every((message) => message.role === "user")
+            )
+              return
+            throw error
           })
           .finally(() => loading.delete(id))
       loading.set(id, pending)

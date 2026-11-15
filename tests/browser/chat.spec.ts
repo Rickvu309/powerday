@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test"
-import { replyStream, savedConversation, withModels } from "./chat-fixtures"
+import { replyStream, savedConversation, withChatFixtures } from "./chat-fixtures"
 
 test.beforeEach(async ({ page }) => {
-  await withModels(page)
+  await withChatFixtures(page)
 })
 
 test("Enter sends only the latest user message, opens its URL, and keeps focus", async ({ page }) => {
@@ -222,6 +222,31 @@ test("sidebar reopening refreshes a paused reply after the server completes", as
   await page.getByRole("link", { name: "Saved", exact: true }).click()
   await expect(page.locator(".is-assistant").last()).toContainText("FINAL SAVED ANSWER")
   await expect(page.getByText(/Display paused/)).toHaveCount(0)
+})
+
+test("reopening an unaccepted paused request keeps the question available", async ({ page }) => {
+  await page.route("**/api/conversations/*", (route) => route.fulfill({ status: 404, json: { error: "not found" } }))
+  await page.addInitScript(() => {
+    const fetch = window.fetch
+    window.fetch = (input, init) =>
+      input !== "/api/chat"
+        ? fetch(input, init)
+        : new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), {
+              once: true,
+            })
+          })
+  })
+  await page.goto("/")
+  await expect(page.getByRole("button", { name: /Model: Mock Fast/ })).toBeVisible()
+  await page.getByRole("textbox", { name: "Message" }).fill("Keep my unanswered question")
+  await page.getByRole("textbox", { name: "Message" }).press("Enter")
+  await page.getByRole("button", { name: "Stop display", exact: true }).click()
+  await page.getByRole("button", { name: "New chat", exact: true }).click()
+  await page.goBack()
+  await expect(page.locator(".is-user")).toContainText("Keep my unanswered question")
+  await page.getByRole("textbox", { name: "Message" }).fill("A new draft")
+  await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled()
 })
 
 test("reasoning, markdown tables, code copy, and reply copy work", async ({ page, context }) => {

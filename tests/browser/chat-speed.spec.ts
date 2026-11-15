@@ -1,11 +1,11 @@
 import { writeFile } from "node:fs/promises"
 import { expect, test } from "@playwright/test"
-import { withModels } from "./chat-fixtures"
+import { withChatFixtures } from "./chat-fixtures"
 
 for (let run = 1; run <= 5; run++) {
   test(`typing stays under 100 ms during a 5,000-token reply, run ${run}`, async ({ page }, testInfo) => {
     test.setTimeout(60_000)
-    await withModels(page)
+    await withChatFixtures(page)
     await page.setViewportSize({ width: 375, height: 900 })
     await page.goto("/screens/02-streaming-reply?tokens=5000")
     const input = page.getByRole("textbox", { name: "Message" })

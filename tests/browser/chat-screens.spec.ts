@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test"
-import { settled, withModels } from "./chat-fixtures"
+import { settled, withChatFixtures } from "./chat-fixtures"
 
 const screens = [
   "01-empty",
@@ -18,7 +18,7 @@ for (const width of [1280, 375]) {
       test(`${screen} at ${width} in ${colorScheme}`, async ({ page }, testInfo) => {
         await page.setViewportSize({ width, height: 900 })
         await page.emulateMedia({ colorScheme, reducedMotion: "reduce" })
-        await withModels(page)
+        await withChatFixtures(page)
         const errors: string[] = []
         page.on("pageerror", (error) => errors.push(error.message))
         await page.goto(`/screens/${screen}`)
