@@ -8,10 +8,18 @@ const subscribe = (onChange: () => void) => {
   return () => window.removeEventListener("popstate", onChange)
 }
 
+const decoded = (segment: string) => {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return ""
+  }
+}
+
 const read = () => {
   const path = window.location.pathname
   if (!path.startsWith(prefix)) return null
-  const parsed = ConversationId.safeParse(decodeURIComponent(path.slice(prefix.length)))
+  const parsed = ConversationId.safeParse(decoded(path.slice(prefix.length)))
   return parsed.success ? parsed.data : null
 }
 
