@@ -15,7 +15,7 @@ export default defineConfig({
   reporter: "line",
   use: { baseURL: origin, browserName: "chromium" },
   webServer: {
-    command: `${built ? "" : "pnpm --filter @powerday/chat build && "}pnpm --filter @powerday/chat exec vite preview --host 127.0.0.1 --port ${port} --strictPort`,
+    command: `${built ? "" : "pnpm --filter @powerday/chat build && "}pnpm --filter @powerday/chat exec wrangler d1 migrations apply power-chat --local && pnpm --filter @powerday/chat exec vite preview --host 127.0.0.1 --port ${port} --strictPort`,
     url: origin,
     reuseExistingServer: false,
     timeout: 120_000,

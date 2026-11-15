@@ -31,10 +31,6 @@ const chatRequest = {
   messages: [{ id: "m1", role: "user", parts: [{ type: "text", text: "Hello" }] }],
 }
 
-test.beforeAll(() => {
-  wrangler("d1", "migrations", "apply", "power-chat", "--local")
-})
-
 test("a signed-out visitor gets 401 from chat and saved conversations", async ({ request }) => {
   expect((await request.post("/api/chat", { data: chatRequest })).status()).toBe(401)
   expect((await request.get("/api/conversations")).status()).toBe(401)
