@@ -83,3 +83,40 @@ test("on a phone the sidebar is a sheet that closes when a chat opens", async ({
   await expect(page).toHaveURL(/\/c\/sample-3$/)
   await expect(sheet).toBeHidden()
 })
+
+test("the desktop sidebar collapses and new chat clears the URL", async ({ page }) => {
+  await page.goto("/screens/23-sidebar-switching")
+  await page.locator("a[href='/c/sample-1']").click()
+  await expect(page.locator("[data-conversation='sample-1']")).toBeVisible()
+  await page.getByRole("button", { name: "New chat", exact: true }).click()
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByText("Pick a chat.")).toBeVisible()
+  await page.getByRole("button", { name: "Toggle Sidebar" }).click()
+  await expect(page.locator("[data-state=collapsed][data-collapsible=icon]")).toBeVisible()
+  await page.getByRole("button", { name: "Toggle Sidebar" }).click()
+  await expect(page.getByRole("searchbox", { name: "Search chats" })).toBeVisible()
+})
+
+for (const width of [1280, 375]) {
+  for (const colorScheme of ["light", "dark"] as const) {
+    for (const state of ["empty", "many", "search"]) {
+      test(`${state} at ${width} in ${colorScheme}`, async ({ page }, info) => {
+        await page.setViewportSize({ width, height: 812 })
+        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" })
+        await page.goto(
+          `/screens/${state === "empty" ? "20-sidebar-empty" : state === "many" ? "22-sidebar-many" : "24-sidebar-search"}`,
+        )
+        if (width === 375) {
+          await page.getByRole("button", { name: "Toggle Sidebar" }).click()
+          await expect(page.getByRole("dialog")).toHaveCSS("opacity", "1")
+          await expect(page.getByRole("dialog")).toHaveCSS("translate", "none")
+        }
+        if (state === "empty") await expect(page.getByText("Your chats will show here.")).toBeVisible()
+        else await expect(page.locator("a[href^='/c/']").first()).toBeVisible()
+        await expect(page.getByRole("searchbox", { name: "Search chats" })).toBeVisible()
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+        await page.screenshot({ animations: "disabled", path: info.outputPath(`${state}-${width}-${colorScheme}.png`) })
+      })
+    }
+  }
+}

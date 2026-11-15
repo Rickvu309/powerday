@@ -177,9 +177,9 @@ function Results({ query, go }: { query: string; go: Go }) {
   )
 }
 
-export function ConversationList() {
+export function ConversationList({ initialQuery = "" }: { initialQuery?: string }) {
   const { isMobile, setOpenMobile, state, setOpen } = useSidebar()
-  const [query, setQuery] = useState("")
+  const [query, setQuery] = useState(initialQuery)
   const search = useRef<HTMLInputElement>(null)
   const go: Go = useCallback(
     (id) => {

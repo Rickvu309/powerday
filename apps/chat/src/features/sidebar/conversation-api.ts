@@ -22,6 +22,11 @@ const call = async (path: string, init?: RequestInit) => {
   return response
 }
 
+const mutate = async (path: string, init: RequestInit) => {
+  const response = await call(path, init)
+  if (!response.ok) throw new Error(`${init.method} ${path} answered ${response.status}`)
+}
+
 const path = (id: ConversationId) => `/api/conversations/${encodeURIComponent(id)}`
 
 export const httpApi: ConversationApi = {
@@ -41,9 +46,13 @@ export const httpApi: ConversationApi = {
     return Found.array().parse(body.found)
   },
   rename: async (id, title) => {
-    await call(path(id), { method: "PATCH", body: JSON.stringify({ title }) })
+    await mutate(path(id), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    })
   },
   delete: async (id) => {
-    await call(path(id), { method: "DELETE" })
+    await mutate(path(id), { method: "DELETE" })
   },
 }
