@@ -1,32 +1,234 @@
-import { SquarePenIcon } from "lucide-react"
+import type { Found } from "@powerday/chat-core"
+import { SearchIcon, SquarePenIcon } from "lucide-react"
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
+import { Button } from "@/components/ui/button"
 import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarInput,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSkeleton,
+  useSidebar,
 } from "@/components/ui/sidebar"
+import { openConversation, useOpenConversation } from "@/open-conversation"
+import { groupByAge } from "./age-groups"
+import { useConversationCache, useListing } from "./conversation-cache"
+import { ConversationItem, ConversationLink, type Go } from "./conversation-item"
 
-export function ConversationList() {
+function Note({ children }: { children: ReactNode }) {
+  return <p className="px-2 text-sm text-muted-foreground">{children}</p>
+}
+
+function Section({ label, children }: { label: string; children?: ReactNode }) {
+  return (
+    <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      <SidebarGroupContent>{children}</SidebarGroupContent>
+    </SidebarGroup>
+  )
+}
+
+function More() {
+  const cache = useConversationCache()
+  const sentinel = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting) cache.more()
+    })
+    if (sentinel.current) observer.observe(sentinel.current)
+    return () => observer.disconnect()
+  }, [cache])
+  return <div ref={sentinel} className="h-px" />
+}
+
+function Recents({ go }: { go: Go }) {
+  const cache = useConversationCache()
+  const listing = useListing()
+  const open = useOpenConversation()
+
+  if (listing.status === "loading") {
+    return (
+      <Section label="Recents">
+        <SidebarMenu aria-busy>
+          {Array.from({ length: 6 }, (_, index) => (
+            <SidebarMenuItem key={index}>
+              <SidebarMenuSkeleton />
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </Section>
+    )
+  }
+  if (listing.status === "failed") {
+    return (
+      <Section label="Recents">
+        <Note>Couldn’t load your chats.</Note>
+        <Button variant="link" size="sm" onClick={() => cache.load()}>
+          Try again
+        </Button>
+      </Section>
+    )
+  }
+  if (listing.conversations.length === 0) {
+    return (
+      <Section label="Recents">
+        <Note>Your chats will show here.</Note>
+      </Section>
+    )
+  }
+  return (
+    <>
+      {groupByAge(listing.conversations, new Date()).map(({ age, conversations }) => (
+        <Section key={age} label={age}>
+          <SidebarMenu>
+            {conversations.map((conversation) => (
+              <ConversationItem
+                key={conversation.id}
+                conversation={conversation}
+                open={conversation.id === open}
+                go={go}
+              />
+            ))}
+          </SidebarMenu>
+        </Section>
+      ))}
+      {listing.next !== undefined && <More key={listing.conversations.length} />}
+    </>
+  )
+}
+
+function Highlighted({ text, query }: { text: string; query: string }) {
+  const words = query
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+  const pieces = text.split(new RegExp(`(${words.join("|")})`, "giu"))
+  return pieces.map((piece, index) =>
+    index % 2 ? (
+      <strong key={index} className="font-medium text-sidebar-foreground">
+        {piece}
+      </strong>
+    ) : (
+      piece
+    ),
+  )
+}
+
+type Search = { readonly query: string } & (
+  | { readonly status: "ready"; readonly found: readonly Found[] }
+  | { readonly status: "failed" }
+)
+
+function Results({ query, go }: { query: string; go: Go }) {
+  const cache = useConversationCache()
+  const open = useOpenConversation()
+  const [search, setSearch] = useState<Search>()
+
+  useEffect(() => {
+    const controller = new AbortController()
+    cache.search(query, controller.signal).then(
+      (found) => setSearch({ query, status: "ready", found }),
+      () => {
+        if (!controller.signal.aborted) setSearch({ query, status: "failed" })
+      },
+    )
+    return () => controller.abort()
+  }, [cache, query])
+
+  if (search === undefined) return <Section label="Results" />
+  if (search.status === "failed") {
+    return (
+      <Section label="Results">
+        <Note>Search isn’t working right now.</Note>
+      </Section>
+    )
+  }
+  if (search.found.length === 0) {
+    return (
+      <Section label="Results">
+        <Note>No chats match “{search.query}”.</Note>
+      </Section>
+    )
+  }
+  return (
+    <Section label="Results">
+      <SidebarMenu aria-busy={search.query !== query}>
+        {search.found.map(({ conversation, snippet }) => (
+          <SidebarMenuItem key={conversation.id}>
+            <ConversationLink conversation={conversation} open={conversation.id === open} go={go}>
+              <span className="flex min-w-0 flex-col py-1">
+                <span className="truncate">
+                  <Highlighted text={conversation.title} query={search.query} />
+                </span>
+                {snippet && (
+                  <span className="line-clamp-2 text-xs whitespace-normal text-muted-foreground">
+                    <Highlighted text={snippet} query={search.query} />
+                  </span>
+                )}
+              </span>
+            </ConversationLink>
+          </SidebarMenuItem>
+        ))}
+      </SidebarMenu>
+    </Section>
+  )
+}
+
+export function ConversationList({ initialQuery = "" }: { initialQuery?: string }) {
+  const { isMobile, setOpenMobile, state, setOpen } = useSidebar()
+  const [query, setQuery] = useState(initialQuery)
+  const search = useRef<HTMLInputElement>(null)
+  const go: Go = useCallback(
+    (id) => {
+      openConversation(id)
+      if (isMobile) setOpenMobile(false)
+    },
+    [isMobile, setOpenMobile],
+  )
+  const trimmed = query.trim()
+
   return (
     <>
       <SidebarGroup>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="New chat">
+            <SidebarMenuButton tooltip="New chat" onClick={() => go(null)}>
               <SquarePenIcon />
               <span>New chat</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          <SidebarMenuItem className="hidden group-data-[collapsible=icon]:block">
+            <SidebarMenuButton
+              tooltip="Search chats"
+              onClick={() => {
+                setOpen(true)
+                requestAnimationFrame(() => search.current?.focus())
+              }}
+            >
+              <SearchIcon />
+              <span>Search chats</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
+        {state === "expanded" || isMobile ? (
+          <SidebarInput
+            ref={search}
+            className="mt-2"
+            type="search"
+            aria-label="Search chats"
+            placeholder="Search chats"
+            value={query}
+            onChange={(event) => setQuery(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setQuery("")
+            }}
+          />
+        ) : null}
       </SidebarGroup>
-      <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel>Recents</SidebarGroupLabel>
-        <SidebarGroupContent>
-          <p className="px-2 text-sm text-muted-foreground">Your chats will show here.</p>
-        </SidebarGroupContent>
-      </SidebarGroup>
+      {trimmed ? <Results query={trimmed} go={go} /> : <Recents go={go} />}
     </>
   )
 }

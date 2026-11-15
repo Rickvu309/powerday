@@ -9,6 +9,8 @@ export const routes = {
   models: { method: "GET", path: "/api/models", read: models.read },
   conversations: { method: "GET", path: "/api/conversations", read: conversations.read },
   conversation: { method: "GET", path: "/api/conversations/:id", read: conversation.read },
+  rename: { method: "PATCH", path: "/api/conversations/:id", read: conversation.readRename },
+  delete: { method: "DELETE", path: "/api/conversations/:id", read: conversation.read },
   auth: { method: "ALL", path: "/api/auth/*", read: auth.read },
 } as const
 

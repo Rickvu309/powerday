@@ -49,7 +49,10 @@ const setup = (overrides: Partial<ChatDeps> = {}) => {
     catalog,
     gateway: { model: () => wordModel() },
     store: {
-      list: async () => [],
+      list: async () => ({ conversations: [] }),
+      rename: async () => false,
+      delete: async () => false,
+      search: async () => [],
       get: async (owner, id) => saved.get(JSON.stringify([owner, id])),
       claim: async (conversation, message, reply) => {
         const key = JSON.stringify([conversation.owner, conversation.id])

@@ -11,7 +11,7 @@ const unused = (): never => {
 
 const deps: ChatDeps = {
   catalog: parseCatalog(catalogConfig),
-  store: { list: unused, get: unused, claim: unused, save: unused },
+  store: { list: unused, get: unused, claim: unused, save: unused, rename: unused, delete: unused, search: unused },
   ledger: { record: unused, spent: unused, allowance: unused },
   gateway: { model: unused },
   auth: {
@@ -35,7 +35,7 @@ const chatRequest = {
 const requestTo = (route: (typeof routes)[keyof typeof routes]) =>
   [
     route.path.replaceAll(":id", "c1").replaceAll("*", "session"),
-    route.method === "POST" ? { method: "POST", body: JSON.stringify(chatRequest) } : {},
+    { method: route.method, ...(route.method === "POST" ? { body: JSON.stringify(chatRequest) } : {}) },
   ] as const
 
 describe("createChatApi", () => {
@@ -45,15 +45,6 @@ describe("createChatApi", () => {
     expect(response.status).toBe(200)
     expect(JSON.parse(text)).toEqual({ models: listModels(deps.catalog) })
     expect(text).not.toContain("upstream")
-  })
-
-  it("answers 501 on every route an owner has not built yet", async () => {
-    const stubs = Object.values(routes).filter(
-      (route) => route !== routes.models && route !== routes.chat && route !== routes.auth,
-    )
-    for (const route of stubs) {
-      expect((await app.request(...requestTo(route))).status, `${route.method} ${route.path}`).toBe(501)
-    }
   })
 
   it("answers 401 to a signed-out visitor on every signed-in route", async () => {
