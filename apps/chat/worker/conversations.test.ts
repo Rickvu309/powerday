@@ -1,4 +1,11 @@
-import { ConversationId, createChatApi, parseCatalog, UserId, type ChatDeps } from "@powerday/chat-core"
+import {
+  ConversationPage,
+  ConversationId,
+  createChatApi,
+  parseCatalog,
+  UserId,
+  type ChatDeps,
+} from "@powerday/chat-core"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { conversationStore } from "./conversations"
 import { conversation, localD1, message } from "./local-d1"
@@ -49,21 +56,32 @@ describe("the D1 conversation store", () => {
     expect(new Set(all.map((each) => each.id)).size).toBe(100)
   })
 
-  it("never lets one user read, change or overwrite another user's conversation", async () => {
+  it("isolates identical client conversation and message ids by owner", async () => {
     await store.save(conversation("ada", "secret", "Ada's plans", 3_000), [message("s1", "user", "launch codes 1234")])
-    await store.save(conversation("bob", "secret", "Bob took over", 9_000), [message("s1", "user", "overwritten")])
-    await store.save(conversation("bob", "mine", "Bob's chat", 9_000), [message("s1", "user", "hijack by id")])
-
     expect(await store.get(bob, id("secret"))).toBeUndefined()
-    expect((await store.list(bob, undefined)).conversations.map((each) => each.id)).toEqual(["mine"])
-    expect(await store.search(bob, "launch")).toEqual([])
     expect(await store.rename(bob, id("secret"), "mine now")).toBe(false)
     expect(await store.delete(bob, id("secret"))).toBe(false)
-
+    await store.save(conversation("bob", "secret", "Bob's plans", 9_000), [message("s1", "user", "Bob's groceries")])
+    await store.save(conversation("bob", "secret", "ignored", 10_000), [
+      message("s1", "user", "Bob's groceries"),
+      message("s2", "assistant", "Buy milk"),
+    ])
+    await store.save(conversation("bob", "mine", "Bob's other chat", 9_000), [message("s1", "user", "Different chat")])
+    expect((await store.get(bob, id("secret")))?.messages).toEqual([
+      message("s1", "user", "Bob's groceries"),
+      message("s2", "assistant", "Buy milk"),
+    ])
+    expect((await store.get(bob, id("mine")))?.messages).toEqual([message("s1", "user", "Different chat")])
+    expect((await store.list(bob, undefined)).conversations.map((each) => each.id)).toEqual(["secret", "mine"])
+    expect(await store.search(bob, "launch")).toEqual([])
+    expect((await store.search(ada, "launch")).map((hit) => hit.conversation.owner)).toEqual([ada])
+    expect(await store.search(ada, "groceries")).toEqual([])
+    expect(await store.rename(bob, id("secret"), "Groceries")).toBe(true)
+    expect(await store.delete(bob, id("secret"))).toBe(true)
     const saved = await store.get(ada, id("secret"))
     expect(saved?.conversation).toMatchObject({ owner: "ada", title: "Ada's plans", updatedAt: new Date(3_000) })
     expect(saved?.messages).toEqual([message("s1", "user", "launch codes 1234")])
-    expect(await store.get(bob, id("mine"))).toMatchObject({ messages: [] })
+    expect((await store.search(ada, "launch")).map((hit) => hit.conversation.id)).toEqual(["secret"])
   })
 
   it("finds conversations by title and message text, ignoring accents and finishing the last word", async () => {
@@ -75,6 +93,13 @@ describe("the D1 conversation store", () => {
     expect(hit?.conversation.id).toBe("trip")
     expect(hit?.snippet).toContain("hiking")
     expect(await store.search(ada, `" - * ) OR NEAR(`)).toEqual([])
+  })
+
+  it("updates indexed message text when a reply changes", async () => {
+    await store.save(conversation("ada", "edit", "Draft", 1000), [message("edit1", "assistant", "outdated")])
+    await store.save(conversation("ada", "edit", "Draft", 2000), [message("edit1", "assistant", "corrected")])
+    expect(await store.search(ada, "outdated")).toEqual([])
+    expect((await store.search(ada, "corrected")).map((hit) => hit.conversation.id)).toEqual(["edit"])
   })
 
   it("renames and deletes, and search follows both", async () => {
@@ -130,6 +155,44 @@ describe("the conversation routes on D1", () => {
     })
   })
 
+  it("pages and searches through the session user and deletes through the API", async () => {
+    const headers = { user: "pager" }
+    const first = ConversationPage.parse(await (await api().request("/api/conversations", { headers })).json())
+    expect(first.conversations).toHaveLength(50)
+    const second = ConversationPage.parse(
+      await (await api().request(`/api/conversations?before=${first.next}`, { headers })).json(),
+    )
+    expect(second.conversations).toHaveLength(50)
+    expect(new Set([...first.conversations, ...second.conversations].map((each) => each.id)).size).toBe(100)
+    const found = await (await api().request("/api/conversations?q=launch", { headers: { user: "bob" } })).json()
+    expect(found).toEqual({ found: [] })
+    expect((await api().request("/api/conversations?before=invalid", { headers })).status).toBe(400)
+    await store.save(conversation("ada", "delete-route", "Delete me", 7000), [])
+    expect(
+      (await api().request("/api/conversations/delete-route", { method: "DELETE", headers: { user: "ada" } })).status,
+    ).toBe(204)
+    expect(await store.get(ada, id("delete-route"))).toBeUndefined()
+    expect(
+      (
+        await api().request("/api/conversations/private", {
+          method: "PATCH",
+          headers: { user: "bob" },
+          body: JSON.stringify({ title: "Stolen" }),
+        })
+      ).status,
+    ).toBe(404)
+    for (const method of ["PATCH", "DELETE"]) {
+      expect(
+        (
+          await api().request("/api/conversations/private", {
+            method,
+            body: method === "PATCH" ? JSON.stringify({ title: "No session" }) : null,
+          })
+        ).status,
+      ).toBe(401)
+    }
+  })
+
   it("renames through PATCH and refuses an empty title", async () => {
     await store.save(conversation("ada", "named", "Old name", 7_000), [])
     const patch = (title: string) =>
@@ -142,4 +205,30 @@ describe("the conversation routes on D1", () => {
     expect((await patch("  New name ")).status).toBe(204)
     expect((await store.get(ada, id("named")))?.conversation.title).toBe("New name")
   })
+})
+
+it("migrates saved history and backfills title and message search", async () => {
+  const upgraded = await localD1(async (db) => {
+    await db.batch([
+      db.prepare("INSERT INTO conversations VALUES ('legacy', 'ada', 'Before migration', 'mock', 1000, 2000)"),
+      db
+        .prepare(`INSERT INTO messages VALUES ('old1', 'legacy', 0, ?1)`)
+        .bind(JSON.stringify(message("old1", "user", "Legacy hiking"))),
+      db
+        .prepare(`INSERT INTO messages VALUES ('old2', 'legacy', 1, ?1)`)
+        .bind(JSON.stringify(message("old2", "assistant", "Bring boots"))),
+    ])
+  })
+  try {
+    const migrated = conversationStore(upgraded.env)
+    expect((await migrated.get(ada, id("legacy")))?.messages.map((each) => each.id)).toEqual(["old1", "old2"])
+    expect((await migrated.search(ada, "migration")).map((hit) => hit.conversation.id)).toEqual(["legacy"])
+    expect((await migrated.search(ada, "hiking")).map((hit) => hit.conversation.id)).toEqual(["legacy"])
+    await migrated.save(conversation("bob", "legacy", "Bob's new chat", 3000), [message("old1", "user", "Bob only")])
+    expect((await migrated.get(ada, id("legacy")))?.messages).toHaveLength(2)
+    expect(await migrated.delete(bob, id("legacy"))).toBe(true)
+    expect((await migrated.get(ada, id("legacy")))?.messages).toHaveLength(2)
+  } finally {
+    await upgraded.dispose()
+  }
 })

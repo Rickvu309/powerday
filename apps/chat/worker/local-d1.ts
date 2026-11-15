@@ -5,12 +5,13 @@ import { getPlatformProxy, unstable_splitSqlQuery } from "wrangler"
 
 const migrations = path.join(import.meta.dirname, "../migrations")
 
-export const localD1 = async () => {
+export const localD1 = async (beforeUpgrade?: (db: D1Database) => Promise<void>) => {
   const proxy = await getPlatformProxy<Cloudflare.Env>({
     configPath: path.join(import.meta.dirname, "../wrangler.jsonc"),
     persist: false,
   })
   for (const file of readdirSync(migrations).sort()) {
+    if (file.startsWith("0002")) await beforeUpgrade?.(proxy.env.DB)
     const sql = readFileSync(path.join(migrations, file), "utf8")
     await proxy.env.DB.batch(unstable_splitSqlQuery(sql).map((statement) => proxy.env.DB.prepare(statement)))
   }

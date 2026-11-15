@@ -25,8 +25,8 @@ const seed = (db: D1Database, owner: string) =>
       .prepare(
         `WITH RECURSIVE n(i) AS (SELECT 0 UNION ALL SELECT i + 1 FROM n WHERE i < 9999),
            w(k) AS (SELECT 0 UNION ALL SELECT k + 1 FROM w WHERE k < 59)
-         INSERT INTO messages (id, conversation, position, body)
-         SELECT ?1 || '-m' || i, ?1 || '-' || (i / 10), i % 10,
+         INSERT INTO messages (owner, id, conversation, position, body)
+         SELECT ?1, ?1 || '-m' || i, ?1 || '-' || (i / 10), i % 10,
            json_object('id', ?1 || '-m' || i, 'role', iif(i % 2, 'assistant', 'user'), 'parts', json_array(json_object(
              'type', 'text', 'text',
              (SELECT group_concat(${word("i * 31 + k * 17 + (i * k) % 13")}, ' ') FROM w WHERE k < iif(i % 2, 60, 12))
@@ -55,8 +55,9 @@ it("searches 1,000 saved conversations with 10,000 messages in under 200 ms", as
   for (let round = 0; round < 5; round += 1) {
     for (const query of queries) {
       const started = performance.now()
-      await store.search(ada, query)
+      const found = await store.search(ada, query)
       wall.push(performance.now() - started)
+      expect(found.every((hit) => hit.conversation.owner === ada)).toBe(true)
     }
   }
   for (let round = 0; round < 40; round += 1) {
@@ -70,5 +71,5 @@ it("searches 1,000 saved conversations with 10,000 messages in under 200 ms", as
     `search, 1,000 chats per user, 2 users, ${wall.length} runs: p50 ${at(wall, 0.5)} ms, p95 ${at(wall, 0.95)} ms, max ${at(wall, 1)} ms; a bare SELECT 1 through the same proxy p50 ${at(proxyOnly, 0.5)} ms`,
   )
   expect((await store.search(ada, "phở")).length).toBe(20)
-  expect(Number(at(wall, 0.95))).toBeLessThan(200)
+  expect(Math.max(...wall)).toBeLessThan(200)
 }, 30_000)

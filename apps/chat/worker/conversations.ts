@@ -46,7 +46,7 @@ export const conversationStore = ({ DB: db }: Cloudflare.Env): ConversationStore
       db.prepare(`SELECT ${columns} FROM conversations WHERE id = ?1 AND owner = ?2`).bind(id, owner),
       db
         .prepare(
-          `SELECT messages.body FROM messages JOIN conversations ON conversations.id = messages.conversation
+          `SELECT messages.body FROM messages JOIN conversations ON conversations.id = messages.conversation AND conversations.owner = messages.owner
            WHERE messages.conversation = ?1 AND conversations.owner = ?2 ORDER BY messages.position`,
         )
         .bind(id, owner),
@@ -65,8 +65,7 @@ export const conversationStore = ({ DB: db }: Cloudflare.Env): ConversationStore
       db
         .prepare(
           `INSERT INTO conversations (id, owner, title, model, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-           ON CONFLICT (id) DO UPDATE SET model = excluded.model, updated_at = excluded.updated_at
-           WHERE conversations.owner = excluded.owner`,
+           ON CONFLICT (owner, id) DO UPDATE SET model = excluded.model, updated_at = excluded.updated_at`,
         )
         .bind(
           id,
@@ -78,19 +77,17 @@ export const conversationStore = ({ DB: db }: Cloudflare.Env): ConversationStore
         ),
       db
         .prepare(
-          `DELETE FROM messages WHERE conversation = ?1
-           AND id NOT IN (SELECT value FROM json_each(?2))
-           AND EXISTS (SELECT 1 FROM conversations WHERE id = ?1 AND owner = ?3)`,
+          `DELETE FROM messages WHERE conversation = ?1 AND owner = ?3
+           AND id NOT IN (SELECT value FROM json_each(?2))`,
         )
         .bind(id, JSON.stringify(messages.map((message) => message.id)), owner),
       ...messages.map((message, position) =>
         db
           .prepare(
-            `INSERT INTO messages (id, conversation, position, body)
-             SELECT ?1, ?2, ?3, ?4 WHERE EXISTS (SELECT 1 FROM conversations WHERE id = ?2 AND owner = ?5)
-             ON CONFLICT (id) DO UPDATE SET position = excluded.position, body = excluded.body
-             WHERE messages.conversation = excluded.conversation
-             AND (messages.position <> excluded.position OR messages.body <> excluded.body)`,
+            `INSERT INTO messages (id, conversation, position, body, owner)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT (owner, conversation, id) DO UPDATE SET position = excluded.position, body = excluded.body
+             WHERE messages.position <> excluded.position OR messages.body <> excluded.body`,
           )
           .bind(message.id, id, position, JSON.stringify(message), owner),
       ),
@@ -122,11 +119,12 @@ export const conversationStore = ({ DB: db }: Cloudflare.Env): ConversationStore
            UNION ALL
            SELECT messages.conversation, messages.rowid FROM message_search
            JOIN messages ON messages.rowid = message_search.rowid
-           JOIN conversations ON conversations.id = messages.conversation
+           JOIN conversations ON conversations.id = messages.conversation AND conversations.owner = messages.owner
            WHERE message_search MATCH ?1 AND conversations.owner = ?2
          ),
          top AS MATERIALIZED (
            SELECT ${columns}, max(hits.message) AS message FROM hits JOIN conversations USING (id)
+           WHERE conversations.owner = ?2
            GROUP BY id ORDER BY updated_at DESC LIMIT 20
          ),
          snippets AS MATERIALIZED (
