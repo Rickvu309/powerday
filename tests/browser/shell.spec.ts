@@ -1,6 +1,7 @@
 import { globSync } from "node:fs"
 import path from "node:path"
 import { expect, test, type Page } from "@playwright/test"
+import { withChatFixtures } from "./chat-fixtures"
 
 const screens = globSync("*/screens/*.tsx", { cwd: path.join(import.meta.dirname, "../../apps/chat/src/features") })
   .map((file) => `/screens/${path.basename(file, ".tsx")}`)
@@ -17,9 +18,7 @@ const consoleErrors = (page: Page) => {
 
 test("the shell lays out the sidebar, the empty thread and the composer", async ({ page }) => {
   const errors = consoleErrors(page)
-  await page.route("**/api/auth/get-session", (route) =>
-    route.fulfill({ json: { user: { id: "ada", email: "ada@example.com" }, session: { id: "session-ada" } } }),
-  )
+  await withChatFixtures(page)
   await page.goto("/")
   await expect(page.getByRole("heading", { name: "How can I help you today?" })).toBeVisible()
   await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible()
