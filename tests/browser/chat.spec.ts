@@ -441,7 +441,7 @@ test("Retry waits for a reply that is still running on the server", async ({ pag
   })
   await page.goto("/c/running")
   await page.getByRole("button", { name: "Retry", exact: true }).click()
-  await expect(page.getByRole("alert")).toContainText("A reply is still running or this attempt was already accepted.")
+  await expect(page.getByRole("alert")).toContainText("A reply is already running or saved.")
   expect(posts).toHaveLength(0)
   await expect(page.locator(".is-user")).toHaveText("Keep answering")
 })

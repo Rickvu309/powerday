@@ -9,14 +9,12 @@ export const Composer = memo(function Composer({
   draft,
   busy,
   ready,
-  blocked,
   onSend,
   onStop,
 }: {
   draft: LiveConversation["draft"]
   busy: boolean
   ready: boolean
-  blocked: boolean
   onSend: (text: string) => boolean
   onStop: () => void
 }) {
@@ -25,9 +23,6 @@ export const Composer = memo(function Composer({
   const empty = text.trim() === ""
   return (
     <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-4">
-      {blocked ? (
-        <p className="mb-2 px-1 text-sm text-muted-foreground">Sending is paused. You can keep drafting here.</p>
-      ) : null}
       <form
         className="w-full"
         onSubmit={(event) => {
@@ -36,7 +31,7 @@ export const Composer = memo(function Composer({
           if (onSend(text)) field.current?.focus()
         }}
       >
-        <InputGroup className="overflow-hidden rounded-3xl bg-card! shadow-sm has-disabled:bg-card! has-disabled:opacity-100! has-focus-visible:border-muted-foreground/40! has-focus-visible:ring-0!">
+        <InputGroup className="overflow-hidden rounded-3xl bg-card! shadow-sm has-disabled:opacity-100! has-focus-visible:border-muted-foreground/40! has-focus-visible:ring-0!">
           <InputGroupTextarea
             ref={field}
             name="message"

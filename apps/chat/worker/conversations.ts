@@ -29,7 +29,7 @@ export const matchQuery = (query: string) =>
     .join(" AND ")
 
 export const conversationStore = ({ DB: db }: Cloudflare.Env): ConversationStore => ({
-  claim: async (conversation, message, reply) => {
+  claim: async (conversation, message, reply, allowance) => {
     const { id, owner } = conversation
     const [claimed, , history] = await db.batch<Record<string, unknown>>([
       db
@@ -40,6 +40,14 @@ export const conversationStore = ({ DB: db }: Cloudflare.Env): ConversationStore
              SELECT 1 FROM messages WHERE owner = ?2 AND conversation = ?1
              AND (id IN (?7, ?8) OR json_extract(body, '$.metadata.reply.state') = 'streaming')
            )
+           AND (?9 IS NULL OR (
+             NOT EXISTS (
+               SELECT 1 FROM messages WHERE owner = ?2
+               AND json_extract(body, '$.metadata.reply.state') = 'streaming'
+             )
+             AND (SELECT coalesce(sum(input_tokens + output_tokens), 0) FROM usage_events
+               WHERE user = ?2 AND at >= ?9) < ?10
+           ))
            ON CONFLICT (owner, id) DO UPDATE SET model = excluded.model, updated_at = excluded.updated_at
            RETURNING ${columns}`,
         )
@@ -52,6 +60,8 @@ export const conversationStore = ({ DB: db }: Cloudflare.Env): ConversationStore
           conversation.updatedAt.getTime(),
           message.id,
           reply.id,
+          allowance?.since.getTime() ?? null,
+          allowance?.tokens ?? null,
         ),
       db
         .prepare(
@@ -152,7 +162,12 @@ export const conversationStore = ({ DB: db }: Cloudflare.Env): ConversationStore
   },
 
   delete: async (owner, id) => {
-    const result = await db.prepare("DELETE FROM conversations WHERE id = ?1 AND owner = ?2").bind(id, owner).run()
+    const result = await db
+      .prepare(`DELETE FROM conversations WHERE id = ?1 AND owner = ?2
+        AND NOT EXISTS (SELECT 1 FROM messages WHERE conversation = ?1 AND owner = ?2
+          AND json_extract(body, '$.metadata.reply.state') = 'streaming')`)
+      .bind(id, owner)
+      .run()
     return result.meta.changes > 0
   },
 

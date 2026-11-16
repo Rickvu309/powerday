@@ -138,6 +138,21 @@ describe("POST /api/chat", () => {
     await settle()
   })
 
+  it("returns the cap response when another reply records usage before the atomic claim", async () => {
+    const { app, deps } = setup()
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 10 })
+    vi.spyOn(deps.ledger, "spent").mockResolvedValueOnce(9).mockResolvedValue(10)
+    vi.spyOn(deps.store, "claim").mockResolvedValue(undefined)
+    const model = vi.spyOn(deps.gateway, "model")
+    const response = await send(app, hello)
+    expect(response.status).toBe(429)
+    expect(model).not.toHaveBeenCalled()
+    expect(deps.store.claim).toHaveBeenCalledWith(expect.anything(), hello, expect.anything(), {
+      since: expect.any(Date),
+      tokens: 10,
+    })
+  })
+
   it("fails closed when usage cannot be read", async () => {
     const { app, deps } = setup()
     vi.spyOn(console, "error").mockImplementation(() => {})

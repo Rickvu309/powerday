@@ -44,7 +44,7 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
   const busy = view.attempt.kind === "pending" && view.attempt.dispatch
   const limit = usageLimitOf(conversation.problem())
   const reset = useLimitReset(limit?.resetsAt)
-  const blocked = limit !== undefined && !reset
+  const blocked = limit?.resetsAt !== undefined && !reset
 
   const send = useCallback(
     (text: string): boolean => {
@@ -105,7 +105,6 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
       <Composer
         draft={conversation.draft}
         busy={busy}
-        blocked={blocked}
         ready={
           !blocked &&
           model !== undefined &&

@@ -63,9 +63,10 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
     return refuse(409, "message already answered or in progress")
   }
   const allowance = await deps.ledger.allowance(user)
-  const spent = await deps.ledger.spent(user, periodOf(allowance.period, started).start)
-  const decision = decide(spent, allowance, started)
-  if (!decision.allowed) {
+  const limitResponse = async () => {
+    const spent = await deps.ledger.spent(user, periodOf(allowance.period, started).start)
+    const decision = decide(spent, allowance, started)
+    if (decision.allowed) return undefined
     return Response.json(
       { error: "usage limit", resetsAt: decision.resetsAt.toISOString() },
       {
@@ -74,7 +75,8 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
       },
     )
   }
-  const model = deps.gateway.model(entry)
+  const limited = await limitResponse()
+  if (limited) return limited
   const now = deps.clock.now()
   const pending: ChatMessage = {
     id: deps.ids.message(),
@@ -93,8 +95,10 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
     },
     input.message,
     pending,
+    { since: periodOf(allowance.period, started).start, tokens: allowance.tokens },
   )
-  if (claimed === undefined) return refuse(409, "message already answered or in progress")
+  if (claimed === undefined) return (await limitResponse()) ?? refuse(409, "message already answered or in progress")
+  const model = deps.gateway.model(entry)
   const messages = claimed.messages.slice(0, -1)
 
   let failed = false

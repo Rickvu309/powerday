@@ -191,3 +191,33 @@ it.each(["identical", "different"])("serializes %s submits from separate Worker 
     await rm(directory, { recursive: true, force: true })
   }
 })
+
+it("admits one chat per user and rechecks recorded usage atomically", async () => {
+  const stores = [conversationStore(proxy.env), conversationStore(proxy.env)]
+  const gate = { since: new Date(0), tokens: 10 }
+  const chats = [conversation("limited", "one", "One", 1000), conversation("limited", "two", "Two", 1000)]
+  const results = await Promise.all(
+    stores.map((store, index) =>
+      store.claim(chats[index]!, message(`q${index}`, "user", "Hi"), pending(`r${index}`), gate),
+    ),
+  )
+  expect(results.filter(Boolean)).toHaveLength(1)
+  const winner = results.find((result) => result !== undefined)!
+  expect(await stores[0]!.delete(winner.conversation.owner, winner.conversation.id)).toBe(false)
+  await proxy.env.DB.prepare(
+    "INSERT INTO usage_events VALUES ('counted', 'limited', 'one', 'mock', 7, 3, 2, 1, 1000)",
+  ).run()
+  await stores[0]!.save(
+    winner.conversation,
+    winner.messages.map((m) => (m.role === "assistant" ? complete(m) : m)),
+  )
+  const other = chats.find((c) => c.id !== winner.conversation.id)!
+  expect(await stores[1]!.claim(other, message("later", "user", "Hi"), pending("later-reply"), gate)).toBeUndefined()
+  expect(await stores[0]!.get(other.owner, other.id)).toBeUndefined()
+  expect(
+    await stores[1]!.claim(other, message("reset", "user", "Hi"), pending("reset-reply"), {
+      since: new Date(2000),
+      tokens: 10,
+    }),
+  ).toBeDefined()
+})

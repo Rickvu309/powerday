@@ -4,8 +4,11 @@ import { LiveChats, liveChats } from "../live-chats"
 import { asked, question } from "./replies"
 import { scriptedTransport } from "./scripted-transport"
 
+const midnight = new Date()
+midnight.setUTCHours(24, 0, 0, 0)
+
 const chats = liveChats(
-  scriptedTransport({ kind: "fail", status: 429, resetsAt: new Date("2099-11-17T00:00:00Z") }),
+  scriptedTransport({ kind: "fail", status: 429, resetsAt: midnight }),
   [asked(question)],
   ModelId.parse("mock-fast"),
 )

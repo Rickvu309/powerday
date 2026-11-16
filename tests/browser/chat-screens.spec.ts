@@ -20,6 +20,14 @@ for (const width of [1280, 375]) {
         await page.setViewportSize({ width, height: 900 })
         await page.emulateMedia({ colorScheme, reducedMotion: "reduce" })
         await withChatFixtures(page)
+        if (screen === "09-over-limit") {
+          await page.clock.install({ time: new Date("2030-01-01T12:00:00Z") })
+          await page.route("**/api/auth/get-session", (route) =>
+            route.fulfill({
+              json: { session: { id: "chat-sample" }, user: { id: "person", email: "Preview account" } },
+            }),
+          )
+        }
         const errors: string[] = []
         page.on("pageerror", (error) => errors.push(error.message))
         await page.goto(`/screens/${screen}`)
