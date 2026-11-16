@@ -41,12 +41,12 @@ export const auth = (env: Cloudflare.Env): Auth => {
       : env.EMAIL
         ? cloudflareEmail(env.EMAIL, env.MAIL_FROM)
         : undefined
-  if (!send || (!local && (!env.BETTER_AUTH_SECRET || !env.MAIL_FROM)))
+  if (!send || (!local && (!env.BETTER_AUTH_SECRET || !env.MAIL_FROM || !env.ALLOWLIST_JSON)))
     return {
       user: async () => undefined,
       handle: async () =>
         Response.json(
-          { error: "Sign-in unavailable: configure the auth secret and email delivery." },
+          { error: "Sign-in unavailable: configure the auth and allowlist secrets and email delivery." },
           { status: 503, headers: { "cache-control": "no-store" } },
         ),
     }

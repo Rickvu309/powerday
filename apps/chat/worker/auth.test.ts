@@ -105,3 +105,37 @@ test("the Cloudflare binding accepts the composed sign-in email", async () => {
     }),
   ).resolves.toBeUndefined()
 })
+
+test.each(["BETTER_AUTH_SECRET", "ALLOWLIST_JSON", "MAIL_FROM", "EMAIL"])(
+  "production auth refuses missing %s without sending mail",
+  async (missing) => {
+    const send = vi.fn<(mail: EmailMessage | EmailMessageBuilder) => Promise<EmailSendResult>>()
+    const instance = auth({
+      ...platform.env,
+      BETTER_AUTH_SECRET: "test-secret-with-at-least-thirty-two-characters",
+      ALLOWLIST_JSON: "[]",
+      EMAIL: { send },
+      [missing]: missing === "MAIL_FROM" ? "" : undefined,
+    })
+    const response = await instance.handle(new Request("https://chat.powerday.work/api/auth/methods"))
+    expect(response.status).toBe(503)
+    expect(await instance.user(new Request("https://chat.powerday.work/api/conversations"))).toBeUndefined()
+    expect(send).not.toHaveBeenCalled()
+  },
+)
+
+test.each([
+  { GOOGLE_CLIENT_ID: "test-client" },
+  { GOOGLE_CLIENT_SECRET: "test-google-secret" },
+  { GOOGLE_CLIENT_ID: "test-client", GOOGLE_CLIENT_SECRET: "test-google-secret" },
+])("Google sign-in requires both keys: %j", async (google) => {
+  const instance = auth({
+    ...platform.env,
+    LOCAL_AUTH: "true",
+    ...google,
+  })
+  const response = await instance.handle(new Request("http://localhost:5173/api/auth/methods"))
+  expect(await response.json()).toEqual({
+    methods: google.GOOGLE_CLIENT_ID && google.GOOGLE_CLIENT_SECRET ? ["email", "google"] : ["email"],
+  })
+})

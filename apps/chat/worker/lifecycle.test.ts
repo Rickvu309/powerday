@@ -74,6 +74,7 @@ it("fails closed in production and runs local D1 links, revocation, redemption r
     const production = make({
       BETTER_AUTH_SECRET: "test-secret-with-sufficient-length-for-auth",
       RESEND_API_KEY: "re_test",
+      ALLOWLIST_JSON: "[]",
     })
     expect((await issue(production, "ada@example.com")).status).toBe(200)
     expect(post).toHaveBeenCalledTimes(1)

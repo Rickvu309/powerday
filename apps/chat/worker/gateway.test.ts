@@ -52,3 +52,26 @@ test("streams Workers AI through the configured gateway without a provider key",
 test("refuses a Workers AI catalog without the binding or gateway name", () => {
   expect(() => modelGateway({}, catalog)).toThrow("Workers AI needs")
 })
+
+test.each([
+  {},
+  { AI_GATEWAY_ACCOUNT_ID: "test-account" },
+  { AI_GATEWAY_NAME: "test-gateway" },
+  { AI_GATEWAY_TOKEN: "test-token" },
+])("keeps local mock models usable with incomplete gateway config: %j", (env) => {
+  const mockCatalog = parseCatalog(catalogConfig)
+  expect(modelGateway(env, mockCatalog).model([...mockCatalog.models.values()][0]!)).toBeDefined()
+})
+
+test.each([
+  {},
+  { AI_GATEWAY_ACCOUNT_ID: "test-account", AI_GATEWAY_NAME: "test-gateway" },
+  { AI_GATEWAY_NAME: "test-gateway", AI_GATEWAY_TOKEN: "test-token" },
+  { AI_GATEWAY_ACCOUNT_ID: "test-account", AI_GATEWAY_TOKEN: "test-token" },
+])("refuses external providers rather than bypassing an incomplete gateway: %j", (env) => {
+  const externalCatalog = parseCatalog({
+    ...catalogConfig,
+    providers: [{ id: "mock", kind: "openai", label: "External" }],
+  })
+  expect(() => modelGateway(env, externalCatalog)).toThrow("needs the AI Gateway")
+})
