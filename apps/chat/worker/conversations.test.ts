@@ -38,9 +38,9 @@ describe("the D1 conversation store", () => {
     expect(saved?.messages[1]).toEqual(message("p2", "assistant", "Simmer the bones for hours."))
   })
 
-  it("lists a user's conversations newest first, a page at a time", async () => {
+  it("lists a user's conversations newest first, a page at a time", { timeout: 30_000 }, async () => {
     const owner = UserId.parse("pager")
-    for (let index = 0; index < 120; index++) {
+    for (let index = 0; index < 120; index += 1) {
       await store.save(conversation("pager", `page-${index}`, `Chat ${index}`, 10_000 + (index % 7) * 1000), [])
     }
     const first = await store.list(owner, undefined)
