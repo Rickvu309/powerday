@@ -54,7 +54,9 @@ const setup = (overrides: Partial<ChatDeps> = {}) => {
       delete: async () => false,
       search: async () => [],
       get: async (owner, id) => saved.get(JSON.stringify([owner, id])),
-      claim: async (conversation, message, reply) => {
+      claim: async (conversation, message, reply, allowance) => {
+        if (allowance && (await deps.ledger.spent(conversation.owner, allowance.since)) >= allowance.tokens)
+          return undefined
         const key = JSON.stringify([conversation.owner, conversation.id])
         const prior = saved.get(key)
         if (
@@ -75,8 +77,10 @@ const setup = (overrides: Partial<ChatDeps> = {}) => {
         saved.set(key, claimed)
         return claimed
       },
-      save: async (conversation, messages) =>
-        void saved.set(JSON.stringify([conversation.owner, conversation.id]), { conversation, messages }),
+      save: async (conversation, messages, usage) => {
+        if (usage) await deps.ledger.record(usage)
+        saved.set(JSON.stringify([conversation.owner, conversation.id]), { conversation, messages })
+      },
     },
     ledger: {
       record: async (event) => {
@@ -115,7 +119,7 @@ const textOf = (message: ChatMessage | undefined) =>
   message?.parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("")
 
 describe("POST /api/chat", () => {
-  it("blocks at the cap before claiming a message or calling the model, then resets", async () => {
+  it("blocks at the cap without saving a message or calling the model, then resets", async () => {
     const { app, deps, settle } = setup()
     let now = new Date("2026-11-16T23:59:00Z")
     vi.spyOn(deps.clock, "now").mockImplementation(() => now)
@@ -128,7 +132,8 @@ describe("POST /api/chat", () => {
     expect(await response.json()).toEqual({ error: "usage limit", resetsAt: "2026-11-17T00:00:00.000Z" })
     expect(response.headers.get("Retry-After")).toBe("60")
     expect(model).not.toHaveBeenCalled()
-    expect(claim).not.toHaveBeenCalled()
+    expect(claim).toHaveBeenCalledTimes(1)
+    expect(await deps.store.get(user, ConversationId.parse("c1"))).toBeUndefined()
     expect(spent).toHaveBeenCalledWith(user, new Date("2026-11-16T00:00:00Z"))
     now = new Date("2026-11-17T00:00:00Z")
     spent.mockImplementation(async (_, since) => (since.getTime() >= now.getTime() ? 0 : 10))
@@ -180,44 +185,28 @@ describe("POST /api/chat", () => {
     expect(usageEvents).toHaveLength(1)
   })
 
-  it("never saves a complete reply without a usage event when billing fails", async () => {
+  it("retains the claim when atomic completion retries are exhausted", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {})
-    const record = vi.fn(async () => {
-      throw new Error("ledger unavailable")
-    })
     const { app, deps, usageEvents, settle } = setup()
-    vi.spyOn(deps.ledger, "record").mockImplementation(record)
-    const save = deps.store.save
-    const completeWithoutUsage: string[] = []
-    vi.spyOn(deps.store, "save").mockImplementation(async (conversation, messages) => {
-      for (const message of messages) {
-        if (message.metadata?.reply?.state === "complete" && !usageEvents.some((e) => e.message === message.id)) {
-          completeWithoutUsage.push(message.id)
-        }
-      }
-      await save(conversation, messages)
-    })
+    const save = vi.spyOn(deps.store, "save").mockRejectedValue(new Error("completion unavailable"))
     await (await send(app, hello)).text()
-    const backgroundErrors: unknown[] = []
-    await settle().catch((error) => backgroundErrors.push(error))
-    expect(completeWithoutUsage).toEqual([])
+    await settle()
+    expect(usageEvents).toEqual([])
     expect((await deps.store.get(user, ConversationId.parse("c1")))?.messages.at(-1)?.metadata?.reply).toEqual({
-      state: "failed",
-      error: "The reply could not be billed. Please contact support.",
+      state: "streaming",
     })
-    expect(backgroundErrors).toEqual([])
-    expect(record).toHaveBeenCalledTimes(3)
-    expect(log).toHaveBeenCalledWith(expect.objectContaining({ event: "chat.billing_failed", message: "a1" }))
-    log.mockRestore()
+    expect((await send(app, { ...hello, id: "m2" })).status).toBe(409)
+    expect(save).toHaveBeenCalledTimes(3)
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({ event: "chat.completion_failed", message: "a1" }))
   })
 
-  it("retries billing before saving complete and does not double-charge an ambiguous write", async () => {
+  it("retries atomic completion and does not double-charge an ambiguous write", async () => {
     const { app, deps, usageEvents, settle } = setup()
-    const record = deps.ledger.record
+    const save = deps.store.save
     let attempts = 0
-    vi.spyOn(deps.ledger, "record").mockImplementation(async (event) => {
+    vi.spyOn(deps.store, "save").mockImplementation(async (...args) => {
       attempts++
-      await record(event)
+      await save(...args)
       if (attempts === 1) throw new Error("write committed but acknowledgement lost")
     })
     await (await send(app, hello)).text()

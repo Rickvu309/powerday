@@ -1,6 +1,7 @@
 import * as z from "zod"
 import { ModelId } from "./catalog.js"
 import { ConversationId, UserId } from "./ids.js"
+import type { UsageEvent } from "./usage.js"
 import type { ChatMessage } from "./message.js"
 
 export const Conversation = z
@@ -64,7 +65,7 @@ export type ConversationStore = {
     reply: ChatMessage,
     allowance?: { readonly since: Date; readonly tokens: number },
   ) => Promise<SavedConversation | undefined>
-  readonly save: (conversation: Conversation, messages: readonly ChatMessage[]) => Promise<void>
+  readonly save: (conversation: Conversation, messages: readonly ChatMessage[], usage?: UsageEvent) => Promise<void>
   readonly rename: (owner: UserId, id: ConversationId, title: string) => Promise<boolean>
   readonly delete: (owner: UserId, id: ConversationId) => Promise<boolean>
   readonly search: (owner: UserId, query: string) => Promise<readonly Found[]>

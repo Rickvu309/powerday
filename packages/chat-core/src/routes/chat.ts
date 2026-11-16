@@ -3,7 +3,7 @@ import * as z from "zod"
 import { ModelId } from "../catalog.js"
 import { ConversationId } from "../ids.js"
 import type { ChatMessage, Reply } from "../message.js"
-import { decide, periodOf, type UsageEvent, type UsageLedger } from "../usage.js"
+import { decide, periodOf, type UsageEvent } from "../usage.js"
 import type { Handler, Reader } from "../wire.js"
 
 const Envelope = z
@@ -26,7 +26,6 @@ export const read: Reader<ChatRequest> = ({ body }) => {
 }
 
 const failure = "The model failed to answer."
-const billingFailure = "The reply could not be billed. Please contact support."
 
 const refuse = (status: number, error: string) => Response.json({ error }, { status })
 
@@ -37,17 +36,6 @@ const estimate = (text: string) => Math.ceil([...text].length / 4)
 
 const titleOf = (message: ChatMessage) => textOf([message]).replace(/\s+/g, " ").trim().slice(0, 80)
 
-const recordUsage = async (ledger: UsageLedger, event: UsageEvent) => {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      await ledger.record(event)
-      return
-    } catch (error) {
-      if (attempt === 2) throw error
-    }
-  }
-}
-
 export const handle: Handler<ChatRequest> = async (input, { deps, request }) => {
   const started = deps.clock.now()
   const user = await deps.auth.user(request)
@@ -57,9 +45,7 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
   if (entry.status === "disabled") return refuse(422, `model ${input.model} is disabled`)
 
   const prior = await deps.store.get(user, input.id)
-  if (
-    prior?.messages.some((message) => message.id === input.message.id || message.metadata?.reply?.state === "streaming")
-  ) {
+  if (prior?.messages.some((message) => message.id === input.message.id)) {
     return refuse(409, "message already answered or in progress")
   }
   const allowance = await deps.ledger.allowance(user)
@@ -75,8 +61,7 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
       },
     )
   }
-  const limited = await limitResponse()
-  if (limited) return limited
+  await deps.ledger.spent(user, periodOf(allowance.period, started).start)
   const now = deps.clock.now()
   const pending: ChatMessage = {
     id: deps.ids.message(),
@@ -104,6 +89,7 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
   let failed = false
   const result = streamText({
     model,
+    timeout: { totalMs: 120_000 },
     messages: await convertToModelMessages(messages),
     onError: ({ error }) => {
       failed = true
@@ -120,25 +106,31 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
       reasoningTokens: reported?.outputTokenDetails.reasoningTokens ?? 0,
     }
     const at = deps.clock.now()
-    let reply: Reply = failed ? { state: "failed", error: failure } : { state: aborted ? "stopped" : "complete", usage }
-    try {
-      await recordUsage(deps.ledger, {
-        ...usage,
-        estimated: reported?.inputTokens === undefined || reported.outputTokens === undefined,
-        user,
-        conversation: input.id,
-        message: pending.id,
-        model: entry.id,
-        at,
-      })
-    } catch (error) {
-      reply = { state: "failed", error: billingFailure }
-      console.error({ event: "chat.billing_failed", user, conversation: input.id, message: pending.id, error })
+    const reply: Reply = failed
+      ? { state: "failed", error: failure }
+      : { state: aborted ? "stopped" : "complete", usage }
+    const event: UsageEvent = {
+      ...usage,
+      estimated: reported?.inputTokens === undefined || reported.outputTokens === undefined,
+      user,
+      conversation: input.id,
+      message: pending.id,
+      model: entry.id,
+      at,
     }
-    await deps.store.save({ ...claimed.conversation, updatedAt: at }, [
-      ...messages,
-      { ...answer, id: pending.id, metadata: { model: entry.id, reply } },
-    ])
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await deps.store.save(
+          { ...claimed.conversation, updatedAt: at },
+          [...messages, { ...answer, id: pending.id, metadata: { model: entry.id, reply } }],
+          event,
+        )
+        return
+      } catch (error) {
+        if (attempt === 2)
+          console.error({ event: "chat.completion_failed", user, conversation: input.id, message: pending.id, error })
+      }
+    }
   }
 
   return result.toUIMessageStreamResponse<ChatMessage>({

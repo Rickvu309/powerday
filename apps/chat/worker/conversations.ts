@@ -31,7 +31,24 @@ export const matchQuery = (query: string) =>
 export const conversationStore = ({ DB: db }: Cloudflare.Env): ConversationStore => ({
   claim: async (conversation, message, reply, allowance) => {
     const { id, owner } = conversation
-    const [claimed, , history] = await db.batch<Record<string, unknown>>([
+    const [, , claimed, , history] = await db.batch<Record<string, unknown>>([
+      db
+        .prepare(`INSERT INTO usage_events (message, user, conversation, model, input_tokens, output_tokens,
+          cached_input_tokens, reasoning_tokens, at)
+        SELECT messages.id, messages.owner, messages.conversation, conversations.model,
+          coalesce(messages.reserved_tokens, ?3), 0, 0, 0, coalesce(messages.reserved_at, ?2)
+        FROM messages JOIN conversations ON conversations.owner = messages.owner AND conversations.id = messages.conversation
+        WHERE messages.owner = ?1 AND json_extract(body, '$.metadata.reply.state') = 'streaming'
+          AND coalesce(messages.lease_until, conversations.updated_at + 300000) <= ?2
+        ON CONFLICT (message) DO NOTHING`)
+        .bind(owner, conversation.updatedAt.getTime(), allowance?.tokens ?? 0),
+      db
+        .prepare(`UPDATE messages SET body = json_set(body, '$.metadata.reply',
+          json('{"state":"failed","error":"The reply expired. Its reservation was charged."}'))
+        WHERE owner = ?1 AND json_extract(body, '$.metadata.reply.state') = 'streaming'
+          AND coalesce(lease_until, (SELECT updated_at + 300000 FROM conversations
+            WHERE conversations.owner = messages.owner AND conversations.id = messages.conversation)) <= ?2`)
+        .bind(owner, conversation.updatedAt.getTime()),
       db
         .prepare(
           `INSERT INTO conversations (id, owner, title, model, created_at, updated_at)
@@ -65,13 +82,22 @@ export const conversationStore = ({ DB: db }: Cloudflare.Env): ConversationStore
         ),
       db
         .prepare(
-          `INSERT INTO messages (id, owner, conversation, position, body)
+          `INSERT INTO messages (id, owner, conversation, position, body, lease_until, reserved_tokens, reserved_at)
            SELECT json_extract(pair.value, '$.id'), ?2, ?1,
              (SELECT coalesce(max(position), -1) + 1 FROM messages WHERE owner = ?2 AND conversation = ?1) + pair.key,
-             pair.value
+             pair.value, ?4,
+             max(0, ?5 - (SELECT coalesce(sum(input_tokens + output_tokens), 0) FROM usage_events WHERE user = ?2 AND at >= ?6)), ?7
            FROM json_each(?3) AS pair WHERE changes() = 1`,
         )
-        .bind(id, owner, JSON.stringify([message, reply])),
+        .bind(
+          id,
+          owner,
+          JSON.stringify([message, reply]),
+          conversation.updatedAt.getTime() + 300_000,
+          allowance?.tokens ?? 0,
+          allowance?.since.getTime() ?? 0,
+          conversation.updatedAt.getTime(),
+        ),
       db
         .prepare(`SELECT body FROM messages WHERE owner = ?2 AND conversation = ?1 AND changes() = 2 ORDER BY position`)
         .bind(id, owner),
@@ -118,8 +144,37 @@ export const conversationStore = ({ DB: db }: Cloudflare.Env): ConversationStore
     }
   },
 
-  save: async (conversation, messages) => {
+  save: async (conversation, messages, usage) => {
     const { id, owner } = conversation
+    if (usage !== undefined) {
+      const answer = messages.find((message) => message.id === usage.message)
+      if (answer === undefined) throw new Error("completion has no reply")
+      await db.batch([
+        db
+          .prepare(`UPDATE messages SET body = ?4 WHERE owner = ?1 AND conversation = ?2 AND id = ?3
+          AND json_extract(body, '$.metadata.reply.state') = 'streaming' AND lease_until > ?5`)
+          .bind(owner, id, usage.message, JSON.stringify(answer), usage.at.getTime()),
+        db
+          .prepare(`INSERT INTO usage_events (message, user, conversation, model, input_tokens, output_tokens,
+            cached_input_tokens, reasoning_tokens, at)
+          SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9 WHERE changes() = 1`)
+          .bind(
+            usage.message,
+            owner,
+            id,
+            usage.model,
+            usage.inputTokens,
+            usage.outputTokens,
+            usage.cachedInputTokens,
+            usage.reasoningTokens,
+            usage.at.getTime(),
+          ),
+        db
+          .prepare(`UPDATE conversations SET updated_at = ?3 WHERE owner = ?1 AND id = ?2 AND changes() = 1`)
+          .bind(owner, id, conversation.updatedAt.getTime()),
+      ])
+      return
+    }
     await db.batch([
       db
         .prepare(
