@@ -1,6 +1,6 @@
 import * as z from "zod"
 import type { ModelId } from "./catalog.js"
-import type { ConversationId, UserId } from "./ids.js"
+import { UserId, type ConversationId } from "./ids.js"
 
 const count = z.int().nonnegative()
 
@@ -19,6 +19,11 @@ export type UsageEvent = Usage & {
 }
 
 export type Period = "day" | "month"
+
+const Limit = z.strictObject({ period: z.enum(["day", "month"]), tokens: z.int().nonnegative() }).readonly()
+
+export const UsageLimits = z.strictObject({ default: Limit, overrides: z.record(UserId, Limit) }).readonly()
+export type UsageLimits = z.infer<typeof UsageLimits>
 
 export type Allowance = {
   readonly user: UserId

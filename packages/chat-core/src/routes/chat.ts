@@ -3,7 +3,7 @@ import * as z from "zod"
 import { ModelId } from "../catalog.js"
 import { ConversationId } from "../ids.js"
 import type { ChatMessage, Reply } from "../message.js"
-import type { UsageEvent, UsageLedger } from "../usage.js"
+import { decide, periodOf, type UsageEvent, type UsageLedger } from "../usage.js"
 import type { Handler, Reader } from "../wire.js"
 
 const Envelope = z
@@ -61,6 +61,18 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
     prior?.messages.some((message) => message.id === input.message.id || message.metadata?.reply?.state === "streaming")
   ) {
     return refuse(409, "message already answered or in progress")
+  }
+  const allowance = await deps.ledger.allowance(user)
+  const spent = await deps.ledger.spent(user, periodOf(allowance.period, started).start)
+  const decision = decide(spent, allowance, started)
+  if (!decision.allowed) {
+    return Response.json(
+      { error: "usage limit", resetsAt: decision.resetsAt.toISOString() },
+      {
+        status: 429,
+        headers: { "Retry-After": String(Math.ceil((decision.resetsAt.getTime() - started.getTime()) / 1000)) },
+      },
+    )
   }
   const model = deps.gateway.model(entry)
   const now = deps.clock.now()

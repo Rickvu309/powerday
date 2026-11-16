@@ -115,6 +115,45 @@ const textOf = (message: ChatMessage | undefined) =>
   message?.parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("")
 
 describe("POST /api/chat", () => {
+  it("blocks at the cap before claiming a message or calling the model, then resets", async () => {
+    const { app, deps, settle } = setup()
+    let now = new Date("2026-11-16T23:59:00Z")
+    vi.spyOn(deps.clock, "now").mockImplementation(() => now)
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 10 })
+    const spent = vi.spyOn(deps.ledger, "spent").mockResolvedValue(10)
+    const model = vi.spyOn(deps.gateway, "model")
+    const claim = vi.spyOn(deps.store, "claim")
+    const response = await send(app, hello)
+    expect(response.status).toBe(429)
+    expect(await response.json()).toEqual({ error: "usage limit", resetsAt: "2026-11-17T00:00:00.000Z" })
+    expect(response.headers.get("Retry-After")).toBe("60")
+    expect(model).not.toHaveBeenCalled()
+    expect(claim).not.toHaveBeenCalled()
+    expect(spent).toHaveBeenCalledWith(user, new Date("2026-11-16T00:00:00Z"))
+    now = new Date("2026-11-17T00:00:00Z")
+    spent.mockImplementation(async (_, since) => (since.getTime() >= now.getTime() ? 0 : 10))
+    const next = await send(app, hello)
+    expect(next.status).toBe(200)
+    await next.text()
+    await settle()
+  })
+
+  it("finishes a reply that crosses the cap and blocks the next request", async () => {
+    const { app, deps, usageEvents, settle } = setup()
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "month", tokens: 5 })
+    vi.spyOn(deps.ledger, "spent").mockImplementation(async () =>
+      usageEvents.reduce((sum, event) => sum + event.inputTokens + event.outputTokens, 0),
+    )
+    const first = await send(app, hello)
+    expect(first.status).toBe(200)
+    await first.text()
+    await settle()
+    expect(usageEvents).toHaveLength(1)
+    expect(usageEvents[0]).toMatchObject({ inputTokens: 7, outputTokens: 3 })
+    expect((await send(app, { ...hello, id: "m2" })).status).toBe(429)
+    expect(usageEvents).toHaveLength(1)
+  })
+
   it("never saves a complete reply without a usage event when billing fails", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {})
     const record = vi.fn(async () => {

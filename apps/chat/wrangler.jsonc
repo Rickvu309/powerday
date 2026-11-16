@@ -25,6 +25,7 @@
     "MAIL_FROM": "sign-in@powerday.work",
     "ALLOWLIST": [],
     "AI_GATEWAY_NAME": "power-chat",
+    "USAGE_LIMITS": { "default": { "period": "day", "tokens": 100000 }, "overrides": {} },
     "CATALOG": {
       "providers": [{ "id": "cloudflare", "kind": "workers-ai", "label": "Cloudflare" }],
       "models": [

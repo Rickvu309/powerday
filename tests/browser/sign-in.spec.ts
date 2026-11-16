@@ -170,6 +170,7 @@ test("an allowlist change revokes a real browser session and clears its draft on
         APP_URL: baseURL,
         MAIL_FROM: "test@example.com",
         ALLOWLIST: ["powerday.work"],
+        USAGE_LIMITS: { default: { period: "day", tokens: 100000 }, overrides: {} },
         CATALOG: {
           providers: [{ id: "mock", kind: "mock", label: "Mock" }],
           models: [],
