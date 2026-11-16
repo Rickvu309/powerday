@@ -63,7 +63,7 @@ export type ConversationStore = {
     conversation: Conversation,
     message: ChatMessage,
     reply: ChatMessage,
-    allowance?: { readonly since: Date; readonly tokens: number },
+    allowance?: { readonly since: Date; readonly tokens: number; readonly reservation?: number },
   ) => Promise<SavedConversation | undefined>
   readonly save: (conversation: Conversation, messages: readonly ChatMessage[], usage?: UsageEvent) => Promise<void>
   readonly rename: (owner: UserId, id: ConversationId, title: string) => Promise<boolean>

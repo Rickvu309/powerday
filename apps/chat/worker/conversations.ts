@@ -63,7 +63,7 @@ export const conversationStore = ({ DB: db }: Cloudflare.Env): ConversationStore
                AND json_extract(body, '$.metadata.reply.state') = 'streaming'
              )
              AND (SELECT coalesce(sum(input_tokens + output_tokens), 0) FROM usage_events
-               WHERE user = ?2 AND at >= ?9) < ?10
+               WHERE user = ?2 AND at >= ?9) + ?11 <= ?10
            ))
            ON CONFLICT (owner, id) DO UPDATE SET model = excluded.model, updated_at = excluded.updated_at
            RETURNING ${columns}`,
@@ -79,6 +79,7 @@ export const conversationStore = ({ DB: db }: Cloudflare.Env): ConversationStore
           reply.id,
           allowance?.since.getTime() ?? null,
           allowance?.tokens ?? null,
+          allowance?.reservation ?? 1,
         ),
       db
         .prepare(
@@ -86,7 +87,7 @@ export const conversationStore = ({ DB: db }: Cloudflare.Env): ConversationStore
            SELECT json_extract(pair.value, '$.id'), ?2, ?1,
              (SELECT coalesce(max(position), -1) + 1 FROM messages WHERE owner = ?2 AND conversation = ?1) + pair.key,
              pair.value, ?4,
-             max(0, ?5 - (SELECT coalesce(sum(input_tokens + output_tokens), 0) FROM usage_events WHERE user = ?2 AND at >= ?6)), ?7
+             coalesce(?8, max(0, ?5 - (SELECT coalesce(sum(input_tokens + output_tokens), 0) FROM usage_events WHERE user = ?2 AND at >= ?6))), ?7
            FROM json_each(?3) AS pair WHERE changes() = 1`,
         )
         .bind(
@@ -97,6 +98,7 @@ export const conversationStore = ({ DB: db }: Cloudflare.Env): ConversationStore
           allowance?.tokens ?? 0,
           allowance?.since.getTime() ?? 0,
           conversation.updatedAt.getTime(),
+          allowance?.reservation ?? null,
         ),
       db
         .prepare(`SELECT body FROM messages WHERE owner = ?2 AND conversation = ?1 AND changes() = 2 ORDER BY position`)

@@ -93,7 +93,7 @@ const setup = (overrides: Partial<ChatDeps> = {}) => {
         }
       },
       spent: async () => 0,
-      allowance: async () => ({ user, period: "day", tokens: 1000 }),
+      allowance: async () => ({ user, period: "day", tokens: 10000 }),
     },
     auth: { user: async () => user, handle: async () => new Response() },
     clock: { now: () => new Date() },
@@ -123,8 +123,8 @@ describe("POST /api/chat", () => {
     const { app, deps, settle } = setup()
     let now = new Date("2026-11-16T23:59:00Z")
     vi.spyOn(deps.clock, "now").mockImplementation(() => now)
-    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 10 })
-    const spent = vi.spyOn(deps.ledger, "spent").mockResolvedValue(10)
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 100 })
+    const spent = vi.spyOn(deps.ledger, "spent").mockResolvedValue(100)
     const model = vi.spyOn(deps.gateway, "model")
     const claim = vi.spyOn(deps.store, "claim")
     const response = await send(app, hello)
@@ -132,11 +132,11 @@ describe("POST /api/chat", () => {
     expect(await response.json()).toEqual({ error: "usage limit", resetsAt: "2026-11-17T00:00:00.000Z" })
     expect(response.headers.get("Retry-After")).toBe("60")
     expect(model).not.toHaveBeenCalled()
-    expect(claim).toHaveBeenCalledTimes(1)
+    expect(claim).not.toHaveBeenCalled()
     expect(await deps.store.get(user, ConversationId.parse("c1"))).toBeUndefined()
     expect(spent).toHaveBeenCalledWith(user, new Date("2026-11-16T00:00:00Z"))
     now = new Date("2026-11-17T00:00:00Z")
-    spent.mockImplementation(async (_, since) => (since.getTime() >= now.getTime() ? 0 : 10))
+    spent.mockImplementation(async (_, since) => (since.getTime() >= now.getTime() ? 0 : 100))
     const next = await send(app, hello)
     expect(next.status).toBe(200)
     await next.text()
@@ -145,8 +145,8 @@ describe("POST /api/chat", () => {
 
   it("returns the cap response when another reply records usage before the atomic claim", async () => {
     const { app, deps } = setup()
-    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 10 })
-    vi.spyOn(deps.ledger, "spent").mockResolvedValueOnce(9).mockResolvedValue(10)
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 100 })
+    vi.spyOn(deps.ledger, "spent").mockResolvedValueOnce(0).mockResolvedValue(100)
     vi.spyOn(deps.store, "claim").mockResolvedValue(undefined)
     const model = vi.spyOn(deps.gateway, "model")
     const response = await send(app, hello)
@@ -154,7 +154,8 @@ describe("POST /api/chat", () => {
     expect(model).not.toHaveBeenCalled()
     expect(deps.store.claim).toHaveBeenCalledWith(expect.anything(), hello, expect.anything(), {
       since: expect.any(Date),
-      tokens: 10,
+      tokens: 100,
+      reservation: 100,
     })
   })
 
@@ -169,9 +170,9 @@ describe("POST /api/chat", () => {
     expect(claim).not.toHaveBeenCalled()
   })
 
-  it("finishes a reply that crosses the cap and blocks the next request", async () => {
+  it("finishes a budgeted reply and blocks a follow-up that cannot fit", async () => {
     const { app, deps, usageEvents, settle } = setup()
-    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "month", tokens: 5 })
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "month", tokens: 40 })
     vi.spyOn(deps.ledger, "spent").mockImplementation(async () =>
       usageEvents.reduce((sum, event) => sum + event.inputTokens + event.outputTokens, 0),
     )
@@ -225,8 +226,8 @@ describe("POST /api/chat", () => {
     expect(usageEvents).toEqual([
       expect.objectContaining({
         message: "a1",
-        inputTokens: 3,
-        outputTokens: 5,
+        inputTokens: 22,
+        outputTokens: 7,
         estimated: true,
       }),
     ])

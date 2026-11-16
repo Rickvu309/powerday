@@ -42,7 +42,7 @@ it.each(["billing", "reply"])(
         store: conversationStore(platform.env),
         ledger: usageLedger({
           ...platform.env,
-          USAGE_LIMITS: { default: { period: "day", tokens: 1 }, overrides: {} },
+          USAGE_LIMITS: { default: { period: "day", tokens: 100 }, overrides: {} },
         }),
         auth: { user: async () => UserId.parse("alice"), handle: async () => new Response() },
         clock: { now: () => now },

@@ -3,8 +3,12 @@ import * as z from "zod"
 import { ModelId } from "../catalog.js"
 import { ConversationId } from "../ids.js"
 import type { ChatMessage, Reply } from "../message.js"
-import { decide, periodOf, type UsageEvent } from "../usage.js"
+import { periodOf, type UsageEvent } from "../usage.js"
 import type { Handler, Reader } from "../wire.js"
+
+const maxMessageCharacters = 100_000
+const maxReplyTokens = 4096
+const minimumReplyTokens = 16
 
 const Envelope = z
   .strictObject({
@@ -13,7 +17,10 @@ const Envelope = z
     message: z.strictObject({
       id: z.string().min(1).max(128),
       role: z.literal("user"),
-      parts: z.array(z.strictObject({ type: z.literal("text"), text: z.string().min(1) })).min(1),
+      parts: z
+        .array(z.strictObject({ type: z.literal("text"), text: z.string().min(1).max(maxMessageCharacters) }))
+        .min(1)
+        .max(1000),
     }),
   })
   .readonly()
@@ -22,7 +29,9 @@ export type ChatRequest = z.infer<typeof Envelope>
 
 export const read: Reader<ChatRequest> = ({ body }) => {
   const envelope = Envelope.safeParse(body)
-  return envelope.success ? { ok: true, value: envelope.data } : { ok: false, refusal: "body" }
+  return envelope.success && textOf([envelope.data.message]).length <= maxMessageCharacters
+    ? { ok: true, value: envelope.data }
+    : { ok: false, refusal: "body" }
 }
 
 const failure = "The model failed to answer."
@@ -32,7 +41,7 @@ const refuse = (status: number, error: string) => Response.json({ error }, { sta
 const textOf = (messages: readonly ChatMessage[]) =>
   messages.flatMap((message) => message.parts.flatMap((part) => (part.type === "text" ? [part.text] : []))).join("\n")
 
-const estimate = (text: string) => Math.ceil([...text].length / 4)
+const estimate = (text: string) => Math.ceil(text.length / 3)
 
 const titleOf = (message: ChatMessage) => textOf([message]).replace(/\s+/g, " ").trim().slice(0, 80)
 
@@ -49,19 +58,24 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
     return refuse(409, "message already answered or in progress")
   }
   const allowance = await deps.ledger.allowance(user)
-  const limitResponse = async () => {
-    const spent = await deps.ledger.spent(user, periodOf(allowance.period, started).start)
-    const decision = decide(spent, allowance, started)
-    if (decision.allowed) return undefined
+  const since = periodOf(allowance.period, started).start
+  const modelMessages = await convertToModelMessages([...(prior?.messages ?? []), input.message])
+  const inputTokens = estimate(JSON.stringify(modelMessages))
+  const limitResponse = () => {
+    const resetsAt = periodOf(allowance.period, started).end
     return Response.json(
-      { error: "usage limit", resetsAt: decision.resetsAt.toISOString() },
+      { error: "usage limit", resetsAt: resetsAt.toISOString() },
       {
         status: 429,
-        headers: { "Retry-After": String(Math.ceil((decision.resetsAt.getTime() - started.getTime()) / 1000)) },
+        headers: { "Retry-After": String(Math.ceil((resetsAt.getTime() - started.getTime()) / 1000)) },
       },
     )
   }
-  await deps.ledger.spent(user, periodOf(allowance.period, started).start)
+  const spent = await deps.ledger.spent(user, since)
+  const remaining = allowance.tokens - spent
+  if (remaining < inputTokens + minimumReplyTokens) return limitResponse()
+  const maxOutputTokens = Math.min(remaining - inputTokens, maxReplyTokens)
+  const reservation = inputTokens + maxOutputTokens
   const now = deps.clock.now()
   const pending: ChatMessage = {
     id: deps.ids.message(),
@@ -80,9 +94,14 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
     },
     input.message,
     pending,
-    { since: periodOf(allowance.period, started).start, tokens: allowance.tokens },
+    { since, tokens: allowance.tokens, reservation },
   )
-  if (claimed === undefined) return (await limitResponse()) ?? refuse(409, "message already answered or in progress")
+  if (claimed === undefined) {
+    const currentSpent = await deps.ledger.spent(user, since)
+    return allowance.tokens - currentSpent < reservation
+      ? limitResponse()
+      : refuse(409, "message already answered or in progress")
+  }
   const model = deps.gateway.model(entry)
   const messages = claimed.messages.slice(0, -1)
 
@@ -90,7 +109,8 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
   const result = streamText({
     model,
     timeout: { totalMs: 120_000 },
-    messages: await convertToModelMessages(messages),
+    messages: modelMessages,
+    maxOutputTokens,
     onError: ({ error }) => {
       failed = true
       console.error(error)
@@ -100,7 +120,7 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
   const finish = async (answer: ChatMessage, aborted: boolean) => {
     const reported = await Promise.resolve(result.totalUsage).catch(() => undefined)
     const usage = {
-      inputTokens: reported?.inputTokens ?? estimate(textOf(messages)),
+      inputTokens: reported?.inputTokens ?? inputTokens,
       outputTokens: reported?.outputTokens ?? estimate(textOf([answer])),
       cachedInputTokens: reported?.inputTokenDetails.cacheReadTokens ?? 0,
       reasoningTokens: reported?.outputTokenDetails.reasoningTokens ?? 0,
