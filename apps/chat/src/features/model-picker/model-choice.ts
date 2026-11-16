@@ -5,7 +5,8 @@ import * as z from "zod"
 export type Models =
   | { readonly state: "loading" }
   | { readonly state: "failed" }
-  | { readonly state: "ready"; readonly models: readonly ListedModel[]; readonly chosen: ListedModel | undefined }
+  | { readonly state: "empty" }
+  | { readonly state: "ready"; readonly models: readonly ListedModel[]; readonly chosen: ListedModel }
 
 const ModelList = z.object({
   models: z.array(
@@ -49,10 +50,11 @@ export const modelChoice = (load: () => Promise<readonly ListedModel[]>) => {
   const listeners = new Set<() => void>()
 
   const publish = () => {
-    snapshot =
-      typeof listed === "string"
-        ? { state: listed }
-        : { state: "ready", models: listed, chosen: listed.find((model) => model.id === preferred) ?? listed[0] }
+    if (typeof listed === "string") snapshot = { state: listed }
+    else {
+      const chosen = listed.find((model) => model.id === preferred) ?? listed[0]
+      snapshot = chosen === undefined ? { state: "empty" } : { state: "ready", models: listed, chosen }
+    }
     for (const listener of listeners) listener()
   }
 

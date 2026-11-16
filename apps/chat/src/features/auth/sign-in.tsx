@@ -110,7 +110,7 @@ export function SignIn({ google, initial }: SignInProps) {
           />
         </label>
         {failure !== undefined && (
-          <p id="sign-in-failure" role="alert" className="text-sm text-destructive">
+          <p id="sign-in-failure" role="alert" tabIndex={0} className="text-sm text-destructive">
             {failures[failure]}
           </p>
         )}
@@ -159,7 +159,7 @@ export function AccountUnavailable() {
     <main className="flex min-h-dvh items-center justify-center px-4 py-12">
       <div className="flex max-w-sm flex-col gap-3 text-center">
         <h1 className="text-2xl font-medium">Couldn't load your account</h1>
-        <p role="alert" className="text-sm text-muted-foreground">
+        <p role="alert" tabIndex={0} className="text-sm text-muted-foreground">
           Check your connection and try again.
         </p>
         <Button onClick={() => location.reload()}>Try again</Button>

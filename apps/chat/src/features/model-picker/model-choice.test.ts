@@ -23,3 +23,10 @@ test("a failed catalog reloads once and becomes ready", async () => {
   expect(choice.read()).toEqual({ state: "ready", models: [model], chosen: model })
   unsubscribe()
 })
+
+test("an empty catalog is empty, not failed", async () => {
+  const choice = modelChoice(async () => [])
+  const unsubscribe = choice.subscribe(() => {})
+  await expect.poll(choice.read).toEqual({ state: "empty" })
+  unsubscribe()
+})

@@ -62,7 +62,6 @@ test("the composer grows to its cap and preserves a draft while stopping", async
 })
 
 for (const [status, text] of [
-  [401, "Sign in to continue. Your message is still here."],
   [422, "This model is no longer available. Choose another model and retry."],
   [500, "Something went wrong with this reply. Try again."],
 ] as const) {

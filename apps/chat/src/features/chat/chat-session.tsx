@@ -12,6 +12,7 @@ type ContentProps = {
   stopped: ReadonlySet<string>
   attemptError: Error | undefined
   onRetry: () => void
+  onSignIn: (question: string, saved: boolean) => void
 }
 
 export const createSession = ({
@@ -37,12 +38,19 @@ export const createSession = ({
         }),
       }),
   })
-  function Content({ empty, stopped, attemptError, onRetry }: ContentProps) {
+  function Content({ empty, stopped, attemptError, onRetry, onSignIn }: ContentProps) {
     const { messages, status, error } = useChat({ chat, throttle: 32 })
     if (messages.length === 0) return empty
     return (
       <Suspense fallback={<div className="flex-1" />}>
-        <Thread messages={messages} status={status} error={attemptError ?? error} stopped={stopped} onRetry={onRetry} />
+        <Thread
+          messages={messages}
+          status={status}
+          error={attemptError ?? error}
+          stopped={stopped}
+          onRetry={onRetry}
+          onSignIn={onSignIn}
+        />
       </Suspense>
     )
   }

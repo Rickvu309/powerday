@@ -18,8 +18,23 @@ import { groupByAge } from "./age-groups"
 import { useConversationCache, useListing } from "./conversation-cache"
 import { ConversationItem, ConversationLink, type Go } from "./conversation-item"
 
-function Note({ children }: { children: ReactNode }) {
-  return <p className="px-2 text-sm text-muted-foreground">{children}</p>
+function Note({ role, children }: { role?: "status"; children: ReactNode }) {
+  return (
+    <p tabIndex={role === "status" ? 0 : undefined} role={role} className="px-2 text-sm text-muted-foreground">
+      {children}
+    </p>
+  )
+}
+
+function Retry({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <>
+      <Note role="status">{label}</Note>
+      <Button variant="link" size="sm" onClick={onClick}>
+        Try again
+      </Button>
+    </>
+  )
 }
 
 function Section({ label, children }: { label: string; children?: ReactNode }) {
@@ -65,10 +80,7 @@ function Recents({ go }: { go: Go }) {
   if (listing.status === "failed") {
     return (
       <Section label="Recents">
-        <Note>Couldn’t load your chats.</Note>
-        <Button variant="link" size="sm" onClick={() => cache.load()}>
-          Try again
-        </Button>
+        <Retry label="Couldn’t load your chats." onClick={cache.load} />
       </Section>
     )
   }
@@ -95,7 +107,13 @@ function Recents({ go }: { go: Go }) {
           </SidebarMenu>
         </Section>
       ))}
-      {listing.next !== undefined && <More key={listing.conversations.length} />}
+      {listing.moreFailed ? (
+        <SidebarGroup className="items-start group-data-[collapsible=icon]:hidden">
+          <Retry label="Couldn’t load older chats." onClick={cache.more} />
+        </SidebarGroup>
+      ) : (
+        listing.next !== undefined && <More key={listing.conversations.length} />
+      )}
     </>
   )
 }
@@ -145,7 +163,7 @@ function Results({ query, go }: { query: string; go: Go }) {
   const announcement = pending
     ? "Searching chats…"
     : search.status === "failed"
-      ? "Couldn’t search your chats. Try again."
+      ? "Couldn’t search your chats."
       : search.found.length === 0
         ? `No chats match “${search.query}”.`
         : `${search.found.length} ${search.found.length === 1 ? "chat" : "chats"} found.`
@@ -154,10 +172,9 @@ function Results({ query, go }: { query: string; go: Go }) {
       <div className="flex flex-col items-start gap-2">
         <p
           role="status"
+          tabIndex={0}
           className={
-            pending || search?.status !== "ready" || search.found.length === 0
-              ? "px-2 text-sm text-muted-foreground"
-              : "sr-only"
+            search?.status === "ready" && search.found.length > 0 ? "sr-only" : "px-2 text-sm text-muted-foreground"
           }
         >
           {announcement}

@@ -89,7 +89,9 @@ const post = (path: string, body: object) =>
   fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
 
 export const sendLink = async (email: string): Promise<Failure | undefined> => {
-  const response = await post("/api/auth/sign-in/magic-link", { email, callbackURL: "/" }).catch(() => undefined)
+  const response = await post("/api/auth/sign-in/magic-link", { email, callbackURL: location.pathname }).catch(
+    () => undefined,
+  )
   if (response?.ok) return undefined
   return response?.status === 403 ? "not-invited" : "unsent"
 }
@@ -98,7 +100,7 @@ export const continueWithGoogle = async (): Promise<Failure | undefined> => {
   try {
     const response = await post("/api/auth/sign-in/social", {
       provider: "google",
-      callbackURL: "/",
+      callbackURL: location.pathname,
       errorCallbackURL: "/",
     })
     if (!response.ok) return "unfinished"

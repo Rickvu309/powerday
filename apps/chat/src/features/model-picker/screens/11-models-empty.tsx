@@ -3,7 +3,7 @@ import { ModelChoice, modelChoice } from "../model-choice"
 
 const choice = modelChoice(async () => [])
 
-export default function ModelsState() {
+export default function ModelsEmpty() {
   return (
     <ModelChoice.Provider value={choice}>
       <App />

@@ -30,16 +30,20 @@ export function ModelPicker() {
   if (models.state === "failed") {
     return (
       <div className="flex flex-wrap items-center gap-2 px-2.5 text-sm text-muted-foreground">
-        <span>Couldn’t load models</span>
+        <span role="status" tabIndex={0}>
+          Couldn’t load models
+        </span>
         <Button variant="link" size="sm" className="text-sm" onClick={() => void reload()}>
           Try again
         </Button>
       </div>
     )
   }
-  if (models.chosen === undefined) {
+  if (models.state === "empty") {
     return (
-      <span className="px-2.5 text-sm text-muted-foreground">No models are enabled. Contact your administrator.</span>
+      <span role="status" tabIndex={0} className="px-2.5 text-sm text-muted-foreground">
+        No models available. Ask your administrator to turn one on.
+      </span>
     )
   }
   const { chosen } = models

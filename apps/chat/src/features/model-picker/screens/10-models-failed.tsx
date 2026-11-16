@@ -5,7 +5,7 @@ const choice = modelChoice(async () => {
   throw new Error("Catalog unavailable")
 })
 
-export default function ModelsState() {
+export default function ModelsFailed() {
   return (
     <ModelChoice.Provider value={choice}>
       <App />

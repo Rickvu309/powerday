@@ -15,7 +15,7 @@ export class ReplyProblem extends Error {
 export const tooLongMessage = "This message or chat is too long. Shorten your message or start a new chat."
 
 const problemByStatus = new Map([
-  [401, "Sign in to continue. Your message is still here."],
+  [401, "Your session expired. Sign in to continue. Your message will be kept."],
   [409, "A reply is already running or saved. Wait for it to finish, reopen that chat, then retry."],
   [413, tooLongMessage],
   [404, "This conversation could not be found."],
@@ -38,6 +38,8 @@ export const usageLimitOf = (error: unknown) =>
 export const tooLongOf = (error: unknown) => error instanceof ReplyProblem && error.status === 413
 
 const LimitResponse = z.object({ resetsAt: z.iso.datetime() })
+
+export const sessionExpired = (error: unknown) => error instanceof ReplyProblem && error.status === 401
 
 export const chatFetch: typeof fetch = async (input, init) => {
   const response = await fetch(input, init)
