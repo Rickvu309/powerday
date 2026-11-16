@@ -126,53 +126,75 @@ function Results({ query, go }: { query: string; go: Go }) {
   const cache = useConversationCache()
   const open = useOpenConversation()
   const [search, setSearch] = useState<Search>()
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
     cache.search(query, controller.signal).then(
-      (found) => setSearch({ query, status: "ready", found }),
+      (found) => {
+        if (!controller.signal.aborted) setSearch({ query, status: "ready", found })
+      },
       () => {
         if (!controller.signal.aborted) setSearch({ query, status: "failed" })
       },
     )
     return () => controller.abort()
-  }, [cache, query])
+  }, [cache, query, attempt])
 
-  if (search === undefined) return <Section label="Results" />
-  if (search.status === "failed") {
-    return (
-      <Section label="Results">
-        <Note>Search isn’t working right now.</Note>
-      </Section>
-    )
-  }
-  if (search.found.length === 0) {
-    return (
-      <Section label="Results">
-        <Note>No chats match “{search.query}”.</Note>
-      </Section>
-    )
-  }
+  const pending = search === undefined || search.query !== query
+  const announcement = pending
+    ? "Searching chats…"
+    : search.status === "failed"
+      ? "Couldn’t search your chats. Try again."
+      : search.found.length === 0
+        ? `No chats match “${search.query}”.`
+        : `${search.found.length} ${search.found.length === 1 ? "chat" : "chats"} found.`
   return (
     <Section label="Results">
-      <SidebarMenu aria-busy={search.query !== query}>
-        {search.found.map(({ conversation, snippet }) => (
-          <SidebarMenuItem key={conversation.id}>
-            <ConversationLink conversation={conversation} open={conversation.id === open} go={go}>
-              <span className="flex min-w-0 flex-col py-1">
-                <span className="truncate">
-                  <Highlighted text={conversation.title} query={search.query} />
-                </span>
-                {snippet && (
-                  <span className="line-clamp-2 text-xs whitespace-normal text-muted-foreground">
-                    <Highlighted text={snippet} query={search.query} />
+      <div className="flex flex-col items-start gap-2">
+        <p
+          role="status"
+          className={
+            pending || search?.status !== "ready" || search.found.length === 0
+              ? "px-2 text-sm text-muted-foreground"
+              : "sr-only"
+          }
+        >
+          {announcement}
+        </p>
+        {!pending && search?.status === "failed" && (
+          <Button
+            variant="link"
+            size="sm"
+            onClick={() => {
+              setSearch(undefined)
+              setAttempt((value) => value + 1)
+            }}
+          >
+            Try again
+          </Button>
+        )}
+      </div>
+      {search?.status === "ready" && (
+        <SidebarMenu aria-busy={pending}>
+          {search.found.map(({ conversation, snippet }) => (
+            <SidebarMenuItem key={conversation.id}>
+              <ConversationLink conversation={conversation} open={conversation.id === open} go={go}>
+                <span className="flex min-w-0 flex-col py-1">
+                  <span className="truncate">
+                    <Highlighted text={conversation.title} query={search.query} />
                   </span>
-                )}
-              </span>
-            </ConversationLink>
-          </SidebarMenuItem>
-        ))}
-      </SidebarMenu>
+                  {snippet && (
+                    <span className="line-clamp-2 text-xs whitespace-normal text-muted-foreground">
+                      <Highlighted text={snippet} query={search.query} />
+                    </span>
+                  )}
+                </span>
+              </ConversationLink>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      )}
     </Section>
   )
 }

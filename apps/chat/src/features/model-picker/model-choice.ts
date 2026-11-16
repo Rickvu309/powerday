@@ -56,19 +56,31 @@ export const modelChoice = (load: () => Promise<readonly ListedModel[]>) => {
     for (const listener of listeners) listener()
   }
 
-  return {
-    subscribe: (listener: () => void) => {
-      listeners.add(listener)
-      loading ??= load().then(
+  const reload = () => {
+    if (loading !== undefined) return loading
+    listed = "loading"
+    publish()
+    loading = load()
+      .then(
         (models) => {
           listed = models
-          publish()
         },
         () => {
           listed = "failed"
-          publish()
         },
       )
+      .finally(() => {
+        loading = undefined
+        publish()
+      })
+    return loading
+  }
+
+  return {
+    reload,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener)
+      if (snapshot.state === "loading") void reload()
       return () => {
         listeners.delete(listener)
       }
@@ -86,5 +98,5 @@ export const ModelChoice = createContext(modelChoice(fetchModels))
 
 export const useModels = () => {
   const choice = useContext(ModelChoice)
-  return { models: useSyncExternalStore(choice.subscribe, choice.read), choose: choice.choose }
+  return { models: useSyncExternalStore(choice.subscribe, choice.read), choose: choice.choose, reload: choice.reload }
 }
