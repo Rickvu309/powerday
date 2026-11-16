@@ -12,6 +12,7 @@ export const localD1 = async (
   const proxy = await getPlatformProxy<Cloudflare.Env>({
     configPath: path.join(import.meta.dirname, "../wrangler.jsonc"),
     persist,
+    remoteBindings: false,
   })
   for (const file of readdirSync(migrations).sort()) {
     if (file.startsWith("0002")) await beforeUpgrade?.(proxy.env.DB)

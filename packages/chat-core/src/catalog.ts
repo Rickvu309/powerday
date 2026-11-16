@@ -11,7 +11,7 @@ export type ModelId = z.infer<typeof ModelId>
 export const PriceId = z.string().regex(slug).brand("PriceId")
 export type PriceId = z.infer<typeof PriceId>
 
-const ProviderKind = z.enum(["openai", "anthropic", "google", "openai-compatible", "mock"])
+const ProviderKind = z.enum(["openai", "anthropic", "google", "openai-compatible", "workers-ai", "mock"])
 export type ProviderKind = z.infer<typeof ProviderKind>
 
 const Provider = z.strictObject({ id: ProviderId, kind: ProviderKind, label: z.string().min(1) }).readonly()

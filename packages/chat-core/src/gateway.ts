@@ -80,14 +80,24 @@ const connections = {
   openai: throughGateway("openai", createOpenAI),
   anthropic: throughGateway("anthropic/v1", createAnthropic),
   google: throughGateway("google-ai-studio/v1beta", createGoogleGenerativeAI),
+  "workers-ai": (provider) => {
+    throw new Error(`provider ${provider.id} needs a runtime Workers AI provider`)
+  },
   "openai-compatible": (provider) => {
     throw new Error(`provider ${provider.id} is openai-compatible, and the catalog has no base URL for it yet`)
   },
 } satisfies Record<ProviderKind, Connect>
 
-export const createModelGateway = (catalog: Catalog, config: GatewayConfig | undefined): ModelGateway => {
+export const createModelGateway = (
+  catalog: Catalog,
+  config: GatewayConfig | undefined,
+  providers: Partial<Record<ProviderKind, Upstream>> = {},
+): ModelGateway => {
   const upstreams = new Map(
-    [...catalog.providers.values()].map((provider) => [provider.id, connections[provider.kind](provider, config)]),
+    [...catalog.providers.values()].map((provider) => [
+      provider.id,
+      providers[provider.kind] ?? connections[provider.kind](provider, config),
+    ]),
   )
   return {
     model: (entry) => {

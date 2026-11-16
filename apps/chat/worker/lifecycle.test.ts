@@ -11,7 +11,7 @@ it("fails closed in production and runs local D1 links, revocation, redemption r
   })
   const db = platform.env.DB
   const url = "http://localhost:5173"
-  const env = { ...platform.env, APP_URL: url, MAIL_FROM: "test@example.com" }
+  const env = { ...platform.env, APP_URL: url, MAIL_FROM: "test@example.com", EMAIL: undefined }
   const make = (overrides: Partial<Cloudflare.Env> = {}) => auth({ ...env, ...overrides })
   const issue = (service: ReturnType<typeof auth>, email = "eve@example.com") =>
     service.handle(
@@ -74,6 +74,7 @@ it("fails closed in production and runs local D1 links, revocation, redemption r
     const production = make({
       BETTER_AUTH_SECRET: "test-secret-with-sufficient-length-for-auth",
       RESEND_API_KEY: "re_test",
+      ALLOWLIST_JSON: "[]",
     })
     expect((await issue(production, "ada@example.com")).status).toBe(200)
     expect(post).toHaveBeenCalledTimes(1)
@@ -85,15 +86,15 @@ it("fails closed in production and runs local D1 links, revocation, redemption r
   }
 }, 30_000)
 
-it("serves unavailable auth and denies private routes in the real production Worker without delivery", async () => {
+it("serves unavailable auth and denies private routes in the real production Worker without an auth secret", async () => {
   const worker = await unstable_dev("apps/chat/worker/index.ts", {
     config: "apps/chat/wrangler.jsonc",
     assets: "apps/chat/src",
     local: true,
     persist: false,
     port: 0,
-    vars: { LOCAL_AUTH: "false", BETTER_AUTH_SECRET: "test-secret-with-sufficient-length-for-auth" },
-    experimental: { disableExperimentalWarning: true, watch: false },
+    vars: { LOCAL_AUTH: "false" },
+    experimental: { disableExperimentalWarning: true, watch: false, forceLocal: true },
   })
   try {
     const response = await worker.fetch("/api/auth/sign-in/magic-link", {

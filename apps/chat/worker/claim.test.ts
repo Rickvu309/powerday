@@ -167,6 +167,7 @@ it.each(["identical", "different"])("serializes %s submits from separate Worker 
   const second = await getPlatformProxy<Cloudflare.Env>({
     configPath: path.join(import.meta.dirname, "../wrangler.jsonc"),
     persist: { path: directory },
+    remoteBindings: false,
   })
   try {
     const c = conversation("alice", "workers", "Shared DB", 1000)

@@ -50,6 +50,17 @@ describe("createModelGateway", () => {
     for (const name of ["authorization", "x-api-key", "x-goog-api-key"]) expect(request?.headers.has(name)).toBe(false)
   })
 
+  it("requires an injected runtime provider for Workers AI", () => {
+    expect(() => createModelGateway(catalogOf("workers-ai"), undefined)).toThrow("needs a runtime Workers AI provider")
+    const upstream = createModelGateway(catalogOf("mock"), undefined).model([...catalogOf("mock").models.values()][0]!)
+    const provider = vi.fn(() => upstream)
+    const catalog = catalogOf("workers-ai")
+    expect(
+      createModelGateway(catalog, undefined, { "workers-ai": provider }).model([...catalog.models.values()][0]!),
+    ).toBe(upstream)
+    expect(provider).toHaveBeenCalledWith("model-x")
+  })
+
   it("refuses to start when the catalog lists a real provider and the gateway is not configured", () => {
     expect(() => createModelGateway(catalogOf("openai"), undefined)).toThrow("provider upstream needs the AI Gateway")
   })
