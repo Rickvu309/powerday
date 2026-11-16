@@ -47,7 +47,7 @@ test("Cloudflare delivers magic links without Resend and hides unconfigured Goog
   const instance = auth({
     ...platform.env,
     BETTER_AUTH_SECRET: "test-secret-with-at-least-thirty-two-characters",
-    RESEND_API_KEY: undefined,
+    RESEND_API_KEY: "",
     ALLOWLIST: ["denied.example"],
     ALLOWLIST_JSON: '["ada@example.com"]',
     EMAIL: { send },
