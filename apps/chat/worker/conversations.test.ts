@@ -40,9 +40,11 @@ describe("the D1 conversation store", () => {
 
   it("lists a user's conversations newest first, a page at a time", async () => {
     const owner = UserId.parse("pager")
-    for (let index = 0; index < 120; index += 1) {
-      await store.save(conversation("pager", `page-${index}`, `Chat ${index}`, 10_000 + (index % 7) * 1000), [])
-    }
+    await Promise.all(
+      Array.from({ length: 120 }, (_, index) =>
+        store.save(conversation("pager", `page-${index}`, `Chat ${index}`, 10_000 + (index % 7) * 1000), []),
+      ),
+    )
     const first = await store.list(owner, undefined)
     const second = await store.list(owner, {
       updatedAt: first.conversations[49]!.updatedAt,
