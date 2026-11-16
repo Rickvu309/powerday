@@ -1,5 +1,6 @@
 declare namespace Cloudflare {
   interface Env {
+    AI?: Ai
     DB: D1Database
     CATALOG: unknown
     AI_GATEWAY_ACCOUNT_ID?: string
