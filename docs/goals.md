@@ -13,7 +13,7 @@ A signed-in user can chat with any model we enabled, their chats are saved, and 
 3. Cloudflare first. A Worker serves the chat API and app, D1 holds data, R2 holds files. Check: deploying chat leaves landing untouched.
 4. Gateway by config. Workers AI models run through the Worker AI binding and Cloudflare AI Gateway. Other providers use keys stored in the gateway. Check: adding a model is one config change and every call shows in gateway logs.
 5. Replies always saved. The server finishes and stores a reply even if the user leaves. Check: reopening the chat shows the full answer.
-6. Sign-in. Better Auth with email magic links sent through Cloudflare Email Service. Google is optional and hidden without its keys. Check: email sign-in works without third-party keys, and Google works when configured.
+6. Sign-in. Better Auth with email magic links sent through Cloudflare Email Service. Sending to arbitrary recipients requires Workers Paid and an onboarded sending domain. Google is optional and hidden without its keys. Check: email sign-in works without third-party keys, and Google works when configured.
 7. Escape hatch. Railway stays on standby. Check: the core runs on Node, so moving is a new entry point only.
 
 ## 3. Product

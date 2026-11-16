@@ -93,7 +93,7 @@ it("serves unavailable auth and denies private routes in the real production Wor
     persist: false,
     port: 0,
     vars: { LOCAL_AUTH: "false" },
-    experimental: { disableExperimentalWarning: true, watch: false },
+    experimental: { disableExperimentalWarning: true, watch: false, forceLocal: true },
   })
   try {
     const response = await worker.fetch("/api/auth/sign-in/magic-link", {

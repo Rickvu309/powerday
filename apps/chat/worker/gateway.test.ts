@@ -20,7 +20,8 @@ test("streams Workers AI through the configured gateway without a provider key",
       new Response(
         'data: {"choices":[{"delta":{"content":"Hello"},"finish_reason":null}]}\n\n' +
           'data: {"choices":[{"delta":{"content":" world"},"finish_reason":null}]}\n\n' +
-          'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2}}\n\n' +
+          'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n' +
+          'data: {"choices":[],"usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}\n\n' +
           "data: [DONE]\n\n",
         { headers: { "content-type": "text/event-stream" } },
       ),

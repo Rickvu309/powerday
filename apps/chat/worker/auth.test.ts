@@ -41,7 +41,9 @@ test("an invite-only Worker refuses outsiders before logging mail to local D1", 
 })
 
 test("Cloudflare delivers magic links without Resend and hides unconfigured Google sign-in", async () => {
-  const send = vi.fn<SendEmail["send"]>().mockResolvedValue({ messageId: "test-mail" })
+  const send = vi
+    .fn<(mail: EmailMessage | EmailMessageBuilder) => Promise<EmailSendResult>>()
+    .mockResolvedValue({ messageId: "test-mail" })
   const instance = auth({
     ...platform.env,
     BETTER_AUTH_SECRET: "test-secret-with-at-least-thirty-two-characters",
@@ -82,8 +84,24 @@ test.each(['{"domain":"example.com"}', "[7]", "not-json"])(
 )
 
 test("propagates Cloudflare email delivery failures", async () => {
-  const send = vi.fn<SendEmail["send"]>().mockRejectedValue(new Error("Email Service unavailable"))
+  const send = vi
+    .fn<(mail: EmailMessage | EmailMessageBuilder) => Promise<EmailSendResult>>()
+    .mockRejectedValue(new Error("Email Service unavailable"))
   await expect(
     cloudflareEmail({ send }, "sign-in@example.com")({ to: "ada@example.com", subject: "Sign in", text: "Link" }),
   ).rejects.toThrow("Email Service unavailable")
+})
+
+test("the Cloudflare binding accepts the composed sign-in email", async () => {
+  if (!platform.env.EMAIL) throw new Error("missing email binding")
+  await expect(
+    cloudflareEmail(
+      platform.env.EMAIL,
+      platform.env.MAIL_FROM,
+    )({
+      to: "recipient@example.com",
+      subject: "Sign in to Power Chat",
+      text: "Test sign-in link",
+    }),
+  ).resolves.toBeUndefined()
 })

@@ -8,7 +8,7 @@ declare global {
       MAIL_FROM: string
       ALLOWLIST?: unknown
       ALLOWLIST_JSON?: string
-      EMAIL?: SendEmail
+      EMAIL?: SendEmail | undefined
       BETTER_AUTH_SECRET?: string
       RESEND_API_KEY?: string
       GOOGLE_CLIENT_ID?: string
