@@ -64,7 +64,12 @@ export const settled = async (page: Page, screen: string) => {
   } else if (screen.includes("streaming")) {
     await expect(page.getByRole("button", { name: "Stop display", exact: true })).toBeVisible()
     await expect(page.locator(".is-assistant")).toContainText("hook")
-  } else if (screen.includes("error") || screen.includes("signed-out") || screen.includes("unavailable")) {
+  } else if (
+    screen.includes("error") ||
+    screen.includes("signed-out") ||
+    screen.includes("unavailable") ||
+    screen.includes("over-limit")
+  ) {
     await expect(page.getByRole("alert")).toBeVisible()
   } else if (screen.includes("stopped")) await expect(page.getByText("Reply interrupted.")).toBeVisible()
   else await expect(page.locator("table")).toBeVisible()

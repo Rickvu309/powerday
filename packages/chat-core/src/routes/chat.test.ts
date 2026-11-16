@@ -138,6 +138,17 @@ describe("POST /api/chat", () => {
     await settle()
   })
 
+  it("fails closed when usage cannot be read", async () => {
+    const { app, deps } = setup()
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    vi.spyOn(deps.ledger, "spent").mockRejectedValue(new Error("ledger unavailable"))
+    const model = vi.spyOn(deps.gateway, "model")
+    const claim = vi.spyOn(deps.store, "claim")
+    expect((await send(app, hello)).status).toBe(500)
+    expect(model).not.toHaveBeenCalled()
+    expect(claim).not.toHaveBeenCalled()
+  })
+
   it("finishes a reply that crosses the cap and blocks the next request", async () => {
     const { app, deps, usageEvents, settle } = setup()
     vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "month", tokens: 5 })

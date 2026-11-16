@@ -1,10 +1,14 @@
+import * as z from "zod"
+
 export class ReplyProblem extends Error {
   readonly status: number
+  readonly resetsAt: Date | undefined
 
-  constructor(status: number) {
+  constructor(status: number, resetsAt?: Date) {
     super(`Request failed with status ${status}`)
     this.name = "ReplyProblem"
     this.status = status
+    this.resetsAt = resetsAt
   }
 }
 
@@ -28,8 +32,17 @@ export const problemOf = (error: unknown) => {
   )
 }
 
+export const usageLimitOf = (error: unknown) =>
+  error instanceof ReplyProblem && error.status === 429 ? error : undefined
+
+const LimitResponse = z.object({ resetsAt: z.iso.datetime() })
+
 export const chatFetch: typeof fetch = async (input, init) => {
   const response = await fetch(input, init)
-  if (!response.ok) throw new ReplyProblem(response.status)
+  if (!response.ok) {
+    const limit =
+      response.status === 429 ? LimitResponse.safeParse(await response.json().catch(() => undefined)) : undefined
+    throw new ReplyProblem(response.status, limit?.success ? new Date(limit.data.resetsAt) : undefined)
+  }
   return response
 }

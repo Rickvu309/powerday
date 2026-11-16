@@ -10,6 +10,7 @@ const screens = [
   "06-model-menu",
   "07-signed-out-reply",
   "08-unavailable-model",
+  "09-over-limit",
 ]
 
 for (const width of [1280, 375]) {

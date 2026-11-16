@@ -5,7 +5,8 @@ import { openConversation, useOpenConversation } from "@/open-conversation"
 import { Composer } from "./composer"
 import { LiveChats, type LiveConversation } from "./live-chats"
 import { Suggestions } from "./suggestions"
-import { problemOf } from "./reply-problem"
+import { useLimitReset } from "./over-limit"
+import { problemOf, usageLimitOf } from "./reply-problem"
 import { Button } from "@/components/ui/button"
 
 export function Chat() {
@@ -41,6 +42,9 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
   const { models } = useModels()
   const model = models.state === "ready" ? models.chosen : undefined
   const busy = view.attempt.kind === "pending" && view.attempt.dispatch
+  const limit = usageLimitOf(conversation.problem())
+  const reset = useLimitReset(limit?.resetsAt)
+  const blocked = limit !== undefined && !reset
 
   const send = useCallback(
     (text: string): boolean => {
@@ -101,7 +105,9 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
       <Composer
         draft={conversation.draft}
         busy={busy}
+        blocked={blocked}
         ready={
+          !blocked &&
           model !== undefined &&
           history.state === "ready" &&
           (view.attempt.kind === "idle" || view.attempt.kind === "failed")
