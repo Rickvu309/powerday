@@ -11,8 +11,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuGroup,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { SidebarInput, SidebarMenuAction, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { openConversation } from "@/open-conversation"
 import { useConversationCache } from "./conversation-cache"
 
@@ -37,16 +45,29 @@ export function ConversationLink({
 }) {
   const cache = useConversationCache()
   return (
-    <SidebarMenuButton
-      isActive={open}
-      render={<a href={`/c/${encodeURIComponent(conversation.id)}`} aria-current={open ? "page" : undefined} />}
-      onClick={(event) => followLink(event, () => go(conversation.id))}
-      onPointerEnter={() => cache.open(conversation.id)}
-      onFocus={() => cache.open(conversation.id)}
-      className="h-auto min-h-8"
-    >
-      {children}
-    </SidebarMenuButton>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <SidebarMenuButton
+            isActive={open}
+            render={<a href={`/c/${encodeURIComponent(conversation.id)}`} aria-current={open ? "page" : undefined} />}
+            onClick={(event) => followLink(event, () => go(conversation.id))}
+            onPointerEnter={() => cache.open(conversation.id)}
+            onFocus={() => cache.open(conversation.id)}
+            className="h-auto min-h-8"
+          >
+            {children}
+          </SidebarMenuButton>
+        }
+      />
+      <TooltipContent
+        role="tooltip"
+        side="right"
+        className="max-w-[min(20rem,calc(100vw-2rem))] whitespace-normal [overflow-wrap:anywhere]"
+      >
+        {conversation.title}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -104,18 +125,31 @@ export const ConversationItem = memo(function ConversationItem({
         </ConversationLink>
       )}
       <DropdownMenu>
-        <DropdownMenuTrigger render={<SidebarMenuAction showOnHover aria-label={`Options for ${title}`} />}>
+        <DropdownMenuTrigger
+          render={
+            <SidebarMenuAction showOnHover className="top-1 size-6 after:hidden" aria-label={`Options for ${title}`} />
+          }
+        >
           <EllipsisIcon />
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="bottom" align="start">
-          <DropdownMenuItem onClick={() => setRenaming(true)}>
-            <PencilIcon />
-            Rename
-          </DropdownMenuItem>
-          <DropdownMenuItem variant="destructive" onClick={() => setDeleting(true)}>
-            <Trash2Icon />
-            Delete
-          </DropdownMenuItem>
+        <DropdownMenuContent side="bottom" align="start" className="w-72 max-w-[calc(100vw-2rem)]">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel
+              render={<h2 />}
+              aria-hidden={false}
+              className="max-w-72 whitespace-normal leading-[1.4] [overflow-wrap:anywhere]"
+            >
+              {title}
+            </DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => setRenaming(true)}>
+              <PencilIcon />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={() => setDeleting(true)}>
+              <Trash2Icon />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={deleting} onOpenChange={setDeleting}>
