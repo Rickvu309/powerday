@@ -236,15 +236,25 @@ describe("POST /api/chat", () => {
     vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 200 })
     vi.spyOn(deps.ledger, "spent").mockResolvedValueOnce(0).mockResolvedValue(200)
     vi.spyOn(deps.store, "claim").mockResolvedValue(undefined)
-    const model = vi.spyOn(deps.gateway, "model")
+    const model = wordModel()
+    const stream = vi.spyOn(model, "doStream")
+    vi.spyOn(deps.gateway, "model").mockReturnValue(model)
     const response = await send(app, hello)
     expect(response.status).toBe(429)
-    expect(model).not.toHaveBeenCalled()
+    expect(stream).not.toHaveBeenCalled()
     expect(deps.store.claim).toHaveBeenCalledWith(expect.anything(), hello, expect.anything(), {
       since: expect.any(Date),
       tokens: 200,
       reservation: 200,
     })
+  })
+
+  it("does not claim a reply when provider credentials cannot be loaded", async () => {
+    const { app, deps } = setup()
+    vi.spyOn(deps.gateway, "model").mockRejectedValue(new Error("vault unavailable"))
+    const claim = vi.spyOn(deps.store, "claim")
+    expect((await send(app, hello)).status).toBe(503)
+    expect(claim).not.toHaveBeenCalled()
   })
 
   it("fails closed when usage cannot be read", async () => {
@@ -286,7 +296,7 @@ describe("POST /api/chat", () => {
     })
     expect((await send(app, { ...hello, id: "m2" })).status).toBe(409)
     expect(save).toHaveBeenCalledTimes(3)
-    expect(log).toHaveBeenCalledWith(expect.objectContaining({ event: "chat.completion_failed", message: "a1" }))
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({ name: "Error", provider: "mock", model: "mock-fast" }))
   })
 
   it("retries atomic completion and does not double-charge an ambiguous write", async () => {
@@ -547,4 +557,36 @@ describe("POST /api/chat", () => {
     await settle()
     expect(asked - sent).toBeLessThan(150)
   })
+})
+
+it("redacts upstream errors from logs and responses", async () => {
+  const key = "unusual-provider-secret-value"
+  const log = vi.spyOn(console, "error").mockImplementation(() => {})
+  const error = Object.assign(new Error(`Rejected ${key}`), {
+    name: `Upstream-${key}-sk-ant-example-secret`,
+    statusCode: 401,
+    responseBody: `Invalid ${key}`,
+    url: `https://example.com/?key=${key}`,
+  })
+  const { app, settle } = setup({
+    gateway: {
+      model: (_entry, _catalog, secret) => {
+        secret?.(key)
+        return new MockLanguageModelV4({
+          doStream: async () => {
+            throw error
+          },
+        })
+      },
+    },
+  })
+  const response = await (await send(app, hello)).text()
+  await settle()
+  expect(log).toHaveBeenCalled()
+  const logs = JSON.stringify(log.mock.calls)
+  expect(logs).not.toContain(key)
+  expect(logs).not.toContain("sk-ant-example-secret")
+  expect(logs).not.toContain("Rejected")
+  expect(logs).toContain("401")
+  expect(response).not.toContain(key)
 })

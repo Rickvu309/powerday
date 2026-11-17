@@ -69,3 +69,46 @@ describe("createModelGateway", () => {
     expect(() => createModelGateway(catalogOf("openai-compatible"), config)).toThrow("no base URL")
   })
 })
+
+it("sends decrypted provider keys only to a complete AI Gateway", async () => {
+  const requests: { url: string; headers: Headers }[] = []
+  vi.stubGlobal("fetch", async (input: string, init: RequestInit) => {
+    requests.push({ url: input, headers: new Headers(init.headers) })
+    return Response.json({ error: { message: "test refusal" } }, { status: 400 })
+  })
+  const catalog = catalogOf("openai")
+  const keys = new Map([["upstream", "provider-test-key"]])
+  expect(() => createModelGateway(catalog, undefined, {}, keys)).toThrow("needs the AI Gateway")
+  await streamText({
+    model: createModelGateway(catalog, config, {}, keys).model([...catalog.models.values()][0]!),
+    prompt: "Hi",
+    maxRetries: 0,
+  }).consumeStream()
+  expect(requests[0]?.url).toContain("gateway.ai.cloudflare.com")
+  expect(requests[0]?.headers.get("authorization")).toBe("Bearer provider-test-key")
+  expect(requests[0]?.headers.get("cf-aig-authorization")).toBe("Bearer gateway-token")
+})
+
+it.each([
+  ["https://openrouter.ai/api/v1", "openrouter"],
+  ["https://api.deepseek.com/v1", "deepseek"],
+  ["https://provider.example.com/v1", "custom-upstream"],
+])("routes compatible %s through the gateway without duplicating its configured base path", async (baseURL, route) => {
+  const requests: string[] = []
+  vi.stubGlobal("fetch", async (input: string) => {
+    requests.push(input)
+    return Response.json({ error: { message: "test refusal" } }, { status: 400 })
+  })
+  const catalog = parseCatalog({
+    providers: [{ id: "upstream", kind: "openai-compatible", label: "Compatible", baseURL }],
+    models: [{ ...model, provider: "upstream", upstreamId: "model-x" }],
+  })
+  await streamText({
+    model: createModelGateway(catalog, config, {}, new Map([["upstream", "provider-test-key"]])).model(
+      [...catalog.models.values()][0]!,
+    ),
+    prompt: "Hi",
+    maxRetries: 0,
+  }).consumeStream()
+  expect(requests).toEqual([`https://gateway.ai.cloudflare.com/v1/account-1/power-chat/${route}/chat/completions`])
+})

@@ -1,5 +1,6 @@
 import { consumeStream, convertToModelMessages, streamText } from "ai"
 import * as z from "zod"
+import { errorSummary } from "../redaction.js"
 import { ModelId } from "../catalog.js"
 import { ConversationId } from "../ids.js"
 import type { ChatMessage, Reply } from "../message.js"
@@ -65,7 +66,6 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
     new TextEncoder().encode(serializedMessages).length +
     modelMessages.length * chatTemplateTokensPerMessage +
     chatTemplateTokensPerRequest
-  if (inputBound + minimumReplyTokens > allowance.tokens) return refuse(413, "too long")
   const limitResponse = () => {
     const resetsAt = periodOf(allowance.period, started).end
     return Response.json(
@@ -76,11 +76,21 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
       },
     )
   }
+  if (allowance.tokens === 0) return limitResponse()
+  if (inputBound + minimumReplyTokens > allowance.tokens) return refuse(413, "too long")
   const spent = await deps.ledger.spent(user, since)
   const remaining = allowance.tokens - spent
   if (remaining < inputBound + minimumReplyTokens) return limitResponse()
   const maxOutputTokens = Math.min(remaining - inputBound, maxReplyTokens)
   const reservation = inputBound + maxOutputTokens
+  const secrets: string[] = []
+  const logError = (error: unknown) => console.error(errorSummary(error, entry.provider, entry.id, secrets))
+  let model
+  try {
+    model = await deps.gateway.model(entry, deps.catalog, (key) => secrets.push(key))
+  } catch {
+    return refuse(503, "model unavailable")
+  }
   const now = deps.clock.now()
   const pending: ChatMessage = {
     id: deps.ids.message(),
@@ -107,7 +117,6 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
       ? limitResponse()
       : refuse(409, "message already answered or in progress")
   }
-  const model = deps.gateway.model(entry)
   const messages = claimed.messages.slice(0, -1)
 
   let failed = false
@@ -118,7 +127,7 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
     maxOutputTokens,
     onError: ({ error }) => {
       failed = true
-      console.error(error)
+      logError(error)
     },
   })
 
@@ -152,18 +161,18 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
         )
         return
       } catch (error) {
-        if (attempt === 2)
-          console.error({ event: "chat.completion_failed", user, conversation: input.id, message: pending.id, error })
+        if (attempt === 2) logError(error)
       }
     }
   }
 
   return result.toUIMessageStreamResponse<ChatMessage>({
+    onError: () => failure,
     headers: { "Server-Timing": `overhead;dur=${deps.clock.now().getTime() - started.getTime()}` },
     originalMessages: messages,
     generateMessageId: () => pending.id,
     messageMetadata: ({ part }) => (part.type === "start" ? { model: entry.id } : undefined),
     onEnd: ({ responseMessage, isAborted }) => finish(responseMessage, isAborted),
-    consumeSseStream: ({ stream }) => deps.waitUntil(consumeStream({ stream, onError: console.error })),
+    consumeSseStream: ({ stream }) => deps.waitUntil(consumeStream({ stream, onError: logError })),
   })
 }
