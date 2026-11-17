@@ -4,7 +4,12 @@ import { readFileSync } from "node:fs"
 import path from "node:path"
 import { expect, test } from "@playwright/test"
 import { UsageLimits } from "../../packages/chat-core/src/usage"
+import { clientAddress } from "./client-address"
 import { replyStream, withChatFixtures } from "./chat-fixtures"
+
+test.beforeEach(async ({ page }, info) => {
+  await page.context().setExtraHTTPHeaders({ "cf-connecting-ip": clientAddress(info.workerIndex) })
+})
 
 const chat = path.join(import.meta.dirname, "../../apps/chat")
 const sql = (command: string) =>
@@ -34,6 +39,9 @@ test("a reply succeeds and counts, then the cap blocks the next send and keeps t
   )
   await page.goto(mail.text.split("\n").find((line: string) => line.startsWith("http")))
   const { user } = await (await page.request.get("/api/auth/get-session")).json()
+  sql(
+    `INSERT INTO admin_limits (email, tokens, period) VALUES ('${email}', ${limits.default.tokens}, '${limits.default.period}')`,
+  )
   const field = page.getByRole("textbox", { name: "Message", exact: true })
   const send = page.getByRole("button", { name: "Send", exact: true })
   await field.fill("中".repeat(40_000))

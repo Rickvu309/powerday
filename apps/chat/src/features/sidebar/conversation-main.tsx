@@ -2,7 +2,7 @@ import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react"
 import { readConversationNavigation, subscribeOpenConversation, useOpenConversation } from "@/open-conversation"
 import { useConversationCache, useListing } from "./conversation-cache"
 
-export function ConversationMain({ children }: { children: ReactNode }) {
+export function ConversationMain({ children, paused = false }: { children: ReactNode; paused?: boolean }) {
   const id = useOpenConversation()
   const cache = useConversationCache()
   const listing = useListing()
@@ -16,17 +16,21 @@ export function ConversationMain({ children }: { children: ReactNode }) {
   const ready = useSyncExternalStore(cache.subscribe, () => id === null || cache.contentReady(id))
 
   useEffect(() => {
-    document.title = `${title} · Power Chat`
-  }, [title])
+    if (!paused) document.title = id === null ? "Power Chat" : title
+  }, [id, paused, title])
 
   useEffect(() => {
+    if (paused) {
+      focused.current = navigation
+      return
+    }
     if (!ready || focused.current === navigation) return
     const frame = requestAnimationFrame(() => {
       main.current?.closest("main")?.focus({ preventScroll: true })
       focused.current = navigation
     })
     return () => cancelAnimationFrame(frame)
-  }, [navigation, ready])
+  }, [navigation, paused, ready])
 
   return (
     <section ref={main} aria-labelledby="conversation-title" className="flex min-h-0 min-w-0 flex-1 flex-col">

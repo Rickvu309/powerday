@@ -1,5 +1,5 @@
 import { MailCheckIcon } from "lucide-react"
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react"
+import { useEffect, useRef, useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
@@ -8,7 +8,7 @@ import "./sign-in.css"
 import { CodeEntry } from "./code-entry"
 import type { CodeState } from "./session"
 import { GoogleMark } from "./google-mark-art"
-import { continueWithGoogle, sendLink, useAccount, type Failure } from "./session"
+import { continueWithGoogle, sendLink, type Failure } from "./session"
 
 export type Step =
   | { readonly kind: "email"; readonly failure: Failure | undefined }
@@ -278,35 +278,6 @@ export function SignInPage(props: SignInProps) {
     <main className="flex min-h-dvh items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
         <SignIn {...props} />
-      </div>
-    </main>
-  )
-}
-
-export function SignInGate({ children }: { readonly children: ReactNode }) {
-  const account = useAccount()
-  if (account.status === "loading")
-    return (
-      <main className="grid min-h-dvh place-items-center">
-        <Spinner className="motion-reduce:animate-none" aria-label="Loading your account" />
-      </main>
-    )
-  if (account.status === "unavailable") return <AccountUnavailable />
-  if (account.status === "signed-out") {
-    return <SignInPage google={account.google} initial={{ kind: "email", failure: account.failure }} />
-  }
-  return children
-}
-
-export function AccountUnavailable() {
-  return (
-    <main className="flex min-h-dvh items-center justify-center px-4 py-12">
-      <div className="flex max-w-sm flex-col gap-3 text-center">
-        <h1 className="text-2xl font-medium">Couldn't load your account</h1>
-        <p role="alert" tabIndex={0} className="text-sm text-muted-foreground">
-          Check your connection and try again.
-        </p>
-        <Button onClick={() => location.reload()}>Try again</Button>
       </div>
     </main>
   )
