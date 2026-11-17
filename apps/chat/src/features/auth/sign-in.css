@@ -1,0 +1,13 @@
+@media (prefers-reduced-motion: no-preference) {
+  .auth-success[data-pointer-success] {
+    transition: opacity var(--motion-menu, 150ms) var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+    @starting-style {
+      opacity: 0;
+    }
+  }
+}
+
+[data-auth-keyboard] [data-slot="button"] {
+  transition: none;
+  translate: none;
+}
