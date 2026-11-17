@@ -124,9 +124,7 @@ export const createModelGateway = (
             : url.origin === "https://api.deepseek.com"
               ? "deepseek"
               : `custom-${provider.id}`
-        const baseURL = route.startsWith("custom-")
-          ? `${root}/${route}${url.pathname.replace(/\/$/, "")}`
-          : `${root}/${route}`
+        const baseURL = `${root}/${route}`
         const client = createOpenAI({ ...settings, baseURL })
         return (id) => client.chat(id)
       }
