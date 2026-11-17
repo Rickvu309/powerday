@@ -14,7 +14,10 @@ beforeAll(async () => {
   })
   const migration = readFileSync(fileURLToPath(new URL("../migrations/0003_auth.sql", import.meta.url).href), "utf8")
   await platform.env.DB.batch(
-    migration
+    (
+      migration +
+      readFileSync(fileURLToPath(new URL("../migrations/0006_sign_in_codes.sql", import.meta.url).href), "utf8")
+    )
       .split(";")
       .filter((sql) => sql.trim())
       .map((sql) => platform.env.DB.prepare(sql)),
@@ -70,7 +73,8 @@ test("Cloudflare delivers magic links without Resend and hides unconfigured Goog
     expect.objectContaining({
       from: platform.env.MAIL_FROM,
       to: "ada@example.com",
-      subject: "Sign in to Power Chat",
+      subject: expect.stringMatching(/^\d{6} is your Power Chat sign-in code$/),
+      html: expect.stringContaining("Sign in to Power Chat"),
       text: expect.stringContaining("https://chat.powerday.work/api/auth/magic-link/verify?"),
     }),
   ])
@@ -138,4 +142,58 @@ test.each([
   expect(await response.json()).toEqual({
     methods: google.GOOGLE_CLIENT_ID && google.GOOGLE_CLIENT_SECRET ? ["email", "google"] : ["email"],
   })
+})
+
+test("local D1 logs both alternatives and atomically consumes a code across the button and input", async () => {
+  const instance = auth({ ...platform.env, LOCAL_AUTH: "true", ALLOWLIST: [] })
+  const origin = "http://localhost:5173"
+  const email = "code@example.com"
+  const issue = () =>
+    instance.handle(
+      new Request(`${origin}/api/auth/sign-in/magic-link`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin },
+        body: JSON.stringify({ email }),
+      }),
+    )
+  const verify = (otp: string) =>
+    instance.handle(
+      new Request(`${origin}/api/auth/sign-in/email-otp`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin },
+        body: JSON.stringify({ email, otp }),
+      }),
+    )
+  const mail = async () => {
+    const value = await platform.env.DB.prepare(
+      "SELECT mail FROM mail_log WHERE mail ->> '$.to' = ? ORDER BY id DESC LIMIT 1",
+    )
+      .bind(email)
+      .first<string>("mail")
+    const parsed = JSON.parse(value ?? "null")
+    const code = String(parsed.subject).slice(0, 6)
+    const link = String(parsed.text)
+      .split("\n")
+      .find((line) => line.startsWith("http"))
+    if (!link) throw new Error("missing link")
+    expect(parsed.html).toContain(code)
+    return { code, link }
+  }
+  expect((await issue()).status).toBe(200)
+  const first = await mail()
+  expect((await issue()).status).toBe(200)
+  const second = await mail()
+  expect((await verify(first.code)).status).toBe(400)
+  expect(
+    await platform.env.DB.prepare("SELECT COUNT(*) AS count FROM verification WHERE identifier = ?")
+      .bind(`sign-in-otp-${email}`)
+      .first("count"),
+  ).toBe(1)
+  const stored = await platform.env.DB.prepare("SELECT value FROM verification WHERE identifier = ?")
+    .bind(`sign-in-otp-${email}`)
+    .first<string>("value")
+  expect(stored).not.toContain(second.code)
+  const results = await Promise.all([verify(second.code), instance.handle(new Request(second.link))])
+  expect(results.filter((response) => response.headers.has("set-cookie"))).toHaveLength(1)
+  expect((await verify(second.code)).status).toBe(400)
 })

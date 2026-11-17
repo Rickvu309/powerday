@@ -43,6 +43,91 @@ const signedIn = (auth: Auth, opened: Response, origin = local) => {
 
 afterEach(() => vi.useRealTimers())
 
+const codeIn = (mail: Mail | undefined) => {
+  const code = mail?.subject.match(/^\d{6}/)?.[0]
+  if (code === undefined) throw new Error("missing code")
+  return code
+}
+
+const enterCode = (auth: Auth, otp: string, email = "ada@example.com") =>
+  auth.handle(
+    new Request(`${local}/api/auth/sign-in/email-otp`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: local },
+      body: JSON.stringify({ email, otp }),
+    }),
+  )
+
+it("redeems a code once and consumes its link", async () => {
+  const { auth, mails } = setup()
+  await requestLink(auth, "ada@example.com")
+  const response = await enterCode(auth, codeIn(mails[0]))
+  expect(response.status).toBe(200)
+  expect(await signedIn(auth, response)).toEqual(expect.any(String))
+  expect((await enterCode(auth, codeIn(mails[0]))).status).toBe(400)
+  expect(await signedIn(auth, await auth.handle(new Request(linkIn(mails[0]))))).toBeUndefined()
+})
+
+it("signs an existing user in again after revocation", async () => {
+  const { auth, mails, tables } = setup()
+  await requestLink(auth, "ada@example.com")
+  const first = await auth.handle(new Request(linkIn(mails[0])))
+  const cookie = first.headers
+    .getSetCookie()
+    .map((header) => header.split(";")[0])
+    .join("; ")
+  tables.session.splice(0)
+  await requestLink(auth, "ada@example.com")
+  const opened = await auth.handle(new Request(linkIn(mails[1]), { headers: { cookie } }))
+  expect(await signedIn(auth, opened)).toEqual(expect.any(String))
+})
+
+it("consumes the code when its link is used", async () => {
+  const { auth, mails } = setup()
+  await requestLink(auth, "ada@example.com")
+  await auth.handle(new Request(linkIn(mails[0])))
+  expect((await enterCode(auth, codeIn(mails[0]))).status).toBe(400)
+})
+
+it("counts five wrong guesses on the server and refuses the right code afterwards", async () => {
+  const { auth, mails } = setup()
+  await requestLink(auth, "ada@example.com")
+  const code = codeIn(mails[0])
+  const wrong = code === "000000" ? "111111" : "000000"
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    const response = await enterCode(auth, wrong)
+    expect(await response.json()).toMatchObject({
+      code: attempt === 5 ? "TOO_MANY_ATTEMPTS" : "INVALID_OTP",
+      attemptsLeft: 5 - attempt,
+    })
+  }
+  expect((await enterCode(auth, code)).status).toBe(403)
+})
+
+it("expires codes after ten minutes", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] })
+  const { auth, mails } = setup()
+  await requestLink(auth, "ada@example.com")
+  vi.setSystemTime(Date.now() + 600_001)
+  expect(await (await enterCode(auth, codeIn(mails[0]))).json()).toMatchObject({ code: "OTP_EXPIRED" })
+})
+
+it("invalidates the previous code and link on a new request", async () => {
+  const { auth, mails } = setup()
+  await requestLink(auth, "ada@example.com")
+  await requestLink(auth, "ada@example.com")
+  expect((await enterCode(auth, codeIn(mails[0]))).status).toBe(400)
+  expect(await signedIn(auth, await auth.handle(new Request(linkIn(mails[0]))))).toBeUndefined()
+  expect((await enterCode(auth, codeIn(mails[1]))).status).toBe(200)
+})
+
+it("refuses a previously issued code after an allowlist change", async () => {
+  const open = setup()
+  await requestLink(open.auth, "ada@example.com")
+  const closed = setup({ allowlist: ["other@example.com"] }, open.tables)
+  expect((await enterCode(closed.auth, codeIn(open.mails[0]))).status).toBe(403)
+})
+
 describe("createAuth", () => {
   it("signs a person in with the magic link from their mail", async () => {
     const { auth, mails } = setup()
@@ -72,7 +157,7 @@ describe("createAuth", () => {
     expect((await requestLink(auth, "eve@team.powerday.work")).status).toBe(403)
     expect((await requestLink(auth, "Ada@Example.com")).status).toBe(200)
     expect((await requestLink(auth, "bo@powerday.work")).status).toBe(200)
-    expect(mails.map((mail) => mail.to)).toEqual(["Ada@Example.com", "bo@powerday.work"])
+    expect(mails.map((mail) => mail.to)).toEqual(["ada@example.com", "bo@powerday.work"])
   })
 
   it("refuses to create an account the allowlist does not name, whatever the sign-in method", async () => {
@@ -80,7 +165,7 @@ describe("createAuth", () => {
     await requestLink(open.auth, "eve@example.com")
     const closed = setup({ allowlist: ["powerday.work"] }, open.tables)
     const opened = await closed.auth.handle(new Request(linkIn(open.mails[0])))
-    expect(opened.headers.get("location")).toBe(`${local}/?error=failed_to_create_user`)
+    expect(opened.headers.get("location")).toBe(`${local}/?error=INVALID_TOKEN`)
     expect(await signedIn(closed.auth, opened)).toBeUndefined()
     expect(open.tables.user).toEqual([])
   })
@@ -190,7 +275,7 @@ describe("createAuth", () => {
 })
 
 describe("resend", () => {
-  const mail = { to: "ada@example.com", subject: "Sign in to Power Chat", text: "link" }
+  const mail = { to: "ada@example.com", subject: "Sign in to Power Chat", text: "link", html: "<p>link</p>" }
 
   it("posts the mail to Resend with the key", async () => {
     const posts: { url: string; init: RequestInit | undefined }[] = []
@@ -210,6 +295,7 @@ describe("resend", () => {
             to: ["ada@example.com"],
             subject: mail.subject,
             text: mail.text,
+            html: mail.html,
           }),
         },
       },

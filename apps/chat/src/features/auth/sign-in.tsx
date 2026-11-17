@@ -5,13 +5,20 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 import "./sign-in.css"
+import { CodeEntry } from "./code-entry"
+import type { CodeState } from "./session"
 import { GoogleMark } from "./google-mark-art"
 import { continueWithGoogle, sendLink, useAccount, type Failure } from "./session"
 
 export type Step =
   | { readonly kind: "email"; readonly failure: Failure | undefined }
   | { readonly kind: "sending"; readonly method: "email" | "google" }
-  | { readonly kind: "sent"; readonly email: string; readonly resend?: "ready" | "sending" | "sent" | Failure }
+  | {
+      readonly kind: "sent"
+      readonly email: string
+      readonly code?: CodeState
+      readonly resend?: "ready" | "sending" | "sent" | Failure
+    }
 
 type SignInProps = { readonly google: boolean; readonly initial: Step }
 
@@ -27,6 +34,8 @@ export function SignIn({ google, initial }: SignInProps) {
   const [remaining, setRemaining] = useState(
     initial.kind === "sent" && (initial.resend === undefined || initial.resend === "sent") ? 30 : 0,
   )
+  const [verifying, setVerifying] = useState(false)
+  const [codeVersion, setCodeVersion] = useState(0)
   const [announcement, setAnnouncement] = useState("")
   const busy = useRef(initial.kind === "sending" || (initial.kind === "sent" && initial.resend === "sending"))
   const emailInput = useRef<HTMLInputElement>(null)
@@ -60,7 +69,7 @@ export function SignIn({ google, initial }: SignInProps) {
     const timer = setInterval(() => {
       const seconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
       setRemaining(seconds)
-      if (seconds === 0) setAnnouncement("Send a new link")
+      if (seconds === 0) setAnnouncement("Send a new code")
     }, 1000)
     return () => clearInterval(timer)
   }, [remaining])
@@ -103,8 +112,9 @@ export function SignIn({ google, initial }: SignInProps) {
     const failed = await sendLink(step.email)
     busy.current = false
     startCooldown(step.email)
-    setStep({ ...step, resend: failed ?? "sent" })
-    setAnnouncement(failed === undefined ? "New link sent" : failures[failed])
+    if (failed === undefined) setCodeVersion((version) => version + 1)
+    setStep({ kind: "sent", email: step.email, resend: failed ?? "sent" })
+    setAnnouncement(failed === undefined ? "New code sent" : failures[failed])
   }
 
   const failure = step.kind === "email" ? step.failure : undefined
@@ -123,7 +133,7 @@ export function SignIn({ google, initial }: SignInProps) {
         event.currentTarget.dataset.authKeyboard = "true"
       }}
     >
-      <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+      <p role="status" aria-label="Delivery status" aria-live="polite" aria-atomic="true" className="sr-only">
         {announcement}
       </p>
       {step.kind === "sent" ? (
@@ -136,40 +146,50 @@ export function SignIn({ google, initial }: SignInProps) {
             Check your email
           </h1>
           <p className="w-full text-sm leading-[1.5] text-pretty text-muted-foreground">
-            Open the sign-in link we sent to
+            Enter the code or open the sign-in link we sent to
             <bdi className="mt-1 block font-medium [overflow-wrap:anywhere] text-foreground">{step.email}</bdi>
           </p>
+          <CodeEntry
+            key={`${step.email}-${codeVersion}`}
+            email={step.email}
+            initial={step.code ?? { kind: "ready" }}
+            unavailable={step.resend === "sending"}
+            onBusy={(value) => {
+              busy.current = value
+              setVerifying(value)
+            }}
+          />
           <p className="text-sm leading-[1.5] text-pretty text-muted-foreground">
             Check your spam folder. The link may take a minute to arrive.
           </p>
           <Button
             variant="outline"
             className={`${control} max-w-full tabular-nums`}
-            aria-disabled={remaining > 0 || step.resend === "sending"}
+            aria-disabled={remaining > 0 || step.resend === "sending" || verifying}
             onClick={() => void resend()}
           >
             {step.resend === "sending" ? (
               <>
                 <Spinner aria-hidden className="animate-none" />
-                Sending a new link…
+                Sending a new code…
               </>
             ) : remaining > 0 ? (
-              `Send a new link in ${remaining}s`
+              `Send a new code in ${remaining}s`
             ) : (
-              "Send a new link"
+              "Send a new code"
             )}
           </Button>
           {step.resend !== undefined && step.resend !== "ready" && step.resend !== "sending" && (
             <p
               className={`text-sm leading-[1.5] ${step.resend === "sent" ? "text-muted-foreground" : "text-destructive"}`}
             >
-              {step.resend === "sent" ? "New link sent" : failures[step.resend]}
+              {step.resend === "sent" ? "New code sent" : failures[step.resend]}
             </p>
           )}
           <Button
             variant="ghost"
             className={control}
-            aria-disabled={step.resend === "sending"}
+            aria-disabled={step.resend === "sending" || verifying}
             onClick={() => {
               if (busy.current) return
               setRemaining(0)
@@ -185,7 +205,9 @@ export function SignIn({ google, initial }: SignInProps) {
           <div className="flex flex-col gap-2 text-center">
             <h1 className="text-2xl font-medium text-balance">Sign in to Power Chat</h1>
             <p className="text-sm leading-[1.5] text-muted-foreground">
-              {google ? "Continue with Google or get a sign-in link by email." : "We'll email you a link to sign in."}
+              {google
+                ? "Continue with Google or get a sign-in link by email."
+                : "We'll email you a code and a link to sign in."}
             </p>
           </div>
           {google && (

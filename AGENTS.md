@@ -47,6 +47,7 @@ Prefer the simple system. Do not keep complexity because it exists, or add machi
 - Code has no comments. If code needs explaining, use a better name. The one exception is `@ts-expect-error` in a `*.proof.ts` file.
 - Never name a file or folder `utils`, `helpers` or `common`. Name it after what it contains.
 - Use one word per idea, everywhere. The same name appears in the code, the test and the docs, so one search finds all of it.
+- Email colors live only in `packages/chat-core/src/email-theme-art.ts`, the email theme mirroring the app light tokens.
 - Colors come from tokens. A raw hex or color mix lives only in a `tokens.css` file or a file whose name ends in `-art`.
 - Extend what exists before building a parallel version.
 - With reduced motion on, a page shows its finished state with no movement.

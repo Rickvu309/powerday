@@ -117,3 +117,23 @@ export const signOut = async (): Promise<boolean> => {
   const response = await post("/api/auth/sign-out", {}).catch(() => undefined)
   return response?.ok === true
 }
+
+export type CodeState =
+  | { readonly kind: "ready" | "verifying" | "expired" | "locked" | "failed" }
+  | { readonly kind: "wrong"; readonly attemptsLeft: number }
+
+export const verifyCode = async (email: string, otp: string): Promise<CodeState | undefined> => {
+  try {
+    const response = await post("/api/auth/sign-in/email-otp", { email, otp })
+    if (response.ok) return undefined
+    const error: unknown = await response.json()
+    const code = field(error, "code")
+    const attemptsLeft = field(error, "attemptsLeft")
+    if (code === "TOO_MANY_ATTEMPTS") return { kind: "locked" }
+    if (code === "OTP_EXPIRED" || (code === "INVALID_OTP" && attemptsLeft === 0)) return { kind: "expired" }
+    if (code === "INVALID_OTP" && typeof attemptsLeft === "number") return { kind: "wrong", attemptsLeft }
+    return { kind: "failed" }
+  } catch {
+    return { kind: "failed" }
+  }
+}
