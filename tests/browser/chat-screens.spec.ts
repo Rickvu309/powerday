@@ -11,6 +11,7 @@ const screens = [
   "07-signed-out-reply",
   "08-unavailable-model",
   "09-over-limit",
+  "10-too-long",
 ]
 
 for (const width of [1280, 375]) {

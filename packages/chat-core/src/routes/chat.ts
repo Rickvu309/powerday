@@ -9,6 +9,8 @@ import type { Handler, Reader } from "../wire.js"
 const maxMessageCharacters = 100_000
 const maxReplyTokens = 4096
 const minimumReplyTokens = 16
+const chatTemplateTokensPerMessage = 8
+const chatTemplateTokensPerRequest = 64
 
 const Envelope = z
   .strictObject({
@@ -60,7 +62,12 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
   const allowance = await deps.ledger.allowance(user)
   const since = periodOf(allowance.period, started).start
   const modelMessages = await convertToModelMessages([...(prior?.messages ?? []), input.message])
-  const inputTokens = estimate(JSON.stringify(modelMessages))
+  const serializedMessages = JSON.stringify(modelMessages)
+  const inputBound =
+    new TextEncoder().encode(serializedMessages).length +
+    modelMessages.length * chatTemplateTokensPerMessage +
+    chatTemplateTokensPerRequest
+  if (inputBound + minimumReplyTokens > allowance.tokens) return refuse(413, "too long")
   const limitResponse = () => {
     const resetsAt = periodOf(allowance.period, started).end
     return Response.json(
@@ -73,9 +80,9 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
   }
   const spent = await deps.ledger.spent(user, since)
   const remaining = allowance.tokens - spent
-  if (remaining < inputTokens + minimumReplyTokens) return limitResponse()
-  const maxOutputTokens = Math.min(remaining - inputTokens, maxReplyTokens)
-  const reservation = inputTokens + maxOutputTokens
+  if (remaining < inputBound + minimumReplyTokens) return limitResponse()
+  const maxOutputTokens = Math.min(remaining - inputBound, maxReplyTokens)
+  const reservation = inputBound + maxOutputTokens
   const now = deps.clock.now()
   const pending: ChatMessage = {
     id: deps.ids.message(),
@@ -120,7 +127,7 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
   const finish = async (answer: ChatMessage, aborted: boolean) => {
     const reported = await Promise.resolve(result.totalUsage).catch(() => undefined)
     const usage = {
-      inputTokens: reported?.inputTokens ?? inputTokens,
+      inputTokens: reported?.inputTokens ?? estimate(serializedMessages),
       outputTokens: reported?.outputTokens ?? estimate(textOf([answer])),
       cachedInputTokens: reported?.inputTokenDetails.cacheReadTokens ?? 0,
       reasoningTokens: reported?.outputTokenDetails.reasoningTokens ?? 0,

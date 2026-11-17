@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs"
 import path from "node:path"
 import { expect, test } from "@playwright/test"
 import { UsageLimits } from "../../packages/chat-core/src/usage"
-import { withChatFixtures } from "./chat-fixtures"
+import { replyStream, withChatFixtures } from "./chat-fixtures"
 
 const chat = path.join(import.meta.dirname, "../../apps/chat")
 const sql = (command: string) =>
@@ -36,6 +36,18 @@ test("a reply succeeds and counts, then the cap blocks the next send and keeps t
   const { user } = await (await page.request.get("/api/auth/get-session")).json()
   const field = page.getByRole("textbox", { name: "Message", exact: true })
   const send = page.getByRole("button", { name: "Send", exact: true })
+  await field.fill("中".repeat(40_000))
+  const tooLong = page.waitForResponse((response) => response.url().endsWith("/api/chat"))
+  await send.click()
+  const rejected = await tooLong
+  expect(rejected.status()).toBe(413)
+  expect(await rejected.json()).toEqual({ error: "too long" })
+  expect(rejected.headers()["retry-after"]).toBeUndefined()
+  await expect(page.getByRole("alert")).toContainText("Shorten your message or start a new chat")
+  const [{ count }] = sql(
+    `SELECT count(*) AS count FROM usage_events WHERE user = '${String(user.id).replaceAll("'", "''")}'`,
+  )
+  expect(count).toBe(0)
   await field.fill("Help me plan tomorrow.")
   const success = page.waitForResponse((response) => response.url().endsWith("/api/chat"))
   await send.click()
@@ -109,4 +121,40 @@ test("a monthly reset names its date", async ({ page }) => {
     new Date("2030-02-01T00:00:00.000Z"),
   )
   await expect(page.getByRole("alert")).toContainText(`You can send messages again on ${shown} at`)
+})
+
+test("too long is announced without blocking a shorter send or keyboard access to a new chat", async ({ page }) => {
+  await withChatFixtures(page)
+  let attempts = 0
+  await page.route("**/api/chat", (route) => {
+    attempts++
+    return attempts === 1
+      ? route.fulfill({ status: 413, json: { error: "too long" } })
+      : route.fulfill({ contentType: "text/event-stream", body: replyStream("A shorter message works.") })
+  })
+  await page.goto("/")
+  const field = page.getByRole("textbox", { name: "Message", exact: true })
+  const send = page.getByRole("button", { name: "Send", exact: true })
+  await field.fill("中".repeat(30_000))
+  await send.click()
+  const alert = page.getByRole("alert")
+  await expect(alert).toContainText("This message or chat is too long")
+  await expect(alert).toContainText("Shorten your message or start a new chat")
+  await expect(alert).not.toContainText("reset")
+  await field.fill("Hi")
+  await expect(send).toBeEnabled()
+  await send.click()
+  await expect(page.locator(".is-assistant")).toContainText("A shorter message works.")
+  expect(attempts).toBe(2)
+
+  await page.goto("/screens/10-too-long")
+  const newChat = page.getByRole("alert").getByRole("button", { name: "New chat", exact: true })
+  await expect(newChat).toBeVisible()
+  await newChat.focus()
+  await page.keyboard.press("Tab")
+  await page.keyboard.press("Shift+Tab")
+  await expect(newChat).toBeFocused()
+  await page.keyboard.press("Enter")
+  await expect(page).toHaveURL("/")
+  await expect(field).toHaveValue("")
 })

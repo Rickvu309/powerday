@@ -1,5 +1,6 @@
 import { createChatApi, parseCatalog, UserId, ConversationId } from "@powerday/chat-core"
 import { catalogConfig } from "../../../packages/chat-core/src/catalog.fixture"
+import { convertToModelMessages } from "ai"
 import { MockLanguageModelV4 } from "ai/test"
 import { expect, it } from "vitest"
 import { conversationStore } from "./conversations"
@@ -7,9 +8,9 @@ import { conversation, localD1, message } from "./local-d1"
 import { usageLedger } from "./usage"
 
 it.each([
-  { tokens: 1, text: "x".repeat(100_000), status: 429 },
-  { tokens: 20, text: "x".repeat(60), status: 429 },
-  { tokens: 100, text: "Hi", status: 200 },
+  { tokens: 1, text: "x".repeat(100_000), status: 413 },
+  { tokens: 20, text: "x".repeat(60), status: 413 },
+  { tokens: 300, text: "Hi", status: 200 },
   { tokens: 100_000, text: "Hi", status: 200 },
   { tokens: 100_000, text: "x".repeat(1_000_001), status: 400 },
 ])(
@@ -68,17 +69,21 @@ it.each([
       if (status !== 200) {
         expect(model.doStreamCalls).toHaveLength(0)
         expect(await ledger.spent(user, new Date(0))).toBe(0)
-        if (status === 429) expect(response.headers.get("Retry-After")).toBe("43200")
+        if (status === 413) expect(response.headers.get("Retry-After")).toBeNull()
         return
       }
       const call = model.doStreamCalls[0]!
-      const inputTokens = Math.ceil(JSON.stringify(call.prompt).length / 3)
-      expect(call.maxOutputTokens).toBe(Math.min(tokens - inputTokens, 4096))
+      const modelMessages = await convertToModelMessages([
+        message("history", "user", "Earlier prompt"),
+        message("question", "user", text),
+      ])
+      const inputBound = new TextEncoder().encode(JSON.stringify(modelMessages)).length + 8 * modelMessages.length + 64
+      expect(call.maxOutputTokens).toBe(Math.min(tokens - inputBound, 4096))
       expect(call.maxOutputTokens).toBeGreaterThan(0)
       const reservation = await platform.env.DB.prepare(
         "SELECT reserved_tokens FROM messages WHERE id = 'answer'",
       ).first<number>("reserved_tokens")
-      expect(reservation).toBe(inputTokens + call.maxOutputTokens!)
+      expect(reservation).toBe(inputBound + call.maxOutputTokens!)
     } finally {
       await platform.dispose()
     }

@@ -68,7 +68,8 @@ export const settled = async (page: Page, screen: string) => {
     screen.includes("error") ||
     screen.includes("signed-out") ||
     screen.includes("unavailable") ||
-    screen.includes("over-limit")
+    screen.includes("over-limit") ||
+    screen.includes("too-long")
   ) {
     await expect(page.getByRole("alert")).toBeVisible()
   } else if (screen.includes("stopped")) await expect(page.getByText("Reply interrupted.")).toBeVisible()

@@ -1,4 +1,4 @@
-import { simulateReadableStream, wrapLanguageModel, type LanguageModel } from "ai"
+import { convertToModelMessages, simulateReadableStream, wrapLanguageModel, type LanguageModel } from "ai"
 import { MockLanguageModelV4 } from "ai/test"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { createChatApi, type ChatDeps } from "../api.js"
@@ -119,12 +119,100 @@ const textOf = (message: ChatMessage | undefined) =>
   message?.parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("")
 
 describe("POST /api/chat", () => {
+  it("refuses the 30,000-character CJK input before it can overrun the remaining cap", async () => {
+    const { app, deps } = setup()
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 100_000 })
+    vi.spyOn(deps.ledger, "spent").mockResolvedValue(85_900)
+    const model = vi.spyOn(deps.gateway, "model")
+    const claim = vi.spyOn(deps.store, "claim")
+    const response = await send(app, { ...hello, parts: [{ type: "text", text: "鿿".repeat(30_000) }] })
+    expect(response.status).toBe(429)
+    expect(model).not.toHaveBeenCalled()
+    expect(claim).not.toHaveBeenCalled()
+  })
+
+  it.each(["漢字鿿", "👩🏽‍💻🌍😀", "const answer = (value) => JSON.stringify({ value });"])(
+    "reserves at least the UTF-8 byte length and limits output for %s",
+    async (text) => {
+      const { app, deps, settle } = setup()
+      const message = { ...hello, parts: [{ type: "text" as const, text }] }
+      const bytes = new TextEncoder().encode(JSON.stringify(await convertToModelMessages([message]))).length
+      const model = wordModel()
+      vi.spyOn(deps.gateway, "model").mockReturnValue(model)
+      vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 1000 })
+      const claim = vi.spyOn(deps.store, "claim")
+      const response = await send(app, message)
+      expect(response.status).toBe(200)
+      await response.text()
+      await settle()
+      const output = model.doStreamCalls[0]?.maxOutputTokens
+      expect(output).toBe(1000 - bytes - 8 - 64)
+      expect(1000 - (output ?? 1000)).toBeGreaterThanOrEqual(bytes)
+      expect(claim.mock.calls[0]?.[3]?.reservation).toBe(1000)
+    },
+  )
+
+  it("reserves the byte bound plus at most 4096 output tokens but charges provider usage", async () => {
+    const { app, deps, usageEvents, settle } = setup()
+    const message = { ...hello, parts: [{ type: "text" as const, text: "鿿".repeat(30_000) }] }
+    const bytes = new TextEncoder().encode(JSON.stringify(await convertToModelMessages([message]))).length
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 100_000 })
+    const claim = vi.spyOn(deps.store, "claim")
+    const model = wordModel()
+    vi.spyOn(deps.gateway, "model").mockReturnValue(model)
+    const response = await send(app, message)
+    expect(response.status).toBe(200)
+    await response.text()
+    await settle()
+    expect(model.doStreamCalls[0]?.maxOutputTokens).toBe(4096)
+    expect(claim.mock.calls[0]?.[3]?.reservation).toBe(bytes + 8 + 64 + 4096)
+    expect(usageEvents[0]).toMatchObject({ inputTokens: 7, outputTokens: 3, estimated: false })
+  })
+
+  it("requires room for the minimum reply and distinguishes full from remaining allowance", async () => {
+    const { app, deps, settle } = setup()
+    const bytes = new TextEncoder().encode(JSON.stringify(await convertToModelMessages([hello]))).length
+    const full = bytes + 8 + 64 + 16
+    const allowance = vi.spyOn(deps.ledger, "allowance")
+    allowance.mockResolvedValue({ user, period: "day", tokens: full - 1 })
+    expect((await send(app, hello)).status).toBe(413)
+    allowance.mockResolvedValue({ user, period: "day", tokens: full })
+    const spent = vi.spyOn(deps.ledger, "spent").mockResolvedValue(1)
+    expect((await send(app, hello)).status).toBe(429)
+    spent.mockResolvedValue(0)
+    const model = wordModel()
+    vi.spyOn(deps.gateway, "model").mockReturnValue(model)
+    const response = await send(app, hello)
+    expect(response.status).toBe(200)
+    await response.text()
+    await settle()
+    expect(model.doStreamCalls[0]?.maxOutputTokens).toBe(16)
+  })
+
+  it("returns too long for a fresh allowance without claiming or charging, and accepts a shorter message", async () => {
+    const { app, deps, usageEvents, settle } = setup()
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 6000 })
+    const model = vi.spyOn(deps.gateway, "model")
+    const claim = vi.spyOn(deps.store, "claim")
+    const response = await send(app, { ...hello, parts: [{ type: "text", text: "中".repeat(30_000) }] })
+    expect(response.status).toBe(413)
+    expect(await response.json()).toEqual({ error: "too long" })
+    expect(response.headers.get("Retry-After")).toBeNull()
+    expect(model).not.toHaveBeenCalled()
+    expect(claim).not.toHaveBeenCalled()
+    expect(usageEvents).toEqual([])
+    const shorter = await send(app, hello)
+    expect(shorter.status).toBe(200)
+    await shorter.text()
+    await settle()
+  })
+
   it("blocks at the cap without saving a message or calling the model, then resets", async () => {
     const { app, deps, settle } = setup()
     let now = new Date("2026-11-16T23:59:00Z")
     vi.spyOn(deps.clock, "now").mockImplementation(() => now)
-    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 100 })
-    const spent = vi.spyOn(deps.ledger, "spent").mockResolvedValue(100)
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 200 })
+    const spent = vi.spyOn(deps.ledger, "spent").mockResolvedValue(200)
     const model = vi.spyOn(deps.gateway, "model")
     const claim = vi.spyOn(deps.store, "claim")
     const response = await send(app, hello)
@@ -136,7 +224,7 @@ describe("POST /api/chat", () => {
     expect(await deps.store.get(user, ConversationId.parse("c1"))).toBeUndefined()
     expect(spent).toHaveBeenCalledWith(user, new Date("2026-11-16T00:00:00Z"))
     now = new Date("2026-11-17T00:00:00Z")
-    spent.mockImplementation(async (_, since) => (since.getTime() >= now.getTime() ? 0 : 100))
+    spent.mockImplementation(async (_, since) => (since.getTime() >= now.getTime() ? 0 : 200))
     const next = await send(app, hello)
     expect(next.status).toBe(200)
     await next.text()
@@ -145,8 +233,8 @@ describe("POST /api/chat", () => {
 
   it("returns the cap response when another reply records usage before the atomic claim", async () => {
     const { app, deps } = setup()
-    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 100 })
-    vi.spyOn(deps.ledger, "spent").mockResolvedValueOnce(0).mockResolvedValue(100)
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 200 })
+    vi.spyOn(deps.ledger, "spent").mockResolvedValueOnce(0).mockResolvedValue(200)
     vi.spyOn(deps.store, "claim").mockResolvedValue(undefined)
     const model = vi.spyOn(deps.gateway, "model")
     const response = await send(app, hello)
@@ -154,8 +242,8 @@ describe("POST /api/chat", () => {
     expect(model).not.toHaveBeenCalled()
     expect(deps.store.claim).toHaveBeenCalledWith(expect.anything(), hello, expect.anything(), {
       since: expect.any(Date),
-      tokens: 100,
-      reservation: 100,
+      tokens: 200,
+      reservation: 200,
     })
   })
 
@@ -172,7 +260,7 @@ describe("POST /api/chat", () => {
 
   it("finishes a budgeted reply and blocks a follow-up that cannot fit", async () => {
     const { app, deps, usageEvents, settle } = setup()
-    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "month", tokens: 40 })
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "month", tokens: 200 })
     vi.spyOn(deps.ledger, "spent").mockImplementation(async () =>
       usageEvents.reduce((sum, event) => sum + event.inputTokens + event.outputTokens, 0),
     )
@@ -182,7 +270,7 @@ describe("POST /api/chat", () => {
     await settle()
     expect(usageEvents).toHaveLength(1)
     expect(usageEvents[0]).toMatchObject({ inputTokens: 7, outputTokens: 3 })
-    expect((await send(app, { ...hello, id: "m2" })).status).toBe(429)
+    expect((await send(app, { ...hello, id: "m2" })).status).toBe(413)
     expect(usageEvents).toHaveLength(1)
   })
 

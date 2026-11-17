@@ -14,7 +14,8 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/class-names"
 import { OverLimit } from "./over-limit"
-import { problemOf, usageLimitOf } from "./reply-problem"
+import { TooLong } from "./too-long"
+import { problemOf, tooLongOf, usageLimitOf } from "./reply-problem"
 
 const scrolling = matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth"
 
@@ -201,6 +202,8 @@ export default function Thread({ messages, status, error, stopped, onRetry }: Th
         {error !== undefined || status === "error" || last?.metadata?.reply?.state === "failed" ? (
           limit ? (
             <OverLimit resetsAt={limit.resetsAt} onRetry={onRetry} />
+          ) : tooLongOf(error) ? (
+            <TooLong />
           ) : (
             <Note tone="problem" text={problemOf(error)} onRetry={onRetry} />
           )

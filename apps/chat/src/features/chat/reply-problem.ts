@@ -12,9 +12,12 @@ export class ReplyProblem extends Error {
   }
 }
 
+export const tooLongMessage = "This message or chat is too long. Shorten your message or start a new chat."
+
 const problemByStatus = new Map([
   [401, "Sign in to continue. Your message is still here."],
   [409, "A reply is already running or saved. Wait for it to finish, reopen that chat, then retry."],
+  [413, tooLongMessage],
   [404, "This conversation could not be found."],
   [422, "This model is no longer available. Choose another model and retry."],
   [429, "You've reached your usage limit. Try again after it resets."],
@@ -31,6 +34,8 @@ export const problemOf = (error: unknown) => {
 
 export const usageLimitOf = (error: unknown) =>
   error instanceof ReplyProblem && error.status === 429 ? error : undefined
+
+export const tooLongOf = (error: unknown) => error instanceof ReplyProblem && error.status === 413
 
 const LimitResponse = z.object({ resetsAt: z.iso.datetime() })
 
