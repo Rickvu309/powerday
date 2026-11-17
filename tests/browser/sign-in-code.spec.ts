@@ -6,7 +6,9 @@ import { expect, test } from "@playwright/test"
 
 test.beforeEach(async ({ page }) => {
   const bytes = randomBytes(3)
-  await page.setExtraHTTPHeaders({ "cf-connecting-ip": `198.${18 + ((bytes[0] ?? 0) % 2)}.${bytes[1]}.${bytes[2]}` })
+  await page
+    .context()
+    .setExtraHTTPHeaders({ "cf-connecting-ip": `198.${18 + ((bytes[0] ?? 0) % 2)}.${bytes[1]}.${bytes[2]}` })
 })
 
 const chat = path.join(import.meta.dirname, "../../apps/chat")

@@ -22,7 +22,10 @@ const mailedLink = (output: string) => {
 for (const width of [1280, 390]) {
   test(`cold product JavaScript stays below 200000 bytes at ${width}px`, async ({ browser, baseURL }, info) => {
     if (baseURL === undefined) throw new Error("Missing product origin")
-    const auth = await browser.newContext({ baseURL })
+    const auth = await browser.newContext({
+      baseURL,
+      extraHTTPHeaders: { "cf-connecting-ip": `192.0.2.${width === 1280 ? 101 : 102}` },
+    })
     const email = `load-${randomUUID()}@example.com`
     expect((await auth.request.post("/api/auth/sign-in/magic-link", { data: { email, callbackURL: "/" } })).ok()).toBe(
       true,
