@@ -17,15 +17,17 @@ export function CodeEntry({
   const [state, setState] = useState(initial)
   const pending = useRef(false)
   const error =
-    state.kind === "wrong"
-      ? `That code isn't right. ${state.attemptsLeft} ${state.attemptsLeft === 1 ? "attempt" : "attempts"} left.`
-      : state.kind === "expired"
-        ? "That code expired or was already used. Send a new code."
-        : state.kind === "locked"
-          ? "Too many attempts. Send a new code to sign in."
-          : state.kind === "failed"
-            ? "Couldn't check the code. Check your connection and try again."
-            : undefined
+    state.kind === "rate-limited"
+      ? "Too many attempts. Wait a minute and try again."
+      : state.kind === "wrong"
+        ? `That code isn't right. ${state.attemptsLeft} ${state.attemptsLeft === 1 ? "attempt" : "attempts"} left.`
+        : state.kind === "expired"
+          ? "That code expired or was already used. Send a new code."
+          : state.kind === "locked"
+            ? "Too many attempts. Send a new code to sign in."
+            : state.kind === "failed"
+              ? "Couldn't check the code. Check your connection and try again."
+              : undefined
   const verify = async (digits: string) => {
     if (unavailable || pending.current || digits.length !== 6 || state.kind === "locked" || state.kind === "expired")
       return

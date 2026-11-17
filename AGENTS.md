@@ -42,6 +42,8 @@ Prefer the simple system. Do not keep complexity because it exists, or add machi
 - `tooling/oxlint-plugin-powerday` holds the lint rules. `scripts/` holds the check runner, the push guard and the other checks, each with its `*.test.mjs` beside it.
 - `Assets/`, `Exports/`, `Motion/`, `Styles/` and `main.bl` are the brand and motion design sources. No build reads them.
 
+Better Auth rate limiting is explicitly enabled with database storage in D1 (the rateLimit table in migration 0006), independent of NODE_ENV. The Worker trusts only Cloudflare’s edge-set cf-connecting-ip header; forwarded client headers are ignored. Missing or invalid IPs share a limited bucket. Magic-link and email-OTP sends share 5 requests per 60 seconds per IP; their verification paths share 10 per 60 seconds per IP. Other endpoints retain Better Auth defaults. The per-code five-attempt lock applies separately.
+
 ## Rules
 
 - Code has no comments. If code needs explaining, use a better name. The one exception is `@ts-expect-error` in a `*.proof.ts` file.

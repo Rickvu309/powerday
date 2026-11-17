@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
-import { afterAll, beforeAll, expect, test, vi } from "vitest"
+import { afterAll, beforeAll, beforeEach, expect, test, vi } from "vitest"
 import { getPlatformProxy, type PlatformProxy } from "wrangler"
 import { auth, cloudflareEmail } from "./auth"
 
@@ -25,6 +25,10 @@ beforeAll(async () => {
 })
 
 afterAll(async () => platform?.dispose())
+
+beforeEach(async () => {
+  await platform.env.DB.prepare("DELETE FROM rateLimit").run()
+})
 
 test("an invite-only Worker refuses outsiders before logging mail to local D1", async () => {
   const instance = auth({ ...platform.env, LOCAL_AUTH: "true", ALLOWLIST: ["powerday.work", "ada@example.com"] })
@@ -196,4 +200,102 @@ test("local D1 logs both alternatives and atomically consumes a code across the 
   const results = await Promise.all([verify(second.code), instance.handle(new Request(second.link))])
   expect(results.filter((response) => response.headers.has("set-cookie"))).toHaveLength(1)
   expect((await verify(second.code)).status).toBe(400)
-})
+}, 30_000)
+
+test.each(["send", "verify"])(
+  "D1 shares %s limits across auth instances without NODE_ENV",
+  async (flow) => {
+    vi.stubEnv("NODE_ENV", undefined)
+    try {
+      const env = {
+        ...platform.env,
+        LOCAL_AUTH: "false",
+        BETTER_AUTH_SECRET: "test-secret-with-at-least-thirty-two-characters",
+        ALLOWLIST_JSON: '["example.com"]',
+        EMAIL: { send: vi.fn().mockResolvedValue({ messageId: "rate-test" }) },
+      }
+      const origin = env.APP_URL
+      const first = auth(env)
+      const second = auth(env)
+      const limit = flow === "send" ? 5 : 10
+      const request = (instance: ReturnType<typeof auth>, attempt: number, ip?: string) => {
+        const headers = new Headers({
+          "content-type": "application/json",
+          origin,
+          "x-forwarded-for": `198.51.100.${attempt + 1}`,
+          "x-real-ip": `198.51.100.${attempt + 1}`,
+        })
+        if (ip) headers.set("cf-connecting-ip", ip)
+        const compatibility = attempt % 2 === 0
+        if (flow === "verify" && compatibility)
+          return instance.handle(
+            new Request(`${origin}/api/auth/magic-link/verify?email=limit@example.com&token=000000`, { headers }),
+          )
+        const path =
+          flow === "verify"
+            ? "sign-in/email-otp"
+            : compatibility
+              ? "sign-in/magic-link"
+              : "email-otp/send-verification-otp"
+        return instance.handle(
+          new Request(`${origin}/api/auth/${path}`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ email: "limit@example.com", otp: "000000", type: "sign-in" }),
+          }),
+        )
+      }
+      for (const ip of ["192.0.2.10", undefined]) {
+        for (let attempt = 0; attempt < limit; attempt += 1)
+          expect(flow === "send" ? [200] : attempt % 2 === 0 ? [302] : [400, 403]).toContain(
+            (await request(first, attempt, ip)).status,
+          )
+        const refused = await request(second, limit, ip)
+        expect(refused.status).toBe(429)
+        expect(refused.headers.get("retry-after") ?? refused.headers.get("x-retry-after")).toBeTruthy()
+        expect((await request(second, limit + 1, ip)).status).toBe(429)
+      }
+      expect((await request(second, 0, "192.0.2.11")).status).not.toBe(429)
+      expect(await platform.env.DB.prepare("SELECT COUNT(*) FROM rateLimit").first("COUNT(*)")).toBe(3)
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  },
+  30_000,
+)
+
+test("D1 keeps the five-attempt code lock below the endpoint limit", async () => {
+  const instance = auth({ ...platform.env, LOCAL_AUTH: "true", ALLOWLIST: [] })
+  const origin = "http://localhost:5173"
+  const headers = { "content-type": "application/json", origin, "cf-connecting-ip": "192.0.2.30" }
+  expect(
+    (
+      await instance.handle(
+        new Request(`${origin}/api/auth/sign-in/magic-link`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ email: "locked@example.com" }),
+        }),
+      )
+    ).status,
+  ).toBe(200)
+  const mail = await platform.env.DB.prepare(
+    "SELECT mail FROM mail_log WHERE mail ->> '$.to' = ? ORDER BY id DESC LIMIT 1",
+  )
+    .bind("locked@example.com")
+    .first<string>("mail")
+  const code = String(JSON.parse(mail ?? "null").subject).slice(0, 6)
+  const verify = (otp: string) =>
+    instance.handle(
+      new Request(`${origin}/api/auth/sign-in/email-otp`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ email: "locked@example.com", otp }),
+      }),
+    )
+  for (let attempt = 1; attempt <= 5; attempt += 1)
+    expect(await (await verify(code === "000000" ? "111111" : "000000")).json()).toMatchObject({
+      attemptsLeft: 5 - attempt,
+    })
+  expect((await verify(code)).status).toBe(403)
+}, 30_000)

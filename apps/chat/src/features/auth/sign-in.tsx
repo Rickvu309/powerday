@@ -23,6 +23,7 @@ export type Step =
 type SignInProps = { readonly google: boolean; readonly initial: Step }
 
 const failures: Readonly<Record<Failure, string>> = {
+  "rate-limited": "Too many attempts. Wait a minute and try again.",
   "not-invited": "Use an invited email address, or ask your administrator for access.",
   unsent: "We couldn't send the link. Check your connection and try again.",
   expired: "That sign-in link expired or was already used. Enter your email to get a new one.",

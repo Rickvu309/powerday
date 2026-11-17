@@ -31,7 +31,9 @@ it("fails closed in production and runs local D1 links, revocation, redemption r
     return link
   }
   try {
-    const migration = await readFile("apps/chat/migrations/0003_auth.sql", "utf8")
+    const migration =
+      (await readFile("apps/chat/migrations/0003_auth.sql", "utf8")) +
+      (await readFile("apps/chat/migrations/0006_sign_in_codes.sql", "utf8"))
     for (const statement of migration.split(";").filter((sql) => sql.trim())) await db.prepare(statement).run()
     for (const config of [
       { BETTER_AUTH_SECRET: "test-secret-with-sufficient-length-for-auth" },

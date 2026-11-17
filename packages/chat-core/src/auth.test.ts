@@ -4,7 +4,10 @@ import { createAuth, resend, type Auth, type AuthConfig, type Mail } from "./aut
 
 const local = "http://localhost:5173"
 
-const setup = (config: Partial<AuthConfig> = {}, tables = { user: [], session: [], account: [], verification: [] }) => {
+const setup = (
+  config: Partial<AuthConfig> = {},
+  tables = { user: [], session: [], account: [], verification: [], rateLimit: [] },
+) => {
   const mails: Mail[] = []
   const auth = createAuth({
     database: memoryAdapter(tables),

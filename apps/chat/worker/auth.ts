@@ -52,6 +52,7 @@ export const auth = (env: Cloudflare.Env): Auth => {
     }
   return createAuth({
     database: env.DB,
+    ipAddressHeader: "cf-connecting-ip",
     site: env.BETTER_AUTH_SECRET ? { url: env.APP_URL, secret: env.BETTER_AUTH_SECRET } : "loopback",
     google:
       env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET

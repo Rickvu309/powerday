@@ -5,6 +5,11 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { expect, test } from "@playwright/test"
 
+test.beforeEach(async ({ page }) => {
+  const bytes = randomBytes(3)
+  await page.setExtraHTTPHeaders({ "cf-connecting-ip": `198.${18 + ((bytes[0] ?? 0) % 2)}.${bytes[1]}.${bytes[2]}` })
+})
+
 const chat = path.join(import.meta.dirname, "../../apps/chat")
 
 const wrangler = (...args: string[]) =>

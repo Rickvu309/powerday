@@ -22,6 +22,7 @@ export const Allowlist = z.array(z.string().trim().toLowerCase().min(1)).readonl
 export type Allowlist = z.infer<typeof Allowlist>
 
 export type AuthConfig = {
+  readonly ipAddressHeader?: string
   readonly database: BetterAuthOptions["database"]
   readonly site: { readonly url: string; readonly secret: string } | "loopback"
   readonly google: { readonly clientId: string; readonly clientSecret: string } | undefined
@@ -63,7 +64,21 @@ export const createAuth = (config: AuthConfig): Auth => {
       ? { baseURL: { allowedHosts: ["localhost:*", "127.0.0.1:*"], protocol: "http" } }
       : { baseURL: config.site.url, secret: config.site.secret }),
     database: config.database,
-    advanced: { disableOriginCheck: false, defaultCookieAttributes: { httpOnly: true, sameSite: "lax" } },
+    advanced: {
+      disableOriginCheck: false,
+      defaultCookieAttributes: { httpOnly: true, sameSite: "lax" },
+      ipAddress: { ipAddressHeaders: [config.ipAddressHeader ?? "x-forwarded-for"] },
+    },
+    rateLimit: {
+      enabled: true,
+      storage: "database",
+      customRules: {
+        "/sign-in/magic-link": { window: 60, max: 5 },
+        "/email-otp/send-verification-otp": { window: 60, max: 5 },
+        "/sign-in/email-otp": { window: 60, max: 10 },
+        "/magic-link/verify": { window: 60, max: 10 },
+      },
+    },
     socialProviders: config.google === undefined ? {} : { google: config.google },
     plugins: [
       emailOTP({
@@ -162,6 +177,16 @@ export const createAuth = (config: AuthConfig): Auth => {
             body: JSON.stringify({ email: url.searchParams.get("email"), otp: url.searchParams.get("token") }),
           }),
         )
+        if (response.status === 429) {
+          const headers = new Headers(response.headers)
+          headers.set("content-type", "text/html; charset=utf-8")
+          headers.set("cache-control", "no-store")
+          headers.set("referrer-policy", "no-referrer")
+          return new Response(
+            '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Try again shortly · Power Chat</title><main><h1>Too many attempts</h1><p>Too many attempts. Wait a minute and try again.</p><a href="/">Return to sign in</a></main></html>',
+            { status: 429, headers },
+          )
+        }
         const result = new Headers(response.headers)
         result.delete("content-type")
         if (!response.ok) callback.searchParams.set("error", "INVALID_TOKEN")
@@ -201,6 +226,7 @@ export const createAuth = (config: AuthConfig): Auth => {
       }
       if (path === "/api/auth/methods") return Response.json({ methods })
       const publicFlow =
+        path === "/api/auth/email-otp/send-verification-otp" ||
         path === "/api/auth/sign-out" ||
         path === "/api/auth/error" ||
         path.startsWith("/api/auth/sign-in/") ||

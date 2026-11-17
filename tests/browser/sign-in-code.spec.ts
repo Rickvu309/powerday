@@ -4,6 +4,11 @@ import { mkdirSync } from "node:fs"
 import path from "node:path"
 import { expect, test } from "@playwright/test"
 
+test.beforeEach(async ({ page }) => {
+  const bytes = randomBytes(3)
+  await page.setExtraHTTPHeaders({ "cf-connecting-ip": `198.${18 + ((bytes[0] ?? 0) % 2)}.${bytes[1]}.${bytes[2]}` })
+})
+
 const chat = path.join(import.meta.dirname, "../../apps/chat")
 const proof = "tests/browser/sign-in-code-proof"
 
@@ -102,3 +107,23 @@ for (const width of [375, 1440]) {
     })
   }
 }
+
+test("rate limits let people retry sending and entering a code", async ({ page }) => {
+  let limited = true
+  await page.route("**/api/auth/sign-in/magic-link", (route) =>
+    route.fulfill({ status: limited ? 429 : 200, json: {} }),
+  )
+  await page.route("**/api/auth/sign-in/email-otp", (route) =>
+    route.fulfill({ status: 429, body: "Too many requests" }),
+  )
+  await page.goto("/")
+  await page.getByLabel("Email", { exact: true }).fill("limited@example.com")
+  await page.getByRole("button", { name: "Continue with email" }).click()
+  const message = page.getByText("Too many attempts. Wait a minute and try again.", { exact: true })
+  await expect(message).toBeVisible()
+  limited = false
+  await page.getByRole("button", { name: "Continue with email" }).click()
+  await page.getByLabel("Sign-in code", { exact: true }).fill("123456")
+  await expect(message).toBeVisible()
+  await expect(page.getByLabel("Sign-in code", { exact: true })).toBeEditable()
+})
