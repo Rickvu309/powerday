@@ -1,7 +1,7 @@
 import { UserId } from "@powerday/chat-core"
 import { useEffect, useState } from "react"
 
-export type Failure = "not-invited" | "unsent" | "expired" | "unfinished"
+export type Failure = "not-invited" | "unsent" | "expired" | "unfinished" | "rate-limited"
 
 export type Account =
   | { readonly status: "loading" }
@@ -93,6 +93,7 @@ export const sendLink = async (email: string): Promise<Failure | undefined> => {
     () => undefined,
   )
   if (response?.ok) return undefined
+  if (response?.status === 429) return "rate-limited"
   return response?.status === 403 ? "not-invited" : "unsent"
 }
 
@@ -103,6 +104,7 @@ export const continueWithGoogle = async (): Promise<Failure | undefined> => {
       callbackURL: location.pathname,
       errorCallbackURL: "/",
     })
+    if (response.status === 429) return "rate-limited"
     if (!response.ok) return "unfinished"
     const url = field(await response.json(), "url")
     if (typeof url !== "string") return "unfinished"
@@ -116,4 +118,25 @@ export const continueWithGoogle = async (): Promise<Failure | undefined> => {
 export const signOut = async (): Promise<boolean> => {
   const response = await post("/api/auth/sign-out", {}).catch(() => undefined)
   return response?.ok === true
+}
+
+export type CodeState =
+  | { readonly kind: "ready" | "verifying" | "expired" | "locked" | "failed" | "rate-limited" }
+  | { readonly kind: "wrong"; readonly attemptsLeft: number }
+
+export const verifyCode = async (email: string, otp: string): Promise<CodeState | undefined> => {
+  try {
+    const response = await post("/api/auth/sign-in/email-otp", { email, otp })
+    if (response.ok) return undefined
+    if (response.status === 429) return { kind: "rate-limited" }
+    const error: unknown = await response.json()
+    const code = field(error, "code")
+    const attemptsLeft = field(error, "attemptsLeft")
+    if (code === "TOO_MANY_ATTEMPTS") return { kind: "locked" }
+    if (code === "OTP_EXPIRED" || (code === "INVALID_OTP" && attemptsLeft === 0)) return { kind: "expired" }
+    if (code === "INVALID_OTP" && typeof attemptsLeft === "number") return { kind: "wrong", attemptsLeft }
+    return { kind: "failed" }
+  } catch {
+    return { kind: "failed" }
+  }
 }

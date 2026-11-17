@@ -4,6 +4,7 @@
   "main": "worker/index.ts",
   "compatibility_date": "2026-11-10",
   "workers_dev": false,
+  "triggers": { "crons": ["*/5 * * * *"] },
   "routes": [{ "pattern": "chat.powerday.work", "custom_domain": true }],
   "ai": { "binding": "AI" },
   "send_email": [{ "name": "EMAIL" }],

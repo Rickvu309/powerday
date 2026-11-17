@@ -42,11 +42,14 @@ Prefer the simple system. Do not keep complexity because it exists, or add machi
 - `tooling/oxlint-plugin-powerday` holds the lint rules. `scripts/` holds the check runner, the push guard and the other checks, each with its `*.test.mjs` beside it.
 - `Assets/`, `Exports/`, `Motion/`, `Styles/` and `main.bl` are the brand and motion design sources. No build reads them.
 
+Better Auth rate limiting is explicitly enabled with database storage in D1 (the rateLimit table in migration 0006), independent of NODE_ENV. The Worker trusts only Cloudflare’s edge-set cf-connecting-ip header; forwarded client headers are ignored. Missing or invalid IPs are refused before the limiter; local auth supplies a configured test IP. Magic-link and email-OTP sends share 5 requests per 60 seconds per IP; their verification paths share 10 per 60 seconds per IP. Only these routes and Google sign-in start use database limits. Unknown routes are refused and session reads create no counters. A minute cron deletes at most 10 counters older than 60 seconds using an indexed lookup. The per-code five-attempt lock applies separately.
+
 ## Rules
 
 - Code has no comments. If code needs explaining, use a better name. The one exception is `@ts-expect-error` in a `*.proof.ts` file.
 - Never name a file or folder `utils`, `helpers` or `common`. Name it after what it contains.
 - Use one word per idea, everywhere. The same name appears in the code, the test and the docs, so one search finds all of it.
+- Email colors live only in `packages/chat-core/src/email-theme-art.ts`, the email theme mirroring the app light tokens.
 - Colors come from tokens. A raw hex or color mix lives only in a `tokens.css` file or a file whose name ends in `-art`.
 - Extend what exists before building a parallel version.
 - With reduced motion on, a page shows its finished state with no movement.
