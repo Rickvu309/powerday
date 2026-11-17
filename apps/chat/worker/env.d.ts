@@ -1,5 +1,8 @@
 declare namespace Cloudflare {
   interface Env {
+    ASSETS?: Fetcher
+    ADMIN_EMAILS?: string
+    PROVIDER_KEYS_SECRET?: string
     AI?: Ai
     DB: D1Database
     CATALOG: unknown

@@ -6,8 +6,10 @@ import { MockLanguageModelV4 } from "ai/test"
 import type { Catalog, ModelEntry, Provider, ProviderKind } from "./catalog.js"
 
 export type ModelGateway = {
-  readonly model: (entry: ModelEntry) => LanguageModel
+  readonly model: (entry: ModelEntry, catalog?: Catalog) => LanguageModel | Promise<LanguageModel>
 }
+
+export type SyncModelGateway = { readonly model: (entry: ModelEntry) => LanguageModel }
 
 export type GatewayConfig = {
   readonly accountId: string
@@ -92,11 +94,50 @@ export const createModelGateway = (
   catalog: Catalog,
   config: GatewayConfig | undefined,
   providers: Partial<Record<ProviderKind, Upstream>> = {},
-): ModelGateway => {
+  keys: ReadonlyMap<string, string> = new Map(),
+): SyncModelGateway => {
+  const keyed = (provider: Provider): Upstream | undefined => {
+    const apiKey = keys.get(provider.id)
+    if (apiKey === undefined) return undefined
+    if (config === undefined)
+      throw new Error(`provider ${provider.id} needs the AI Gateway account id, gateway name and token`)
+    const root = `https://gateway.ai.cloudflare.com/v1/${config.accountId}/${config.name}`
+    const post: typeof fetch = (input, init) => {
+      const headers = new Headers(init?.headers)
+      headers.set("cf-aig-authorization", `Bearer ${config.token}`)
+      return fetch(input, { ...init, headers })
+    }
+    const settings = { apiKey, fetch: post }
+    switch (provider.kind) {
+      case "openai":
+        return createOpenAI({ ...settings, baseURL: `${root}/openai` })
+      case "anthropic":
+        return createAnthropic({ ...settings, baseURL: `${root}/anthropic/v1` })
+      case "google":
+        return createGoogleGenerativeAI({ ...settings, baseURL: `${root}/google-ai-studio/v1beta` })
+      case "openai-compatible": {
+        if (provider.baseURL === undefined) throw new Error("Compatible provider needs a base URL")
+        const url = new URL(provider.baseURL)
+        const route =
+          url.origin === "https://openrouter.ai"
+            ? "openrouter"
+            : url.origin === "https://api.deepseek.com"
+              ? "deepseek"
+              : `custom-${provider.id}`
+        const baseURL = route.startsWith("custom-")
+          ? `${root}/${route}${url.pathname.replace(/\/$/, "")}`
+          : `${root}/${route}`
+        const client = createOpenAI({ ...settings, baseURL })
+        return (id) => client.chat(id)
+      }
+      default:
+        return undefined
+    }
+  }
   const upstreams = new Map(
     [...catalog.providers.values()].map((provider) => [
       provider.id,
-      providers[provider.kind] ?? connections[provider.kind](provider, config),
+      providers[provider.kind] ?? keyed(provider) ?? connections[provider.kind](provider, config),
     ]),
   )
   return {

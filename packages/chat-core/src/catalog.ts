@@ -14,7 +14,9 @@ export type PriceId = z.infer<typeof PriceId>
 const ProviderKind = z.enum(["openai", "anthropic", "google", "openai-compatible", "workers-ai", "mock"])
 export type ProviderKind = z.infer<typeof ProviderKind>
 
-const Provider = z.strictObject({ id: ProviderId, kind: ProviderKind, label: z.string().min(1) }).readonly()
+const Provider = z
+  .strictObject({ id: ProviderId, kind: ProviderKind, label: z.string().min(1), baseURL: z.string().optional() })
+  .readonly()
 export type Provider = z.infer<typeof Provider>
 
 const ModelEntry = z
@@ -36,7 +38,7 @@ export type Catalog = {
   readonly models: ReadonlyMap<ModelId, ModelEntry>
 }
 
-const CatalogConfig = z.strictObject({ providers: z.array(Provider), models: z.array(ModelEntry) })
+export const CatalogConfig = z.strictObject({ providers: z.array(Provider), models: z.array(ModelEntry) })
 
 export const parseCatalog = (raw: unknown): Catalog => {
   const config = CatalogConfig.parse(raw)

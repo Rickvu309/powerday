@@ -30,6 +30,19 @@ export const usageLedger = ({ DB: db, USAGE_LIMITS }: Cloudflare.Env): UsageLedg
         )
         .bind(user, since.getTime())
         .first<number>("spent")) ?? 0,
-    allowance: async (user) => ({ user, ...(limits.overrides[user] ?? limits.default) }),
+    allowance: async (user) => {
+      const override = await db
+        .prepare('SELECT tokens FROM admin_limits WHERE email = lower((SELECT email FROM "user" WHERE id = ?))')
+        .bind(user)
+        .first<number>("tokens")
+      const fallback = await db.prepare("SELECT tokens FROM admin_limits WHERE email = ''").first<number>("tokens")
+      return {
+        user,
+        ...(override !== null
+          ? { period: "day" as const, tokens: override }
+          : (limits.overrides[user] ??
+            (fallback !== null ? { period: "day" as const, tokens: fallback } : limits.default))),
+      }
+    },
   }
 }

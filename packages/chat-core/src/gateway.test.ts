@@ -69,3 +69,22 @@ describe("createModelGateway", () => {
     expect(() => createModelGateway(catalogOf("openai-compatible"), config)).toThrow("no base URL")
   })
 })
+
+it("sends decrypted provider keys only to a complete AI Gateway", async () => {
+  const requests: { url: string; headers: Headers }[] = []
+  vi.stubGlobal("fetch", async (input: string, init: RequestInit) => {
+    requests.push({ url: input, headers: new Headers(init.headers) })
+    return Response.json({ error: { message: "test refusal" } }, { status: 400 })
+  })
+  const catalog = catalogOf("openai")
+  const keys = new Map([["upstream", "provider-test-key"]])
+  expect(() => createModelGateway(catalog, undefined, {}, keys)).toThrow("needs the AI Gateway")
+  await streamText({
+    model: createModelGateway(catalog, config, {}, keys).model([...catalog.models.values()][0]!),
+    prompt: "Hi",
+    maxRetries: 0,
+  }).consumeStream()
+  expect(requests[0]?.url).toContain("gateway.ai.cloudflare.com")
+  expect(requests[0]?.headers.get("authorization")).toBe("Bearer provider-test-key")
+  expect(requests[0]?.headers.get("cf-aig-authorization")).toBe("Bearer gateway-token")
+})

@@ -107,7 +107,7 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
       ? limitResponse()
       : refuse(409, "message already answered or in progress")
   }
-  const model = deps.gateway.model(entry)
+  const model = await deps.gateway.model(entry, deps.catalog)
   const messages = claimed.messages.slice(0, -1)
 
   let failed = false
