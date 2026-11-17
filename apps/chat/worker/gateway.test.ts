@@ -49,8 +49,17 @@ test("streams Workers AI through the configured gateway without a provider key",
   )
 })
 
-test("refuses a Workers AI catalog without the binding or gateway name", () => {
-  expect(() => modelGateway({}, catalog)).toThrow("Workers AI needs")
+test("refuses a Workers AI catalog without the gateway name", () => {
+  expect(() => modelGateway({}, catalog)).toThrow("Workers AI needs AI_GATEWAY_NAME")
+})
+
+test("reads the AI binding when a model is asked for, not at startup", () => {
+  const env: Parameters<typeof modelGateway>[0] = { AI_GATEWAY_NAME: "test-gateway" }
+  const gateway = modelGateway(env, catalog)
+  const entry = [...catalog.models.values()][0]!
+  expect(() => gateway.model(entry)).toThrow("Workers AI needs the AI binding")
+  Object.assign(env, { AI: { run: vi.fn() } })
+  expect(gateway.model(entry)).toBeDefined()
 })
 
 test.each([
