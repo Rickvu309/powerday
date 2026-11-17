@@ -302,3 +302,61 @@ test("chat Retry preserves its history gate while the full title is shown", asyn
   expect(reads).toBe(2)
   expect(replies).toBe(1)
 })
+
+test("a new chat shows its title after the reply and after renaming", async ({ page }) => {
+  await withChatFixtures(page)
+  let created = false
+  let id = ""
+  let chatTitle = "Plan my research release"
+  await page.route("**/api/chat", async (route) => {
+    id = route.request().postDataJSON().id
+    created = true
+    await route.fulfill({ contentType: "text/event-stream", body: replyStream("The completed reply") })
+  })
+  await page.route("**/api/conversations", (route) =>
+    route.fulfill({
+      json: { conversations: created ? [{ ...savedConversation.conversation, id, title: chatTitle }] : [] },
+    }),
+  )
+  let historyReads = 0
+  await page.route("**/api/conversations/*", (route) => {
+    if (route.request().method() === "PATCH") chatTitle = route.request().postDataJSON().title
+    else historyReads++
+    return route.fulfill({ json: {} })
+  })
+  await page.goto("/")
+  const input = page.getByRole("textbox", { name: "Message" })
+  await input.fill("Plan my research release")
+  await input.press("Enter")
+  await expect(page.locator(".is-assistant")).toContainText("The completed reply")
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Plan my research release")
+  await expect(page).toHaveTitle("Plan my research release · Power Chat")
+  await expect(input).toBeFocused()
+  expect(historyReads).toBe(0)
+  await page.getByRole("button", { name: "Options for Plan my research release" }).click()
+  await page.getByRole("menuitem", { name: "Rename", exact: true }).click()
+  await page.getByRole("textbox", { name: "Chat title" }).fill("Revised research release")
+  await page.keyboard.press("Enter")
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Revised research release")
+  await expect(page).toHaveTitle("Revised research release · Power Chat")
+})
+
+test("typing three keys in keyboard modality causes no attribute mutations", async ({ page }) => {
+  await withChatFixtures(page)
+  await page.goto("/")
+  await page.getByRole("textbox", { name: "Message" }).focus()
+  await page.keyboard.press("a")
+  await expect(page.locator("html")).toHaveAttribute("data-input-modality", "keyboard")
+  const mutations = await page.evaluate(async () => {
+    let count = 0
+    const observer = new MutationObserver((records) => {
+      count += records.length
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-input-modality"] })
+    for (const key of ["b", "c", "d"]) document.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }))
+    await Promise.resolve()
+    observer.disconnect()
+    return count
+  })
+  expect(mutations).toBe(0)
+})

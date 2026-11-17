@@ -76,6 +76,9 @@ export const createConversationCache = (api: ConversationApi) => {
       return () => listeners.delete(listener)
     },
     listing: () => listing,
+    refresh: () => {
+      if (listeners.size > 0) fetchPage(undefined)
+    },
     opened: (id: ConversationId) => opened.get(id),
     title: (id: ConversationId) => titles.get(id),
     rememberTitle: ({ id, title }: Pick<Conversation, "id" | "title">) => {
@@ -139,6 +142,8 @@ const CacheContext = createContext(cache)
 
 export const rememberConversationTitle = (conversation: Pick<Conversation, "id" | "title">) =>
   cache.rememberTitle(conversation)
+
+export const refreshConversationListing = () => cache.refresh()
 
 export const ConversationCacheProvider = CacheContext
 

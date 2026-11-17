@@ -20,10 +20,12 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 export function App() {
   useEffect(() => {
     const keyboard = () => {
-      document.documentElement.dataset.inputModality = "keyboard"
+      if (document.documentElement.dataset.inputModality !== "keyboard")
+        document.documentElement.dataset.inputModality = "keyboard"
     }
     const pointer = () => {
-      document.documentElement.dataset.inputModality = "pointer"
+      if (document.documentElement.dataset.inputModality !== "pointer")
+        document.documentElement.dataset.inputModality = "pointer"
     }
     document.documentElement.dataset.inputModality = "pointer"
     document.addEventListener("keydown", keyboard, true)
