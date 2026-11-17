@@ -1,4 +1,4 @@
-import { simulateReadableStream, wrapLanguageModel, type LanguageModel } from "ai"
+import { convertToModelMessages, simulateReadableStream, wrapLanguageModel, type LanguageModel } from "ai"
 import { MockLanguageModelV4 } from "ai/test"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { createChatApi, type ChatDeps } from "../api.js"
@@ -54,7 +54,9 @@ const setup = (overrides: Partial<ChatDeps> = {}) => {
       delete: async () => false,
       search: async () => [],
       get: async (owner, id) => saved.get(JSON.stringify([owner, id])),
-      claim: async (conversation, message, reply) => {
+      claim: async (conversation, message, reply, allowance) => {
+        if (allowance && (await deps.ledger.spent(conversation.owner, allowance.since)) >= allowance.tokens)
+          return undefined
         const key = JSON.stringify([conversation.owner, conversation.id])
         const prior = saved.get(key)
         if (
@@ -75,8 +77,10 @@ const setup = (overrides: Partial<ChatDeps> = {}) => {
         saved.set(key, claimed)
         return claimed
       },
-      save: async (conversation, messages) =>
-        void saved.set(JSON.stringify([conversation.owner, conversation.id]), { conversation, messages }),
+      save: async (conversation, messages, usage) => {
+        if (usage) await deps.ledger.record(usage)
+        saved.set(JSON.stringify([conversation.owner, conversation.id]), { conversation, messages })
+      },
     },
     ledger: {
       record: async (event) => {
@@ -89,7 +93,7 @@ const setup = (overrides: Partial<ChatDeps> = {}) => {
         }
       },
       spent: async () => 0,
-      allowance: async () => ({ user, period: "day", tokens: 1000 }),
+      allowance: async () => ({ user, period: "day", tokens: 10000 }),
     },
     auth: { user: async () => user, handle: async () => new Response() },
     clock: { now: () => new Date() },
@@ -115,44 +119,183 @@ const textOf = (message: ChatMessage | undefined) =>
   message?.parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("")
 
 describe("POST /api/chat", () => {
-  it("never saves a complete reply without a usage event when billing fails", async () => {
-    const log = vi.spyOn(console, "error").mockImplementation(() => {})
-    const record = vi.fn(async () => {
-      throw new Error("ledger unavailable")
-    })
-    const { app, deps, usageEvents, settle } = setup()
-    vi.spyOn(deps.ledger, "record").mockImplementation(record)
-    const save = deps.store.save
-    const completeWithoutUsage: string[] = []
-    vi.spyOn(deps.store, "save").mockImplementation(async (conversation, messages) => {
-      for (const message of messages) {
-        if (message.metadata?.reply?.state === "complete" && !usageEvents.some((e) => e.message === message.id)) {
-          completeWithoutUsage.push(message.id)
-        }
-      }
-      await save(conversation, messages)
-    })
-    await (await send(app, hello)).text()
-    const backgroundErrors: unknown[] = []
-    await settle().catch((error) => backgroundErrors.push(error))
-    expect(completeWithoutUsage).toEqual([])
-    expect((await deps.store.get(user, ConversationId.parse("c1")))?.messages.at(-1)?.metadata?.reply).toEqual({
-      state: "failed",
-      error: "The reply could not be billed. Please contact support.",
-    })
-    expect(backgroundErrors).toEqual([])
-    expect(record).toHaveBeenCalledTimes(3)
-    expect(log).toHaveBeenCalledWith(expect.objectContaining({ event: "chat.billing_failed", message: "a1" }))
-    log.mockRestore()
+  it("refuses the 30,000-character CJK input before it can overrun the remaining cap", async () => {
+    const { app, deps } = setup()
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 100_000 })
+    vi.spyOn(deps.ledger, "spent").mockResolvedValue(85_900)
+    const model = vi.spyOn(deps.gateway, "model")
+    const claim = vi.spyOn(deps.store, "claim")
+    const response = await send(app, { ...hello, parts: [{ type: "text", text: "鿿".repeat(30_000) }] })
+    expect(response.status).toBe(429)
+    expect(model).not.toHaveBeenCalled()
+    expect(claim).not.toHaveBeenCalled()
   })
 
-  it("retries billing before saving complete and does not double-charge an ambiguous write", async () => {
+  it.each(["漢字鿿", "👩🏽‍💻🌍😀", "const answer = (value) => JSON.stringify({ value });"])(
+    "reserves at least the UTF-8 byte length and limits output for %s",
+    async (text) => {
+      const { app, deps, settle } = setup()
+      const message = { ...hello, parts: [{ type: "text" as const, text }] }
+      const bytes = new TextEncoder().encode(JSON.stringify(await convertToModelMessages([message]))).length
+      const model = wordModel()
+      vi.spyOn(deps.gateway, "model").mockReturnValue(model)
+      vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 1000 })
+      const claim = vi.spyOn(deps.store, "claim")
+      const response = await send(app, message)
+      expect(response.status).toBe(200)
+      await response.text()
+      await settle()
+      const output = model.doStreamCalls[0]?.maxOutputTokens
+      expect(output).toBe(1000 - bytes - 8 - 64)
+      expect(1000 - (output ?? 1000)).toBeGreaterThanOrEqual(bytes)
+      expect(claim.mock.calls[0]?.[3]?.reservation).toBe(1000)
+    },
+  )
+
+  it("reserves the byte bound plus at most 4096 output tokens but charges provider usage", async () => {
     const { app, deps, usageEvents, settle } = setup()
-    const record = deps.ledger.record
+    const message = { ...hello, parts: [{ type: "text" as const, text: "鿿".repeat(30_000) }] }
+    const bytes = new TextEncoder().encode(JSON.stringify(await convertToModelMessages([message]))).length
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 100_000 })
+    const claim = vi.spyOn(deps.store, "claim")
+    const model = wordModel()
+    vi.spyOn(deps.gateway, "model").mockReturnValue(model)
+    const response = await send(app, message)
+    expect(response.status).toBe(200)
+    await response.text()
+    await settle()
+    expect(model.doStreamCalls[0]?.maxOutputTokens).toBe(4096)
+    expect(claim.mock.calls[0]?.[3]?.reservation).toBe(bytes + 8 + 64 + 4096)
+    expect(usageEvents[0]).toMatchObject({ inputTokens: 7, outputTokens: 3, estimated: false })
+  })
+
+  it("requires room for the minimum reply and distinguishes full from remaining allowance", async () => {
+    const { app, deps, settle } = setup()
+    const bytes = new TextEncoder().encode(JSON.stringify(await convertToModelMessages([hello]))).length
+    const full = bytes + 8 + 64 + 16
+    const allowance = vi.spyOn(deps.ledger, "allowance")
+    allowance.mockResolvedValue({ user, period: "day", tokens: full - 1 })
+    expect((await send(app, hello)).status).toBe(413)
+    allowance.mockResolvedValue({ user, period: "day", tokens: full })
+    const spent = vi.spyOn(deps.ledger, "spent").mockResolvedValue(1)
+    expect((await send(app, hello)).status).toBe(429)
+    spent.mockResolvedValue(0)
+    const model = wordModel()
+    vi.spyOn(deps.gateway, "model").mockReturnValue(model)
+    const response = await send(app, hello)
+    expect(response.status).toBe(200)
+    await response.text()
+    await settle()
+    expect(model.doStreamCalls[0]?.maxOutputTokens).toBe(16)
+  })
+
+  it("returns too long for a fresh allowance without claiming or charging, and accepts a shorter message", async () => {
+    const { app, deps, usageEvents, settle } = setup()
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 6000 })
+    const model = vi.spyOn(deps.gateway, "model")
+    const claim = vi.spyOn(deps.store, "claim")
+    const response = await send(app, { ...hello, parts: [{ type: "text", text: "中".repeat(30_000) }] })
+    expect(response.status).toBe(413)
+    expect(await response.json()).toEqual({ error: "too long" })
+    expect(response.headers.get("Retry-After")).toBeNull()
+    expect(model).not.toHaveBeenCalled()
+    expect(claim).not.toHaveBeenCalled()
+    expect(usageEvents).toEqual([])
+    const shorter = await send(app, hello)
+    expect(shorter.status).toBe(200)
+    await shorter.text()
+    await settle()
+  })
+
+  it("blocks at the cap without saving a message or calling the model, then resets", async () => {
+    const { app, deps, settle } = setup()
+    let now = new Date("2026-11-16T23:59:00Z")
+    vi.spyOn(deps.clock, "now").mockImplementation(() => now)
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 200 })
+    const spent = vi.spyOn(deps.ledger, "spent").mockResolvedValue(200)
+    const model = vi.spyOn(deps.gateway, "model")
+    const claim = vi.spyOn(deps.store, "claim")
+    const response = await send(app, hello)
+    expect(response.status).toBe(429)
+    expect(await response.json()).toEqual({ error: "usage limit", resetsAt: "2026-11-17T00:00:00.000Z" })
+    expect(response.headers.get("Retry-After")).toBe("60")
+    expect(model).not.toHaveBeenCalled()
+    expect(claim).not.toHaveBeenCalled()
+    expect(await deps.store.get(user, ConversationId.parse("c1"))).toBeUndefined()
+    expect(spent).toHaveBeenCalledWith(user, new Date("2026-11-16T00:00:00Z"))
+    now = new Date("2026-11-17T00:00:00Z")
+    spent.mockImplementation(async (_, since) => (since.getTime() >= now.getTime() ? 0 : 200))
+    const next = await send(app, hello)
+    expect(next.status).toBe(200)
+    await next.text()
+    await settle()
+  })
+
+  it("returns the cap response when another reply records usage before the atomic claim", async () => {
+    const { app, deps } = setup()
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 200 })
+    vi.spyOn(deps.ledger, "spent").mockResolvedValueOnce(0).mockResolvedValue(200)
+    vi.spyOn(deps.store, "claim").mockResolvedValue(undefined)
+    const model = vi.spyOn(deps.gateway, "model")
+    const response = await send(app, hello)
+    expect(response.status).toBe(429)
+    expect(model).not.toHaveBeenCalled()
+    expect(deps.store.claim).toHaveBeenCalledWith(expect.anything(), hello, expect.anything(), {
+      since: expect.any(Date),
+      tokens: 200,
+      reservation: 200,
+    })
+  })
+
+  it("fails closed when usage cannot be read", async () => {
+    const { app, deps } = setup()
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    vi.spyOn(deps.ledger, "spent").mockRejectedValue(new Error("ledger unavailable"))
+    const model = vi.spyOn(deps.gateway, "model")
+    const claim = vi.spyOn(deps.store, "claim")
+    expect((await send(app, hello)).status).toBe(500)
+    expect(model).not.toHaveBeenCalled()
+    expect(claim).not.toHaveBeenCalled()
+  })
+
+  it("finishes a budgeted reply and blocks a follow-up that cannot fit", async () => {
+    const { app, deps, usageEvents, settle } = setup()
+    vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "month", tokens: 200 })
+    vi.spyOn(deps.ledger, "spent").mockImplementation(async () =>
+      usageEvents.reduce((sum, event) => sum + event.inputTokens + event.outputTokens, 0),
+    )
+    const first = await send(app, hello)
+    expect(first.status).toBe(200)
+    await first.text()
+    await settle()
+    expect(usageEvents).toHaveLength(1)
+    expect(usageEvents[0]).toMatchObject({ inputTokens: 7, outputTokens: 3 })
+    expect((await send(app, { ...hello, id: "m2" })).status).toBe(413)
+    expect(usageEvents).toHaveLength(1)
+  })
+
+  it("retains the claim when atomic completion retries are exhausted", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {})
+    const { app, deps, usageEvents, settle } = setup()
+    const save = vi.spyOn(deps.store, "save").mockRejectedValue(new Error("completion unavailable"))
+    await (await send(app, hello)).text()
+    await settle()
+    expect(usageEvents).toEqual([])
+    expect((await deps.store.get(user, ConversationId.parse("c1")))?.messages.at(-1)?.metadata?.reply).toEqual({
+      state: "streaming",
+    })
+    expect((await send(app, { ...hello, id: "m2" })).status).toBe(409)
+    expect(save).toHaveBeenCalledTimes(3)
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({ event: "chat.completion_failed", message: "a1" }))
+  })
+
+  it("retries atomic completion and does not double-charge an ambiguous write", async () => {
+    const { app, deps, usageEvents, settle } = setup()
+    const save = deps.store.save
     let attempts = 0
-    vi.spyOn(deps.ledger, "record").mockImplementation(async (event) => {
+    vi.spyOn(deps.store, "save").mockImplementation(async (...args) => {
       attempts++
-      await record(event)
+      await save(...args)
       if (attempts === 1) throw new Error("write committed but acknowledgement lost")
     })
     await (await send(app, hello)).text()
@@ -164,15 +307,16 @@ describe("POST /api/chat", () => {
     )
   })
 
-  it("charges estimated usage for delivered output after an upstream error", async () => {
+  it("charges the full reservation when an upstream error leaves usage unreported", async () => {
     const { app, deps, usageEvents, settle } = setup({ gateway: { model: () => wordModel("error") } })
     await (await send(app, hello)).text()
     await settle()
+    const sent = JSON.stringify(await convertToModelMessages([hello]))
     expect(usageEvents).toEqual([
       expect.objectContaining({
         message: "a1",
-        inputTokens: 3,
-        outputTokens: 5,
+        inputTokens: new TextEncoder().encode(sent).length + 8 + 64,
+        outputTokens: 4096,
         estimated: true,
       }),
     ])
@@ -182,6 +326,17 @@ describe("POST /api/chat", () => {
     expect((await send(app, hello)).status).toBe(409)
     await settle()
     expect(usageEvents).toHaveLength(1)
+  })
+
+  it("charges unreported CJK input at least its UTF-8 bytes and never past the allowance", async () => {
+    const { app, usageEvents, settle } = setup({ gateway: { model: () => wordModel("error") } })
+    const cjk: ChatMessage = { id: "m1", role: "user", parts: [{ type: "text", text: "鿿".repeat(2000) }] }
+    await (await send(app, cjk)).text()
+    await settle()
+    const [event] = usageEvents
+    expect(event?.inputTokens).toBeGreaterThanOrEqual(6000)
+    expect((event?.inputTokens ?? 0) + (event?.outputTokens ?? 0)).toBeLessThanOrEqual(10000)
+    expect(event?.estimated).toBe(true)
   })
 
   it("uses provider-reported usage when a failed stream still reports it", async () => {

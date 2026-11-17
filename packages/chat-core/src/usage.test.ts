@@ -12,6 +12,10 @@ describe("decide", () => {
     expect(decide(999, daily, now)).toEqual({ allowed: true })
   })
 
+  it("blocks a zero allowance even without recorded usage", () => {
+    expect(decide(0, { ...daily, tokens: 0 }, now).allowed).toBe(false)
+  })
+
   it("refuses a user who reached their daily allowance until the next UTC midnight", () => {
     expect(decide(1000, daily, now)).toEqual({ allowed: false, resetsAt: new Date("2027-01-01T00:00:00Z") })
   })

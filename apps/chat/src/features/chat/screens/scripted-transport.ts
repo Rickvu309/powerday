@@ -4,7 +4,7 @@ import { ReplyProblem } from "../reply-problem"
 
 export type Script =
   | { readonly kind: "reply"; readonly text: string; readonly reasoning?: string; readonly holdAfter?: number }
-  | { readonly kind: "fail"; readonly status: number }
+  | { readonly kind: "fail"; readonly status: number; readonly resetsAt?: Date }
 
 const tokensPerTick = 8
 const tickMs = 16
@@ -62,7 +62,7 @@ const paced = (script: Extract<Script, { kind: "reply" }>, signal: AbortSignal |
 export const scriptedTransport = (script: Script): ChatTransport<ChatMessage> => ({
   sendMessages: async ({ abortSignal }) => {
     if (script.kind === "reply") return paced(script, abortSignal)
-    throw new ReplyProblem(script.status)
+    throw new ReplyProblem(script.status, script.resetsAt)
   },
   reconnectToStream: async () => null,
 })

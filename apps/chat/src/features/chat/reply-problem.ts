@@ -1,19 +1,23 @@
+import * as z from "zod"
+
 export class ReplyProblem extends Error {
   readonly status: number
+  readonly resetsAt: Date | undefined
 
-  constructor(status: number) {
+  constructor(status: number, resetsAt?: Date) {
     super(`Request failed with status ${status}`)
     this.name = "ReplyProblem"
     this.status = status
+    this.resetsAt = resetsAt
   }
 }
 
+export const tooLongMessage = "This message or chat is too long. Shorten your message or start a new chat."
+
 const problemByStatus = new Map([
   [401, "Sign in to continue. Your message is still here."],
-  [
-    409,
-    "A reply is still running or this attempt was already accepted. Reopen this chat to see the saved reply, then retry.",
-  ],
+  [409, "A reply is already running or saved. Wait for it to finish, reopen that chat, then retry."],
+  [413, tooLongMessage],
   [404, "This conversation could not be found."],
   [422, "This model is no longer available. Choose another model and retry."],
   [429, "You've reached your usage limit. Try again after it resets."],
@@ -28,8 +32,19 @@ export const problemOf = (error: unknown) => {
   )
 }
 
+export const usageLimitOf = (error: unknown) =>
+  error instanceof ReplyProblem && error.status === 429 ? error : undefined
+
+export const tooLongOf = (error: unknown) => error instanceof ReplyProblem && error.status === 413
+
+const LimitResponse = z.object({ resetsAt: z.iso.datetime() })
+
 export const chatFetch: typeof fetch = async (input, init) => {
   const response = await fetch(input, init)
-  if (!response.ok) throw new ReplyProblem(response.status)
+  if (!response.ok) {
+    const limit =
+      response.status === 429 ? LimitResponse.safeParse(await response.json().catch(() => undefined)) : undefined
+    throw new ReplyProblem(response.status, limit?.success ? new Date(limit.data.resetsAt) : undefined)
+  }
   return response
 }

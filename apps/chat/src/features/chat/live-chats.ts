@@ -134,6 +134,7 @@ export const liveChats = (transport?: ChatTransport<ChatMessage>, seed: ChatMess
           publish({ ...view, attempt: { kind: "idle" } })
       },
       draft,
+      problem: () => session?.chat.error,
       read: () => view,
       subscribe: (listener: () => void) => {
         listeners.add(listener)

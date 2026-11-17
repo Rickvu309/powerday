@@ -13,7 +13,9 @@ import {
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/class-names"
-import { problemOf } from "./reply-problem"
+import { OverLimit } from "./over-limit"
+import { TooLong } from "./too-long"
+import { problemOf, tooLongOf, usageLimitOf } from "./reply-problem"
 
 const scrolling = matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth"
 
@@ -157,6 +159,7 @@ export type ThreadProps = {
 
 export default function Thread({ messages, status, error, stopped, onRetry }: ThreadProps) {
   const last = messages.at(-1)
+  const limit = usageLimitOf(error)
   return (
     <Conversation
       className="min-h-0"
@@ -197,7 +200,13 @@ export default function Thread({ messages, status, error, stopped, onRetry }: Th
           </p>
         ) : null}
         {error !== undefined || status === "error" || last?.metadata?.reply?.state === "failed" ? (
-          <Note tone="problem" text={problemOf(error)} onRetry={onRetry} />
+          limit ? (
+            <OverLimit resetsAt={limit.resetsAt} onRetry={onRetry} />
+          ) : tooLongOf(error) ? (
+            <TooLong />
+          ) : (
+            <Note tone="problem" text={problemOf(error)} onRetry={onRetry} />
+          )
         ) : null}
         {status === "ready" && last?.role === "user" && stopped.has(last.id) ? (
           <Note
