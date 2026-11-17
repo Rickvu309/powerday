@@ -23,7 +23,9 @@ for (const width of [320, 375]) {
         return selection?.toString()
       }),
     ).toContain(projectUrl)
-    expect(await bubble.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+    expect(await bubble.locator(":scope > div").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+      true,
+    )
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   })
 }
@@ -167,7 +169,13 @@ for (const path of ["/", "/c/saved"]) {
     await page.route("**/api/conversations/saved", (route) => route.fulfill({ json: savedConversation }))
     if (!baseURL) throw new Error("Missing origin")
     const server = createServer(async (request, response) => {
-      const upstream = await fetch(new URL(request.url ?? "/", baseURL))
+      const target = new URL(request.url ?? "/", baseURL)
+      if (target.hostname !== "127.0.0.1" || target.protocol !== "http:" || target.port !== new URL(baseURL).port) {
+        response.writeHead(400)
+        response.end()
+        return
+      }
+      const upstream = await fetch(target)
       const headers = Object.fromEntries(upstream.headers)
       delete headers["content-encoding"]
       delete headers["content-length"]
