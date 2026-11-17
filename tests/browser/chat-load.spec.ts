@@ -3,7 +3,12 @@ import { writeFile } from "node:fs/promises"
 import { gzipSync } from "node:zlib"
 import { randomUUID } from "node:crypto"
 import { expect, test } from "@playwright/test"
+import { clientAddress } from "./client-address"
 import { withChatFixtures, replyStream } from "./chat-fixtures"
+
+test.beforeEach(async ({ page }, info) => {
+  await page.context().setExtraHTTPHeaders({ "cf-connecting-ip": clientAddress(info.workerIndex) })
+})
 
 const mailedLink = (output: string) => {
   const rows: unknown = JSON.parse(output)

@@ -4,7 +4,12 @@ import { readFileSync } from "node:fs"
 import path from "node:path"
 import { expect, test } from "@playwright/test"
 import { UsageLimits } from "../../packages/chat-core/src/usage"
+import { clientAddress } from "./client-address"
 import { replyStream, withChatFixtures } from "./chat-fixtures"
+
+test.beforeEach(async ({ page }, info) => {
+  await page.context().setExtraHTTPHeaders({ "cf-connecting-ip": clientAddress(info.workerIndex) })
+})
 
 const chat = path.join(import.meta.dirname, "../../apps/chat")
 const sql = (command: string) =>

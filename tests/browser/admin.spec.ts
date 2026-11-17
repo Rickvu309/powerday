@@ -1,11 +1,15 @@
 import { execFileSync } from "node:child_process"
 import { expect, test, type Page } from "@playwright/test"
+import { clientAddress } from "./client-address"
 import { savedConversation } from "./chat-fixtures"
 
+test.beforeEach(async ({ page }, info) => {
+  await page.context().setExtraHTTPHeaders({ "cf-connecting-ip": clientAddress(info.workerIndex) })
+})
+
 const signIn = async (page: Page, email: string) => {
-  expect((await page.request.post("/api/auth/sign-in/magic-link", { data: { email, callbackURL: "/" } })).ok()).toBe(
-    true,
-  )
+  const issued = await page.request.post("/api/auth/sign-in/magic-link", { data: { email, callbackURL: "/" } })
+  expect(issued.ok()).toBe(true)
   const rows: unknown = JSON.parse(
     execFileSync(
       "pnpm",

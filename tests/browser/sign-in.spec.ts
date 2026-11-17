@@ -4,12 +4,10 @@ import path from "node:path"
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { expect, test } from "@playwright/test"
+import { clientAddress } from "./client-address"
 
-test.beforeEach(async ({ page }) => {
-  const bytes = randomBytes(3)
-  await page
-    .context()
-    .setExtraHTTPHeaders({ "cf-connecting-ip": `198.${18 + ((bytes[0] ?? 0) % 2)}.${bytes[1]}.${bytes[2]}` })
+test.beforeEach(async ({ page }, info) => {
+  await page.context().setExtraHTTPHeaders({ "cf-connecting-ip": clientAddress(info.workerIndex) })
 })
 
 const chat = path.join(import.meta.dirname, "../../apps/chat")
