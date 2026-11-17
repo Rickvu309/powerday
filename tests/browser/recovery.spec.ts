@@ -146,6 +146,19 @@ test("an expired session on a new chat offers sign in and keeps the question for
   await expect(input).toHaveValue("Keep my question\n\nAnd this follow-up")
   await page.reload()
   await expect(page.getByRole("button", { name: /Model:/ })).toBeVisible()
+  await expect(input).toHaveValue("Keep my question\n\nAnd this follow-up")
+  await page.route("**/api/chat", (route) => route.fulfill({ status: 503 }))
+  await input.press("Enter")
+  await expect(page.getByRole("alert")).toContainText("Something went wrong with this reply.")
+  await page.goto("/")
+  await expect(input).toHaveValue("Keep my question\n\nAnd this follow-up")
+  await page.route("**/api/chat", (route) =>
+    route.fulfill({ contentType: "text/event-stream", body: replyStream("Welcome back.") }),
+  )
+  await input.press("Enter")
+  await expect(page.locator(".is-assistant").last()).toContainText("Welcome back.")
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("power-chat-kept-draft"))).toBeNull()
+  await page.goto("/")
   await expect(input).toHaveValue("")
 })
 
@@ -290,6 +303,7 @@ const screens: readonly (readonly [string, string])[] = [
   ["12-chat-load-failed", "Couldn’t open this chat. Check your connection and try again."],
   ["13-chat-missing", "This chat doesn’t exist or was deleted."],
   ["14-chat-signed-out", "Your session expired. Sign in to open this chat."],
+  ["18-draft-storage-failed", "Couldn’t keep your message in this browser. Copy it before signing in."],
   ["25-sidebar-search-failed", "Couldn’t search your chats."],
   ["26-sidebar-failed", "Couldn’t load your chats."],
   ["27-sidebar-older-failed", "Couldn’t load older chats."],

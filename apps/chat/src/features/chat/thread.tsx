@@ -231,11 +231,11 @@ export default function Thread({ messages, status, error, stopped, onRetry, onSi
             <TooLong />
           ) : (
             <Note
-            tone="problem"
-            text={problemOf(error)}
-            onRetry={onRetry}
-            onSignIn={sessionExpired(error) ? signIn : undefined}
-          />
+              tone="problem"
+              text={problemOf(error)}
+              onRetry={onRetry}
+              onSignIn={sessionExpired(error) ? signIn : undefined}
+            />
           )
         ) : null}
         {status === "ready" && last?.role === "user" && stopped.has(last.id) ? (

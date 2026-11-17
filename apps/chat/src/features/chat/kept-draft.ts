@@ -19,14 +19,21 @@ export const signInKeepingDraft = (owner: string | undefined, draft: string, pat
   return true
 }
 
-export const takeKeptDraft = (owner: string) => {
+export const readKeptDraft = (owner: string) => {
   try {
     const kept = localStorage.getItem(key)
     const parsed = KeptDraft.safeParse(JSON.parse(kept ?? "null"))
     if (!parsed.success || parsed.data.owner !== owner) return ""
-    localStorage.removeItem(key)
     return parsed.data.draft
   } catch {
     return ""
+  }
+}
+
+export const clearKeptDraft = (owner: string, draft: string) => {
+  try {
+    if (readKeptDraft(owner) === draft) localStorage.removeItem(key)
+  } catch {
+    return
   }
 }

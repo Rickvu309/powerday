@@ -9,7 +9,8 @@ import { Suggestions } from "./suggestions"
 import { useLimitReset } from "./over-limit"
 import { usageLimitOf } from "./reply-problem"
 import { ConversationProblem } from "./conversation-problem"
-import { signInKeepingDraft, takeKeptDraft } from "./kept-draft"
+import { clearKeptDraft, signInKeepingDraft, readKeptDraft } from "./kept-draft"
+import { UnkeptDraft } from "./unkept-draft"
 import { Button } from "@/components/ui/button"
 
 export function Chat() {
@@ -31,7 +32,7 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
 
   useEffect(() => {
     if (owner === undefined) return
-    const kept = takeKeptDraft(owner)
+    const kept = readKeptDraft(owner)
     if (kept !== "") conversation.draft.edit(kept)
   }, [owner, conversation])
 
@@ -61,12 +62,19 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
   const send = useCallback(
     (text: string): boolean => {
       if (model === undefined) return false
-      const id = conversation.send({ text, model: model.id })
+      const kept = owner === undefined ? "" : readKeptDraft(owner)
+      const id = conversation.send({
+        text,
+        model: model.id,
+        onSent: () => {
+          if (owner !== undefined && kept !== "") clearKeptDraft(owner, kept)
+        },
+      })
       if (id === undefined) return false
       if (open === null) openConversation(id)
       return true
     },
-    [model, conversation, open],
+    [model, conversation, open, owner],
   )
   const retry = useCallback(() => {
     if (model !== undefined) conversation.retry({ model: model.id })
@@ -124,20 +132,7 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
       ) : (
         <Suggestions ready={model !== undefined} onPick={send} />
       )}
-      {unkept && (
-        <div role="alert" tabIndex={0} className="mx-auto flex max-w-3xl flex-col gap-3 px-4 text-sm">
-          <p>Couldn’t keep your message in this browser. Copy it before signing in.</p>
-          <textarea
-            aria-label="Message to keep"
-            readOnly
-            value={unkept.draft}
-            className="w-full rounded-md border p-3"
-          />
-          <Button variant="outline" onClick={() => location.assign(unkept.path)}>
-            I copied it. Sign in
-          </Button>
-        </div>
-      )}
+      {unkept && <UnkeptDraft draft={unkept.draft} onSignIn={() => location.assign(unkept.path)} />}
       <Composer
         draft={conversation.draft}
         busy={busy}
