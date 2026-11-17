@@ -29,8 +29,8 @@ export const readOpenConversation = () => {
 export const useOpenConversation = () =>
   useSyncExternalStore(subscribeOpenConversation, readOpenConversation, () => null)
 
-export const openConversation = (id: ConversationId | null) => {
-  navigation++
+export const openConversation = (id: ConversationId | null, { focus = id === null }: { focus?: boolean } = {}) => {
+  if (focus) navigation++
   window.history.pushState(null, "", id === null ? "/" : `${prefix}${encodeURIComponent(id)}`)
   window.dispatchEvent(new PopStateEvent("popstate"))
 }

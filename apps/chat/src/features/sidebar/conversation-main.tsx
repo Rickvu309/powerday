@@ -1,15 +1,16 @@
 import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react"
 import { readConversationNavigation, subscribeOpenConversation, useOpenConversation } from "@/open-conversation"
-import { useSavedConversation } from "./conversation-cache"
+import { useConversationCache } from "./conversation-cache"
 
 export function ConversationMain({ children }: { children: ReactNode }) {
   const id = useOpenConversation()
-  const saved = useSavedConversation(id)
+  const cache = useConversationCache()
+  const savedTitle = useSyncExternalStore(cache.subscribe, () => (id === null ? undefined : cache.title(id)))
   const navigation = useSyncExternalStore(subscribeOpenConversation, readConversationNavigation, () => 0)
   const focused = useRef(navigation)
   const main = useRef<HTMLElement>(null)
-  const title = id === null ? "New chat" : saved?.status === "ready" ? saved.saved.conversation.title : "Conversation"
-  const ready = id === null || (saved !== undefined && saved.status !== "loading")
+  const title = id === null ? "New chat" : (savedTitle ?? "Conversation")
+  const ready = id === null || savedTitle !== undefined
 
   useEffect(() => {
     document.title = `${title} · Power Chat`

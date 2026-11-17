@@ -222,7 +222,7 @@ export function ConversationList({ initialQuery = "" }: { initialQuery?: string 
   const search = useRef<HTMLInputElement>(null)
   const go: Go = useCallback(
     (id) => {
-      openConversation(id)
+      openConversation(id, { focus: true })
       if (isMobile) setOpenMobile(false)
     },
     [isMobile, setOpenMobile],

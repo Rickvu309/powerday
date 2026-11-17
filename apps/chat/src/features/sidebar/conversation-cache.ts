@@ -22,6 +22,7 @@ export const createConversationCache = (api: ConversationApi) => {
   let listing: Listing = { status: "loading" }
   let loading: Promise<void> | undefined
   const opened = new Map<ConversationId, Opened>()
+  const titles = new Map<ConversationId, string>()
   const listeners = new Set<() => void>()
   const emit = () => listeners.forEach((listener) => listener())
 
@@ -76,6 +77,11 @@ export const createConversationCache = (api: ConversationApi) => {
     },
     listing: () => listing,
     opened: (id: ConversationId) => opened.get(id),
+    title: (id: ConversationId) => titles.get(id),
+    rememberTitle: ({ id, title }: Pick<Conversation, "id" | "title">) => {
+      titles.set(id, title)
+      emit()
+    },
     load: () => {
       if (listing.status === "failed") {
         listing = { status: "loading" }
@@ -113,10 +119,12 @@ export const createConversationCache = (api: ConversationApi) => {
       emit()
     },
     rename: (id: ConversationId, title: string) => {
+      if (titles.has(id)) titles.set(id, title)
       change(id, (conversation) => ({ ...conversation, title }))
       api.rename(id, title).catch(reload)
     },
     delete: (id: ConversationId) => {
+      titles.delete(id)
       change(id, () => undefined)
       api.delete(id).catch(reload)
     },
@@ -126,7 +134,11 @@ export const createConversationCache = (api: ConversationApi) => {
 
 export type ConversationCache = ReturnType<typeof createConversationCache>
 
-const CacheContext = createContext(createConversationCache(httpApi))
+const cache = createConversationCache(httpApi)
+const CacheContext = createContext(cache)
+
+export const rememberConversationTitle = (conversation: Pick<Conversation, "id" | "title">) =>
+  cache.rememberTitle(conversation)
 
 export const ConversationCacheProvider = CacheContext
 

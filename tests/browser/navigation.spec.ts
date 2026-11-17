@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
-import { models, savedConversation, withChatFixtures } from "./chat-fixtures"
+import { models, replyStream, savedConversation, withChatFixtures } from "./chat-fixtures"
 
 const title =
   "Plan the international research release with Vietnamese and Arabic documentation, accessibility review, regional rollout and final stakeholder approval — compare the revised launch checklist for November".slice(
@@ -266,4 +266,39 @@ test("navigation waits for saved history before moving focus", async ({ page }) 
   release()
   await expect(page).toHaveTitle(`${title} · Power Chat`)
   await expect(page.locator("#conversation-main")).toBeFocused()
+})
+
+test("chat Retry preserves its history gate while the full title is shown", async ({ page }) => {
+  await withChatFixtures(page)
+  const held = Promise.withResolvers<void>()
+  let reads = 0
+  let replies = 0
+  await page.route("**/api/conversations/saved", async (route) => {
+    if (++reads === 2) await held.promise
+    await route.fulfill({ json: { ...savedConversation, conversation: { ...savedConversation.conversation, title } } })
+  })
+  await page.route("**/api/chat", (route) => {
+    replies++
+    return route.fulfill({ contentType: "text/event-stream", body: replyStream("Retried with the title shown") })
+  })
+  await page.goto("/c/saved")
+  await expect(page.getByText("My saved answer", { exact: true })).toBeVisible()
+  await expect(page).toHaveTitle(`${title} · Power Chat`)
+  await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Retry", exact: true }).click()
+  await expect.poll(() => reads).toBe(2)
+  const input = page.getByRole("textbox", { name: "Message" })
+  try {
+    await input.fill("Keep this draft")
+    await input.press("Enter")
+    await expect(input).toHaveValue("Keep this draft")
+    await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled()
+  } finally {
+    held.resolve()
+  }
+  await expect(page.locator(".is-assistant").last()).toContainText("Retried with the title shown")
+  await expect(page).toHaveTitle(`${title} · Power Chat`)
+  await expect(input).toHaveValue("Keep this draft")
+  expect(reads).toBe(2)
+  expect(replies).toBe(1)
 })
