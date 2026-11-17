@@ -218,7 +218,7 @@ test("an allowlist change revokes a real browser session and clears its draft on
     const cookie = (await page.context().cookies()).map((entry) => `${entry.name}=${entry.value}`).join("; ")
     expect(await (await page.request.get(`${origin}/api/auth/get-session`, { headers: { cookie } })).json()).toBeNull()
     expect((await page.request.get(`${origin}/api/conversations`, { headers: { cookie } })).status()).toBe(401)
-    expect((await page.request.get(`${origin}/api/auth/list-sessions`, { headers: { cookie } })).status()).toBe(401)
+    expect((await page.request.get(`${origin}/api/auth/list-sessions`, { headers: { cookie } })).status()).toBe(404)
     await page.route("**/api/auth/get-session", async (route) => {
       const response = await route.fetch({ url: `${origin}/api/auth/get-session`, headers: { cookie } })
       await route.fulfill({ response })
