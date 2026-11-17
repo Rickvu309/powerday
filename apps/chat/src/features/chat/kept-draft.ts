@@ -30,6 +30,10 @@ export const readKeptDraft = (owner: string) => {
   }
 }
 
+export const reviseKeptDraft = (owner: string, draft: string) => {
+  if (readKeptDraft(owner) !== "") keep(owner, draft)
+}
+
 export const clearKeptDraft = (owner: string, draft: string) => {
   try {
     if (readKeptDraft(owner) === draft) localStorage.removeItem(key)

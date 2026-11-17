@@ -148,10 +148,11 @@ test("an expired session on a new chat offers sign in and keeps the question for
   await expect(page.getByRole("button", { name: /Model:/ })).toBeVisible()
   await expect(input).toHaveValue("Keep my question\n\nAnd this follow-up")
   await page.route("**/api/chat", (route) => route.fulfill({ status: 503 }))
+  await input.fill("Revised question with essential details")
   await input.press("Enter")
   await expect(page.getByRole("alert")).toContainText("Something went wrong with this reply.")
   await page.goto("/")
-  await expect(input).toHaveValue("Keep my question\n\nAnd this follow-up")
+  await expect(input).toHaveValue("Revised question with essential details")
   await page.route("**/api/chat", (route) =>
     route.fulfill({ contentType: "text/event-stream", body: replyStream("Welcome back.") }),
   )

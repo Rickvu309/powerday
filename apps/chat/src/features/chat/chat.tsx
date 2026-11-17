@@ -9,7 +9,7 @@ import { Suggestions } from "./suggestions"
 import { useLimitReset } from "./over-limit"
 import { usageLimitOf } from "./reply-problem"
 import { ConversationProblem } from "./conversation-problem"
-import { clearKeptDraft, signInKeepingDraft, readKeptDraft } from "./kept-draft"
+import { clearKeptDraft, readKeptDraft, reviseKeptDraft, signInKeepingDraft } from "./kept-draft"
 import { UnkeptDraft } from "./unkept-draft"
 import { Button } from "@/components/ui/button"
 
@@ -62,12 +62,12 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
   const send = useCallback(
     (text: string): boolean => {
       if (model === undefined) return false
-      const kept = owner === undefined ? "" : readKeptDraft(owner)
+      if (owner !== undefined) reviseKeptDraft(owner, text)
       const id = conversation.send({
         text,
         model: model.id,
         onSent: () => {
-          if (owner !== undefined && kept !== "") clearKeptDraft(owner, kept)
+          if (owner !== undefined) clearKeptDraft(owner, text)
         },
       })
       if (id === undefined) return false
