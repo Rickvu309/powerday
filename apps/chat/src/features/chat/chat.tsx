@@ -1,5 +1,5 @@
 import type { ConversationId } from "@powerday/chat-core"
-import { useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react"
+import { useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { useAccount } from "@/features/auth/session"
 import { useModels } from "@/features/model-picker/model-choice"
 import { openConversation, useOpenConversation } from "@/open-conversation"
@@ -14,9 +14,12 @@ import { clearKeptDraft, readKeptDraft, reviseKeptDraft, signInKeepingDraft } fr
 import { UnkeptDraft } from "./unkept-draft"
 import { Button } from "@/components/ui/button"
 
-export function Chat() {
+export function Chat({ paused = false }: { paused?: boolean }) {
   const live = useContext(LiveChats)
-  const open = useOpenConversation()
+  const current = useOpenConversation()
+  const previous = useRef(current)
+  if (!paused) previous.current = current
+  const open = previous.current
   const conversation = live.open(open)
   return <ChatSession key={conversation.id} open={open} conversation={conversation} />
 }

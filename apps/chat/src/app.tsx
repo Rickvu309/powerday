@@ -1,6 +1,9 @@
-import { useEffect } from "react"
-import { NavigationSidebar } from "@/features/sidebar/navigation-sidebar"
+import { lazy, Suspense, useContext, useEffect, useRef } from "react"
+import { AdminLink } from "@/features/admin/admin-link"
+import { useAdminPage } from "@/features/admin/admin-navigation"
+import { ModelChoice } from "@/features/model-picker/model-choice"
 import { ConversationMain } from "@/features/sidebar/conversation-main"
+import { NavigationSidebar } from "@/features/sidebar/navigation-sidebar"
 import { SignInGate } from "@/features/auth/sign-in"
 import { Account } from "@/features/auth/account"
 import { Chat } from "@/features/chat/chat"
@@ -16,6 +19,8 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
+
+const Admin = lazy(() => import("@/features/admin/admin").then((module) => ({ default: module.Admin })))
 
 export function App() {
   useEffect(() => {
@@ -36,6 +41,17 @@ export function App() {
       delete document.documentElement.dataset.inputModality
     }
   }, [])
+  const admin = useAdminPage()
+  const wasAdmin = useRef(admin)
+  const { reload } = useContext(ModelChoice)
+  useEffect(() => {
+    if (wasAdmin.current && !admin) {
+      void reload()
+      document.title = `${document.getElementById("conversation-title")?.textContent || "Power Chat"} · Power Chat`
+      document.querySelector<HTMLTextAreaElement>('[aria-label="Message"]')?.focus()
+    }
+    wasAdmin.current = admin
+  }, [admin, reload])
   return (
     <SignInGate>
       <TooltipProvider delay={300}>
@@ -58,6 +74,7 @@ export function App() {
               <ConversationList />
             </SidebarContent>
             <SidebarFooter>
+              <AdminLink />
               <Account />
             </SidebarFooter>
             <SidebarRail />
@@ -72,9 +89,24 @@ export function App() {
               <SidebarTrigger />
               <ModelPicker />
             </header>
-            <ConversationMain>
-              <Chat />
-            </ConversationMain>
+            {admin ? (
+              <div className="overflow-y-auto">
+                <Suspense
+                  fallback={
+                    <p role="status" className="p-8">
+                      Loading admin…
+                    </p>
+                  }
+                >
+                  <Admin />
+                </Suspense>
+              </div>
+            ) : null}
+            <div className={admin ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
+              <ConversationMain>
+                <Chat paused={admin} />
+              </ConversationMain>
+            </div>
           </SidebarInset>
         </SidebarProvider>
       </TooltipProvider>
