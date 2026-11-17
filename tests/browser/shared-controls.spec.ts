@@ -209,18 +209,15 @@ test("the desktop sidebar collapses without animating its layout", async ({ page
   expect(motion.filter((entry) => /^sidebar.* (width|left|right|height|padding)$/.test(entry))).toEqual([])
 })
 
-test("shared control motion is short and uses composite properties", async ({ page }) => {
+test("popup motion is scoped and uses composite properties", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" })
   await withChatFixtures(page)
   await page.goto("/")
   await page.getByRole("button", { name: /^Model:/ }).click()
-  for (const control of await page
-    .locator('[data-slot="button"], [data-slot="dropdown-menu-content"], [data-slot="input-group"]')
-    .all()) {
-    await expect(control).toHaveCSS("transition-property", "transform, opacity")
-    await expect(control).toHaveCSS("transition-duration", "0.15s")
-    await expect(control).toHaveCSS("transition-timing-function", "ease-out")
-  }
-  await expect(page.getByRole("menu")).toHaveCSS("animation-duration", "0.15s")
-  await expect(page.getByRole("menu")).toHaveCSS("animation-timing-function", "ease-out")
+  const menu = page.getByRole("menu")
+  await expect(menu).toHaveCSS("transition-property", "opacity, scale, translate")
+  await expect(menu).toHaveCSS("transition-duration", "0.15s")
+  await expect(menu).toHaveCSS("transition-timing-function", "cubic-bezier(0.23, 1, 0.32, 1)")
+  await expect(menu).toHaveCSS("animation-name", "none")
+  await expect(page.locator('[data-slot="input-group"]')).toHaveCSS("transition-property", /background-color/)
 })
