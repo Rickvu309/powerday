@@ -3,7 +3,15 @@ import { Button } from "@/components/ui/button"
 import { Field } from "./field"
 import type { Save } from "./admin"
 
-export function Limits({ limits, save }: { limits: AdminOverview["limits"]; save: Save }) {
+export function Limits({
+  limits,
+  save,
+  focusAfter,
+}: {
+  limits: AdminOverview["limits"]
+  save: Save
+  focusAfter: (id: string) => void
+}) {
   return (
     <section className="grid gap-5" aria-labelledby="limits-title">
       <div>
@@ -23,6 +31,7 @@ export function Limits({ limits, save }: { limits: AdminOverview["limits"]; save
         onSubmit={async (event) => {
           event.preventDefault()
           const fields = new FormData(event.currentTarget)
+          focusAfter("save-default-limit")
           await save({ action: "limit", tokens: Number(fields.get("tokens")) })
         }}
       >
@@ -35,7 +44,7 @@ export function Limits({ limits, save }: { limits: AdminOverview["limits"]; save
           defaultValue={limits.find((l) => l.email === "")?.tokens}
           required
         />
-        <Button type="submit" className="self-end justify-self-start">
+        <Button id="save-default-limit" type="submit" className="self-end justify-self-start">
           Save default
         </Button>
       </form>
@@ -45,6 +54,7 @@ export function Limits({ limits, save }: { limits: AdminOverview["limits"]; save
           event.preventDefault()
           const form = event.currentTarget
           const fields = new FormData(form)
+          focusAfter("save-override-limit")
           if (await save({ action: "limit", email: fields.get("email"), tokens: Number(fields.get("tokens")) }))
             form.reset()
         }}
@@ -59,7 +69,7 @@ export function Limits({ limits, save }: { limits: AdminOverview["limits"]; save
           placeholder="person@example.com"
         />
         <Field label="Daily tokens" name="tokens" type="number" min={0} max={1000000000} required />
-        <Button type="submit" className="justify-self-start">
+        <Button id="save-override-limit" type="submit" className="justify-self-start">
           Save override
         </Button>
       </form>
@@ -76,7 +86,10 @@ export function Limits({ limits, save }: { limits: AdminOverview["limits"]; save
               </span>
               <Button
                 variant="outline"
-                onClick={() => void save({ action: "limit", email: limit.email, tokens: null })}
+                onClick={() => {
+                  focusAfter("save-override-limit")
+                  void save({ action: "limit", email: limit.email, tokens: null })
+                }}
               >
                 Use default
               </Button>

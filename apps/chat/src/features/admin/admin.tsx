@@ -371,7 +371,14 @@ export function Admin({
               />
             )}
           </section>
-          <Limits key={JSON.stringify(data.limits)} limits={data.limits} save={save} />
+          <Limits
+            key={JSON.stringify(data.limits)}
+            limits={data.limits}
+            save={save}
+            focusAfter={(id) => {
+              focusAfterForm.current = id
+            }}
+          />
           <Usage usage={data.usage} users={data.users} />
         </fieldset>
       )}
