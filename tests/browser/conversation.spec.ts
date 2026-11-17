@@ -1,3 +1,4 @@
+import { readdir } from "node:fs/promises"
 import { createServer } from "node:http"
 import { gzipSync } from "node:zlib"
 import { expect, test } from "@playwright/test"
@@ -168,10 +169,17 @@ for (const path of ["/", "/c/saved"]) {
     await withChatFixtures(page)
     await page.route("**/api/conversations/saved", (route) => route.fulfill({ json: savedConversation }))
     if (!baseURL) throw new Error("Missing origin")
+    const assets = await readdir("apps/chat/dist/client/assets")
+    const upstreamUrls = new Map(
+      ["/", "/c/saved", "/api/auth/methods", ...assets.map((name) => `/assets/${name}`)].map((path) => [
+        path,
+        new URL(path, baseURL),
+      ]),
+    )
     const server = createServer(async (request, response) => {
-      const target = new URL(request.url ?? "/", baseURL)
-      if (target.hostname !== "127.0.0.1" || target.protocol !== "http:" || target.port !== new URL(baseURL).port) {
-        response.writeHead(400)
+      const target = upstreamUrls.get(request.url ?? "/")
+      if (!target) {
+        response.writeHead(404)
         response.end()
         return
       }
