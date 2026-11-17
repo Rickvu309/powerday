@@ -43,8 +43,6 @@ const refuse = (status: number, error: string) => Response.json({ error }, { sta
 const textOf = (messages: readonly ChatMessage[]) =>
   messages.flatMap((message) => message.parts.flatMap((part) => (part.type === "text" ? [part.text] : []))).join("\n")
 
-const estimate = (text: string) => Math.ceil(text.length / 3)
-
 const titleOf = (message: ChatMessage) => textOf([message]).replace(/\s+/g, " ").trim().slice(0, 80)
 
 export const handle: Handler<ChatRequest> = async (input, { deps, request }) => {
@@ -127,8 +125,8 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
   const finish = async (answer: ChatMessage, aborted: boolean) => {
     const reported = await Promise.resolve(result.totalUsage).catch(() => undefined)
     const usage = {
-      inputTokens: reported?.inputTokens ?? estimate(serializedMessages),
-      outputTokens: reported?.outputTokens ?? estimate(textOf([answer])),
+      inputTokens: reported?.inputTokens ?? inputBound,
+      outputTokens: reported?.outputTokens ?? maxOutputTokens,
       cachedInputTokens: reported?.inputTokenDetails.cacheReadTokens ?? 0,
       reasoningTokens: reported?.outputTokenDetails.reasoningTokens ?? 0,
     }

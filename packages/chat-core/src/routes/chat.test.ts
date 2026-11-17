@@ -307,15 +307,16 @@ describe("POST /api/chat", () => {
     )
   })
 
-  it("charges estimated usage for delivered output after an upstream error", async () => {
+  it("charges the full reservation when an upstream error leaves usage unreported", async () => {
     const { app, deps, usageEvents, settle } = setup({ gateway: { model: () => wordModel("error") } })
     await (await send(app, hello)).text()
     await settle()
+    const sent = JSON.stringify(await convertToModelMessages([hello]))
     expect(usageEvents).toEqual([
       expect.objectContaining({
         message: "a1",
-        inputTokens: 22,
-        outputTokens: 7,
+        inputTokens: new TextEncoder().encode(sent).length + 8 + 64,
+        outputTokens: 4096,
         estimated: true,
       }),
     ])
@@ -325,6 +326,17 @@ describe("POST /api/chat", () => {
     expect((await send(app, hello)).status).toBe(409)
     await settle()
     expect(usageEvents).toHaveLength(1)
+  })
+
+  it("charges unreported CJK input at least its UTF-8 bytes and never past the allowance", async () => {
+    const { app, usageEvents, settle } = setup({ gateway: { model: () => wordModel("error") } })
+    const cjk: ChatMessage = { id: "m1", role: "user", parts: [{ type: "text", text: "鿿".repeat(2000) }] }
+    await (await send(app, cjk)).text()
+    await settle()
+    const [event] = usageEvents
+    expect(event?.inputTokens).toBeGreaterThanOrEqual(6000)
+    expect((event?.inputTokens ?? 0) + (event?.outputTokens ?? 0)).toBeLessThanOrEqual(10000)
+    expect(event?.estimated).toBe(true)
   })
 
   it("uses provider-reported usage when a failed stream still reports it", async () => {
