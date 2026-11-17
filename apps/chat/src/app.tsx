@@ -47,8 +47,6 @@ export function App() {
   useEffect(() => {
     if (wasAdmin.current && !admin) {
       void reload()
-      document.title =
-        document.querySelector("#conversation-main h1")?.textContent?.replace(/^New chat$/, "") || "Power Chat"
       document.querySelector<HTMLTextAreaElement>('[aria-label="Message"]')?.focus()
     }
     wasAdmin.current = admin
@@ -83,7 +81,7 @@ export function App() {
           <SidebarInset
             id="conversation-main"
             tabIndex={-1}
-            aria-labelledby="conversation-title"
+            aria-labelledby={admin ? "admin-title" : "conversation-title"}
             className="h-dvh min-w-0 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
           >
             <header className="flex h-12 shrink-0 items-center gap-1 px-2">
@@ -104,7 +102,7 @@ export function App() {
               </div>
             ) : null}
             <div className={admin ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
-              <ConversationMain>
+              <ConversationMain paused={admin}>
                 <Chat paused={admin} />
               </ConversationMain>
             </div>

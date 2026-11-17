@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process"
 import { expect, test, type Page } from "@playwright/test"
+import { savedConversation } from "./chat-fixtures"
 
 const signIn = async (page: Page, email: string) => {
   expect((await page.request.post("/api/auth/sign-in/magic-link", { data: { email, callbackURL: "/" } })).ok()).toBe(
@@ -251,4 +252,69 @@ test("mobile Admin navigation closes the sidebar before focusing the heading", a
   await expect(page.getByRole("heading", { name: "Admin", exact: true })).toBeFocused()
   await page.keyboard.press("Tab")
   await expect(page.getByRole("link", { name: "Back to chat", exact: true })).toBeFocused()
+})
+
+test("admin visits preserve the page title and restore the saved chat", async ({ page }) => {
+  await signIn(page, "admin@example.com")
+  await page.route("**/api/conversations/saved", (route) => route.fulfill({ json: savedConversation }))
+  await page.goto("/c/saved")
+  await expect(page).toHaveTitle("Saved")
+  for (let visit = 0; visit < 2; visit++) {
+    await page.getByRole("link", { name: "Admin", exact: true }).click()
+    await expect(page.getByRole("heading", { name: "Admin", exact: true })).toBeFocused()
+    await expect(page).toHaveTitle("Power Chat Admin")
+    await page.getByRole("link", { name: "Back to chat", exact: true }).click()
+    await expect(page).toHaveTitle("Saved")
+    await expect(page.getByRole("textbox", { name: "Message", exact: true })).toBeFocused()
+  }
+})
+
+test("cached admin keeps focus while saved history is delayed", async ({ page }) => {
+  await signIn(page, "admin@example.com")
+  await page.getByRole("link", { name: "Admin", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "Admin", exact: true })).toBeFocused()
+  await page.getByRole("link", { name: "Back to chat", exact: true }).click()
+  await page.route("**/api/conversations", (route) =>
+    route.fulfill({ json: { conversations: [savedConversation.conversation] } }),
+  )
+  await page.reload()
+  await page.getByRole("link", { name: "Admin", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "Admin", exact: true })).toBeFocused()
+  await page.getByRole("link", { name: "Back to chat", exact: true }).click()
+  let release = () => {}
+  const held = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await page.route("**/api/conversations/saved", async (route) => {
+    await held
+    await route.fulfill({ json: savedConversation })
+  })
+  const saved = page.getByRole("link", { name: "Saved", exact: true }).first()
+  await saved.focus()
+  const requested = page.waitForRequest("**/api/conversations/saved")
+  await saved.press("Enter")
+  await requested
+  await page.getByRole("link", { name: "Admin", exact: true }).click()
+  const heading = page.getByRole("heading", { name: "Admin", exact: true })
+  await expect(heading).toBeFocused()
+  release()
+  await expect(page).toHaveTitle("Power Chat Admin")
+  await page.evaluate(
+    () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+  )
+  await expect(heading).toBeFocused()
+  await page.getByRole("link", { name: "Back to chat", exact: true }).click()
+  await expect(page).toHaveTitle("Saved")
+  await expect(page.getByRole("textbox", { name: "Message", exact: true })).toBeFocused()
+})
+
+test("the admin skip link focuses the main landmark named Admin", async ({ page }) => {
+  await signIn(page, "admin@example.com")
+  await page.getByRole("link", { name: "Admin", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "Admin", exact: true })).toBeFocused()
+  await page.keyboard.press("Control+Home")
+  await page.getByRole("link", { name: "Skip to conversation", exact: true }).focus()
+  await page.keyboard.press("Enter")
+  await expect(page.getByRole("main", { name: "Admin", exact: true })).toBeFocused()
+  await expect(page.getByRole("heading", { name: "Admin", exact: true })).toBeInViewport()
 })
