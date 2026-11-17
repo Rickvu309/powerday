@@ -4,13 +4,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
+import "./sign-in.css"
 import { GoogleMark } from "./google-mark-art"
 import { continueWithGoogle, sendLink, useAccount, type Failure } from "./session"
 
 export type Step =
   | { readonly kind: "email"; readonly failure: Failure | undefined }
   | { readonly kind: "sending"; readonly method: "email" | "google" }
-  | { readonly kind: "sent"; readonly email: string }
+  | { readonly kind: "sent"; readonly email: string; readonly resend?: "ready" | "sending" | "sent" | Failure }
 
 type SignInProps = { readonly google: boolean; readonly initial: Step }
 
@@ -23,9 +24,17 @@ const failures: Readonly<Record<Failure, string>> = {
 
 export function SignIn({ google, initial }: SignInProps) {
   const [step, setStep] = useState(initial)
-
+  const [remaining, setRemaining] = useState(
+    initial.kind === "sent" && (initial.resend === undefined || initial.resend === "sent") ? 30 : 0,
+  )
+  const [announcement, setAnnouncement] = useState("")
+  const busy = useRef(initial.kind === "sending" || (initial.kind === "sent" && initial.resend === "sending"))
   const emailInput = useRef<HTMLInputElement>(null)
+  const heading = useRef<HTMLHeadingElement>(null)
+  const pointer = useRef(false)
+  const sent = step.kind === "sent"
   const refusal = step.kind === "email" && step.failure === "not-invited"
+
   useEffect(() => {
     if (refusal) {
       emailInput.current?.focus()
@@ -33,98 +42,196 @@ export function SignIn({ google, initial }: SignInProps) {
     }
   }, [refusal])
 
-  if (step.kind === "sent") {
-    return (
-      <div role="status" className="flex flex-col items-center gap-3 text-center">
-        <MailCheckIcon aria-hidden className="size-6 text-muted-foreground" />
-        <h1 className="text-2xl font-medium">Check your email</h1>
-        <p className="text-sm text-pretty text-muted-foreground">
-          Open the sign-in link we sent to
-          <span className="mt-1 block font-medium break-words text-foreground">{step.email}</span>
-        </p>
-        <Button variant="ghost" onClick={() => setStep({ kind: "email", failure: undefined })}>
-          Use a different email
-        </Button>
-      </div>
-    )
-  }
+  useEffect(() => {
+    if (!sent) return
+    heading.current?.focus({ preventScroll: true })
+  }, [sent])
 
-  const failure = step.kind === "email" ? step.failure : undefined
+  useEffect(() => {
+    if (remaining === 0) return
+    const deadline = Date.now() + remaining * 1000
+    const timer = setInterval(() => {
+      const seconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
+      setRemaining(seconds)
+      if (seconds === 0) setAnnouncement("Send a new link")
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [remaining])
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (busy.current) return
+    busy.current = true
     const email = String(new FormData(event.currentTarget).get("email")).trim()
     setStep({ kind: "sending", method: "email" })
     const failed = await sendLink(email)
+    busy.current = false
+    if (failed === undefined) setRemaining(30)
     setStep(failed === undefined ? { kind: "sent", email } : { kind: "email", failure: failed })
   }
 
   const chooseGoogle = async () => {
+    if (busy.current) return
+    busy.current = true
     setStep({ kind: "sending", method: "google" })
     const failed = await continueWithGoogle()
-    if (failed !== undefined) setStep({ kind: "email", failure: failed })
+    if (failed !== undefined) {
+      busy.current = false
+      setStep({ kind: "email", failure: failed })
+    }
   }
 
+  const resend = async () => {
+    if (step.kind !== "sent" || busy.current || remaining > 0) return
+    busy.current = true
+    setStep({ ...step, resend: "sending" })
+    setAnnouncement("")
+    const failed = await sendLink(step.email)
+    busy.current = false
+    if (failed === undefined) setRemaining(30)
+    setStep({ ...step, resend: failed ?? "sent" })
+    setAnnouncement(failed === undefined ? "New link sent" : failures[failed])
+  }
+
+  const failure = step.kind === "email" ? step.failure : undefined
+  const pending = step.kind === "sending"
+  const control = "h-auto min-h-10 whitespace-normal py-2 leading-[1.4] aria-disabled:opacity-50"
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2 text-center">
-        <h1 className="text-2xl font-medium text-balance">Sign in to Power Chat</h1>
-        <p className="text-sm text-muted-foreground">
-          {google ? "Continue with Google or get a sign-in link by email." : "We'll email you a link to sign in."}
-        </p>
-      </div>
-      {google && (
-        <>
+    <div
+      data-auth-keyboard="true"
+      onPointerDown={(event) => {
+        pointer.current = true
+        delete event.currentTarget.dataset.authKeyboard
+      }}
+      onKeyDown={(event) => {
+        pointer.current = false
+        event.currentTarget.dataset.authKeyboard = "true"
+      }}
+    >
+      <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {announcement}
+      </p>
+      {step.kind === "sent" ? (
+        <div
+          data-pointer-success={pointer.current || undefined}
+          className="auth-success flex min-w-0 flex-col items-center gap-3 text-center"
+        >
+          <MailCheckIcon aria-hidden className="size-6 text-muted-foreground" />
+          <h1 ref={heading} tabIndex={-1} className="text-2xl font-medium tracking-[-0.01em]">
+            Check your email
+          </h1>
+          <p className="w-full text-sm leading-[1.5] text-pretty text-muted-foreground">
+            Open the sign-in link we sent to
+            <bdi className="mt-1 block font-medium [overflow-wrap:anywhere] text-foreground">{step.email}</bdi>
+          </p>
+          <p className="text-sm leading-[1.5] text-pretty text-muted-foreground">
+            Check your spam folder. The link may take a minute to arrive.
+          </p>
           <Button
             variant="outline"
-            className="h-10"
-            disabled={step.kind === "sending"}
-            onClick={() => void chooseGoogle()}
+            className={`${control} max-w-full tabular-nums`}
+            aria-disabled={remaining > 0 || step.resend === "sending"}
+            onClick={() => void resend()}
           >
-            <GoogleMark />
-            Continue with Google
+            {step.resend === "sending" ? (
+              <>
+                <Spinner aria-hidden className="animate-none" />
+                Sending a new link…
+              </>
+            ) : remaining > 0 ? (
+              `Send a new link in ${remaining}s`
+            ) : (
+              "Send a new link"
+            )}
           </Button>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <Separator className="flex-1" />
-            or
-            <Separator className="flex-1" />
-          </div>
-        </>
-      )}
-      <form className="flex flex-col gap-3" onSubmit={(event) => void submit(event)}>
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Email
-          <Input
-            ref={emailInput}
-            className="h-10 text-base md:text-sm"
-            type="email"
-            name="email"
-            disabled={step.kind === "sending"}
-            autoCapitalize="none"
-            spellCheck={false}
-            required
-            autoComplete="email"
-            placeholder="you@example.com"
-            aria-invalid={failure === "not-invited"}
-            aria-describedby={failure === undefined ? undefined : "sign-in-failure"}
-          />
-        </label>
-        {failure !== undefined && (
-          <p id="sign-in-failure" role="alert" tabIndex={0} className="text-sm text-destructive">
-            {failures[failure]}
-          </p>
-        )}
-        <Button type="submit" className="h-10" disabled={step.kind === "sending"}>
-          {step.kind === "sending" ? (
-            <>
-              <Spinner className="motion-reduce:animate-none" aria-label="Sending" />
-              {step.method === "email" ? "Sending link" : "Connecting"}
-            </>
-          ) : (
-            "Continue with email"
+          {step.resend !== undefined && step.resend !== "ready" && step.resend !== "sending" && (
+            <p
+              className={`text-sm leading-[1.5] ${step.resend === "sent" ? "text-muted-foreground" : "text-destructive"}`}
+            >
+              {step.resend === "sent" ? "New link sent" : failures[step.resend]}
+            </p>
           )}
-        </Button>
-      </form>
+          <Button
+            variant="ghost"
+            className={control}
+            aria-disabled={step.resend === "sending"}
+            onClick={() => {
+              if (busy.current) return
+              setRemaining(0)
+              setAnnouncement("")
+              setStep({ kind: "email", failure: undefined })
+            }}
+          >
+            Use a different email
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-2 text-center">
+            <h1 className="text-2xl font-medium text-balance">Sign in to Power Chat</h1>
+            <p className="text-sm leading-[1.5] text-muted-foreground">
+              {google ? "Continue with Google or get a sign-in link by email." : "We'll email you a link to sign in."}
+            </p>
+          </div>
+          {google && (
+            <>
+              <Button variant="outline" className={control} aria-disabled={pending} onClick={() => void chooseGoogle()}>
+                {pending && step.method === "google" ? (
+                  <>
+                    <Spinner aria-hidden className="animate-none" />
+                    Connecting to Google…
+                  </>
+                ) : (
+                  <>
+                    <GoogleMark />
+                    Continue with Google
+                  </>
+                )}
+              </Button>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <Separator className="flex-1" />
+                or
+                <Separator className="flex-1" />
+              </div>
+            </>
+          )}
+          <form className="flex flex-col gap-3" onSubmit={(event) => void submit(event)}>
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              Email
+              <Input
+                ref={emailInput}
+                className="h-10 text-base md:text-sm"
+                type="email"
+                name="email"
+                readOnly={pending}
+                autoCapitalize="none"
+                spellCheck={false}
+                required
+                autoComplete="email"
+                placeholder="you@example.com"
+                aria-invalid={failure === "not-invited"}
+                aria-describedby={failure === undefined ? undefined : "sign-in-failure"}
+              />
+            </label>
+            {failure !== undefined && (
+              <p id="sign-in-failure" role="alert" tabIndex={0} className="text-sm text-destructive">
+                {failures[failure]}
+              </p>
+            )}
+            <Button type="submit" className={control} aria-disabled={pending}>
+              {pending && step.method === "email" ? (
+                <>
+                  <Spinner aria-hidden className="animate-none" />
+                  Sending link…
+                </>
+              ) : (
+                "Continue with email"
+              )}
+            </Button>
+          </form>
+        </div>
+      )}
     </div>
   )
 }
