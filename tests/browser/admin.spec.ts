@@ -47,6 +47,7 @@ test("only admins can open the page, API and sidebar link", async ({ page }) => 
 test("an admin manages write-only keys, model availability and email limits", async ({ page }) => {
   test.setTimeout(90000)
   await signIn(page, "admin@example.com")
+  expect((await page.request.get("/admin")).status()).toBe(200)
   const message = page.getByRole("textbox", { name: "Message", exact: true })
   await message.fill("Admin chat proof")
   await message.press("Enter")
@@ -118,14 +119,16 @@ test("an admin manages write-only keys, model availability and email limits", as
   await page.getByLabel("Override email").fill("admin@example.com")
   await page.getByLabel("Daily tokens", { exact: true }).fill("0")
   await page.getByRole("button", { name: "Save override", exact: true }).click()
-  await expect(page.getByText("admin@example.com", { exact: true }).last()).toBeVisible()
+  await expect(page.getByRole("button", { name: "Use default", exact: true })).toBeVisible()
   await page.getByRole("link", { name: "Back to chat", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Send", exact: true })).toBeEnabled()
   const blocked = page.waitForResponse((response) => response.url().endsWith("/api/chat") && response.status() === 429)
   await message.press("Enter")
   await blocked
   await expect(page.getByRole("alert")).toContainText("limit")
   await page.getByRole("link", { name: "Admin", exact: true }).click()
   await page.getByRole("button", { name: "Use default", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Use default", exact: true })).toHaveCount(0)
 })
 
 for (const width of [320, 1280])
