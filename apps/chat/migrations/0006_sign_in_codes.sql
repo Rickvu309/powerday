@@ -13,3 +13,5 @@ CREATE TABLE rateLimit (
   count INTEGER NOT NULL,
   lastRequest INTEGER NOT NULL
 );
+
+CREATE INDEX rateLimit_lastRequest ON rateLimit (lastRequest);

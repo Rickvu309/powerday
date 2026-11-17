@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from "vitest"
 import { getPlatformProxy, type PlatformProxy } from "wrangler"
-import { auth, cloudflareEmail } from "./auth"
+import { auth, cloudflareEmail, pruneRateLimits, rateLimitCleanupBatch } from "./auth"
 
 let platform: PlatformProxy<Cloudflare.Env>
 
@@ -66,7 +66,11 @@ test("Cloudflare delivers magic links without Resend and hides unconfigured Goog
     instance.handle(
       new Request("https://chat.powerday.work/api/auth/sign-in/magic-link", {
         method: "POST",
-        headers: { "content-type": "application/json", origin: "https://chat.powerday.work" },
+        headers: {
+          "content-type": "application/json",
+          "cf-connecting-ip": "192.0.2.1",
+          origin: "https://chat.powerday.work",
+        },
         body: JSON.stringify({ email, callbackURL: "/" }),
       }),
     )
@@ -245,7 +249,7 @@ test.each(["send", "verify"])(
           }),
         )
       }
-      for (const ip of ["192.0.2.10", undefined]) {
+      for (const ip of ["192.0.2.10"]) {
         for (let attempt = 0; attempt < limit; attempt += 1)
           expect(flow === "send" ? [200] : attempt % 2 === 0 ? [302] : [400, 403]).toContain(
             (await request(first, attempt, ip)).status,
@@ -256,7 +260,7 @@ test.each(["send", "verify"])(
         expect((await request(second, limit + 1, ip)).status).toBe(429)
       }
       expect((await request(second, 0, "192.0.2.11")).status).not.toBe(429)
-      expect(await platform.env.DB.prepare("SELECT COUNT(*) FROM rateLimit").first("COUNT(*)")).toBe(3)
+      expect(await platform.env.DB.prepare("SELECT COUNT(*) FROM rateLimit").first("COUNT(*)")).toBe(2)
     } finally {
       vi.unstubAllEnvs()
     }
@@ -299,3 +303,51 @@ test("D1 keeps the five-attempt code lock below the endpoint limit", async () =>
     })
   expect((await verify(code)).status).toBe(403)
 }, 30_000)
+
+test("unknown routes, session reads and untrusted requests never write counters", async () => {
+  const instance = auth({
+    ...platform.env,
+    LOCAL_AUTH: "false",
+    BETTER_AUTH_SECRET: "test-secret-with-at-least-thirty-two-characters",
+    ALLOWLIST_JSON: "[]",
+    EMAIL: { send: vi.fn() },
+  })
+  for (const path of ["sign-in/unknown", "callback/unknown", "get-session"]) {
+    const response = await instance.handle(
+      new Request(`${platform.env.APP_URL}/api/auth/${path}`, { headers: { "cf-connecting-ip": "192.0.2.1" } }),
+    )
+    expect(response.status).toBe(path === "get-session" ? 200 : 404)
+  }
+  for (const ip of [undefined, "", "invalid", "192.0.2.1, 192.0.2.2"]) {
+    for (const path of [
+      "sign-in/magic-link",
+      "email-otp/send-verification-otp",
+      "sign-in/email-otp",
+      "magic-link/verify",
+    ]) {
+      const response = await instance.handle(
+        new Request(`${platform.env.APP_URL}/api/auth/${path}`, {
+          method: path === "magic-link/verify" ? "GET" : "POST",
+          headers: ip === undefined ? {} : { "cf-connecting-ip": ip },
+        }),
+      )
+      expect(response.status).toBe(400)
+    }
+  }
+  expect(await platform.env.DB.prepare("SELECT COUNT(*) FROM rateLimit").first("COUNT(*)")).toBe(0)
+})
+
+test("scheduled cleanup removes bounded stale counters and preserves active limits", async () => {
+  const now = new Date("2026-11-17T00:00:00Z")
+  for (let index = 0; index < rateLimitCleanupBatch + 1; index += 1)
+    await platform.env.DB.prepare("INSERT INTO rateLimit (id, key, count, lastRequest) VALUES (?, ?, 1, ?)")
+      .bind(`stale-${index}`, `stale-${index}`, now.getTime() - 86_400_000)
+      .run()
+  await platform.env.DB.prepare("INSERT INTO rateLimit (id, key, count, lastRequest) VALUES ('active', 'active', 5, ?)")
+    .bind(now.getTime())
+    .run()
+  await pruneRateLimits(platform.env.DB, now)
+  expect(await platform.env.DB.prepare("SELECT COUNT(*) FROM rateLimit").first("COUNT(*)")).toBe(2)
+  await pruneRateLimits(platform.env.DB, now)
+  expect(await platform.env.DB.prepare("SELECT key FROM rateLimit").first("key")).toBe("active")
+})

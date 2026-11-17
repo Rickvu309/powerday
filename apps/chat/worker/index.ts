@@ -1,6 +1,6 @@
 import { ConversationId, createChatApi, parseCatalog } from "@powerday/chat-core"
 import { env, waitUntil } from "cloudflare:workers"
-import { auth } from "./auth"
+import { auth, pruneRateLimits } from "./auth"
 import { conversationStore } from "./conversations"
 import { modelGateway } from "./gateway"
 import { adminAccess } from "./admin-access"
@@ -12,7 +12,7 @@ const catalog = parseCatalog(env.CATALOG)
 const vault = keyVault(env.PROVIDER_KEYS_SECRET)
 const admin = adminStore(env.DB, env.CATALOG, vault, env.USAGE_LIMITS)
 
-export default createChatApi({
+const api = createChatApi({
   catalog,
   catalogSource: admin,
   adminAccess: adminAccess(env.DB, env.ADMIN_EMAILS, env.ASSETS),
@@ -25,3 +25,8 @@ export default createChatApi({
   ids: { conversation: () => ConversationId.parse(crypto.randomUUID()), message: () => crypto.randomUUID() },
   waitUntil,
 })
+
+export default {
+  fetch: api.fetch,
+  scheduled: (event: ScheduledController) => pruneRateLimits(env.DB, new Date(event.scheduledTime)),
+}

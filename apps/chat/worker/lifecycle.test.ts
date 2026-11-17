@@ -17,7 +17,7 @@ it("fails closed in production and runs local D1 links, revocation, redemption r
     service.handle(
       new Request(`${url}/api/auth/sign-in/magic-link`, {
         method: "POST",
-        headers: { origin: url, "content-type": "application/json" },
+        headers: { origin: url, "content-type": "application/json", "cf-connecting-ip": "192.0.2.50" },
         body: JSON.stringify({ email, callbackURL: "/" }),
       }),
     )
@@ -68,7 +68,7 @@ it("fails closed in production and runs local D1 links, revocation, redemption r
     const restricted = make({ LOCAL_AUTH: "true", ALLOWLIST: ["powerday.work"] })
     expect(await restricted.user(request("/api/chat"))).toBeUndefined()
     expect(await (await restricted.handle(request("/api/auth/get-session"))).json()).toBeNull()
-    expect((await restricted.handle(request("/api/auth/list-sessions"))).status).toBe(401)
+    expect((await restricted.handle(request("/api/auth/list-sessions"))).status).toBe(404)
 
     const before = await count()
     const post = vi.fn<typeof fetch>(async () => Response.json({ id: "test-mail" }))

@@ -11,6 +11,7 @@ const setup = (
   const mails: Mail[] = []
   const auth = createAuth({
     database: memoryAdapter(tables),
+    localIp: "192.0.2.1",
     site: "loopback",
     google: undefined,
     allowlist: [],
@@ -196,7 +197,7 @@ describe("createAuth", () => {
     expect(await signedIn(closed.auth, opened)).toBeUndefined()
     const get = (path: string) => closed.auth.handle(new Request(`${local}/api/auth/${path}`, { headers: { cookie } }))
     expect(await (await get("get-session")).json()).toBeNull()
-    expect((await get("list-sessions")).status).toBe(401)
+    expect((await get("list-sessions")).status).toBe(404)
     const logout = await closed.auth.handle(
       new Request(`${local}/api/auth/sign-out`, {
         method: "POST",
@@ -309,4 +310,21 @@ describe("resend", () => {
     const send = resend({ key: "re_test", from: "a@example.com" }, async () => new Response("", { status: 422 }))
     await expect(send(mail)).rejects.toThrow("422")
   })
+})
+
+it("authenticated session reads do not create rate-limit counters", async () => {
+  const { auth, mails, tables } = setup()
+  await requestLink(auth, "session@example.com")
+  const opened = await auth.handle(new Request(linkIn(mails[0])))
+  const cookie = opened.headers
+    .getSetCookie()
+    .map((header) => header.split(";")[0])
+    .join("; ")
+  tables.rateLimit.splice(0)
+  for (let index = 0; index < 3; index += 1) {
+    const response = await auth.handle(new Request(`${local}/api/auth/get-session`, { headers: { cookie } }))
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ user: { email: "session@example.com" } })
+  }
+  expect(tables.rateLimit).toHaveLength(0)
 })

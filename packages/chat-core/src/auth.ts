@@ -23,6 +23,7 @@ export type Allowlist = z.infer<typeof Allowlist>
 
 export type AuthConfig = {
   readonly ipAddressHeader?: string
+  readonly localIp?: string
   readonly database: BetterAuthOptions["database"]
   readonly site: { readonly url: string; readonly secret: string } | "loopback"
   readonly google: { readonly clientId: string; readonly clientSecret: string } | undefined
@@ -77,6 +78,11 @@ export const createAuth = (config: AuthConfig): Auth => {
         "/email-otp/send-verification-otp": { window: 60, max: 5 },
         "/sign-in/email-otp": { window: 60, max: 10 },
         "/magic-link/verify": { window: 60, max: 10 },
+        "/sign-in/social": { window: 60, max: 5 },
+        "/get-session": false,
+        "/sign-out": false,
+        "/error": false,
+        "/callback/google": false,
       },
     },
     socialProviders: config.google === undefined ? {} : { google: config.google },
@@ -143,6 +149,39 @@ export const createAuth = (config: AuthConfig): Auth => {
     handle: async (request) => {
       const url = new URL(request.url)
       const path = url.pathname.replace(/\/+$/, "")
+      const routes = new Map([
+        ["/api/auth/methods", ["GET"]],
+        ["/api/auth/get-session", ["GET"]],
+        ["/api/auth/sign-out", ["POST"]],
+        ["/api/auth/error", ["GET"]],
+        ["/api/auth/sign-in/magic-link", ["POST"]],
+        ["/api/auth/email-otp/send-verification-otp", ["POST"]],
+        ["/api/auth/sign-in/email-otp", ["POST"]],
+        ["/api/auth/magic-link/verify", ["GET"]],
+        ...(config.google === undefined
+          ? []
+          : ([
+              ["/api/auth/sign-in/social", ["POST"]],
+              ["/api/auth/callback/google", ["GET", "POST"]],
+            ] satisfies [string, string[]][])),
+      ])
+      if (!routes.get(path)?.includes(request.method)) return Response.json({ error: "not found" }, { status: 404 })
+      const limited =
+        path.includes("/sign-in/") ||
+        path === "/api/auth/email-otp/send-verification-otp" ||
+        path === "/api/auth/magic-link/verify"
+      if (limited) {
+        const header = config.ipAddressHeader ?? "x-forwarded-for"
+        const ip = request.headers.get(header) ?? config.localIp
+        if (!z.union([z.ipv4(), z.ipv6()]).safeParse(ip).success)
+          return Response.json(
+            { message: "We couldn't verify this request. Reload the page and try again." },
+            { status: 400 },
+          )
+        const headers = new Headers(request.headers)
+        headers.set(header, ip ?? "")
+        request = new Request(request, { headers })
+      }
       if (path === "/api/auth/sign-in/magic-link" && request.method === "POST") {
         const body = z
           .object({ email: z.email(), callbackURL: z.string().optional() })
@@ -225,17 +264,8 @@ export const createAuth = (config: AuthConfig): Auth => {
         )
       }
       if (path === "/api/auth/methods") return Response.json({ methods })
-      const publicFlow =
-        path === "/api/auth/email-otp/send-verification-otp" ||
-        path === "/api/auth/sign-out" ||
-        path === "/api/auth/error" ||
-        path.startsWith("/api/auth/sign-in/") ||
-        path.startsWith("/api/auth/callback/") ||
-        path === "/api/auth/magic-link/verify"
-      if (!publicFlow && (await session(request)) === null)
-        return path === "/api/auth/get-session"
-          ? Response.json(null, { headers: { "cache-control": "no-store" } })
-          : Response.json({ error: "unauthorized" }, { status: 401 })
+      if (path === "/api/auth/get-session" && (await session(request)) === null)
+        return Response.json(null, { headers: { "cache-control": "no-store" } })
       return instance.handler(request)
     },
   }

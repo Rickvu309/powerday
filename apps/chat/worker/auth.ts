@@ -53,6 +53,7 @@ export const auth = (env: Cloudflare.Env): Auth => {
   return createAuth({
     database: env.DB,
     ipAddressHeader: "cf-connecting-ip",
+    ...(local ? { localIp: "192.0.2.1" } : {}),
     site: env.BETTER_AUTH_SECRET ? { url: env.APP_URL, secret: env.BETTER_AUTH_SECRET } : "loopback",
     google:
       env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
@@ -63,4 +64,16 @@ export const auth = (env: Cloudflare.Env): Auth => {
     ),
     send,
   })
+}
+
+export const rateLimitRetentionMs = 60_000
+export const rateLimitCleanupBatch = 10
+
+export const pruneRateLimits = async (db: D1Database, now: Date): Promise<void> => {
+  await db
+    .prepare(
+      "DELETE FROM rateLimit WHERE id IN (SELECT id FROM rateLimit WHERE lastRequest < ? ORDER BY lastRequest LIMIT ?)",
+    )
+    .bind(now.getTime() - rateLimitRetentionMs, rateLimitCleanupBatch)
+    .run()
 }
