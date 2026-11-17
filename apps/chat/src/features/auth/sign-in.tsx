@@ -32,6 +32,13 @@ export function SignIn({ google, initial }: SignInProps) {
   const emailInput = useRef<HTMLInputElement>(null)
   const heading = useRef<HTMLHeadingElement>(null)
   const pointer = useRef(false)
+  const cooldown = useRef<{ readonly email: string; readonly until: number }>(undefined)
+  const startCooldown = (email: string) => {
+    cooldown.current = { email, until: Date.now() + 30_000 }
+    setRemaining(30)
+  }
+  const waitFor = (email: string) =>
+    cooldown.current?.email === email ? Math.max(0, Math.ceil((cooldown.current.until - Date.now()) / 1000)) : 0
   const sent = step.kind === "sent"
   const refusal = step.kind === "email" && step.failure === "not-invited"
 
@@ -63,10 +70,17 @@ export function SignIn({ google, initial }: SignInProps) {
     if (busy.current) return
     busy.current = true
     const email = String(new FormData(event.currentTarget).get("email")).trim()
+    const wait = waitFor(email)
+    if (wait > 0) {
+      busy.current = false
+      setRemaining(wait)
+      setStep({ kind: "sent", email })
+      return
+    }
     setStep({ kind: "sending", method: "email" })
     const failed = await sendLink(email)
     busy.current = false
-    if (failed === undefined) setRemaining(30)
+    if (failed === undefined) startCooldown(email)
     setStep(failed === undefined ? { kind: "sent", email } : { kind: "email", failure: failed })
   }
 
@@ -88,7 +102,7 @@ export function SignIn({ google, initial }: SignInProps) {
     setAnnouncement("")
     const failed = await sendLink(step.email)
     busy.current = false
-    if (failed === undefined) setRemaining(30)
+    startCooldown(step.email)
     setStep({ ...step, resend: failed ?? "sent" })
     setAnnouncement(failed === undefined ? "New link sent" : failures[failed])
   }
