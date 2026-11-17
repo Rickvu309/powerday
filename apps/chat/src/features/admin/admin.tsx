@@ -1,5 +1,5 @@
 import { AdminMutation, AdminOverview, type AdminOverview as Overview } from "@powerday/chat-core"
-import { useEffect, useState, useContext } from "react"
+import { useEffect, useState, useContext, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -21,7 +21,9 @@ export type Phase = "loading" | "ready" | "saving" | "saved" | "key-saved" | "er
 type Editor =
   | { kind: "provider"; value: Overview["providers"][number] | undefined }
   | { kind: "model"; value: Overview["models"][number] | undefined }
-type Target = { kind: "provider" | "model"; id: string; label: string }
+type Target =
+  | { kind: "provider" | "model"; id: string; label: string }
+  | { kind: "disable"; id: string; label: string; mutation: Extract<AdminMutation, { action: "model" }> }
 
 const load = async () => {
   const response = await fetch("/api/admin/overview", { cache: "no-store" })
@@ -35,23 +37,64 @@ export function Admin({
   demo = false,
   confirm = false,
   editing,
+  disable = false,
 }: {
   initialData?: Overview
   initialPhase?: Phase
   demo?: boolean
   editing?: "provider" | "model"
   confirm?: boolean
+  disable?: boolean
 }) {
   const models = useContext(ModelChoice)
   const [data, setData] = useState(initialData)
   const [phase, setPhase] = useState<Phase>(initialPhase)
-  const [error, setError] = useState("Could not load admin. Check your connection and try again.")
+  const [error, setError] = useState(
+    confirm || disable
+      ? "Could not save. Check the fields and your connection, then try again."
+      : "Could not load admin. Check your connection and try again.",
+  )
   const [editor, setEditor] = useState<Editor | undefined>(
-    editing === undefined ? undefined : { kind: editing, value: undefined },
+    editing === undefined
+      ? undefined
+      : editing === "provider"
+        ? { kind: "provider", value: initialData?.providers[0] }
+        : { kind: "model", value: initialData?.models[0] },
   )
+  const initialModel = initialData?.models[0]
   const [target, setTarget] = useState<Target | undefined>(
-    confirm ? { kind: "provider", id: "openai", label: "OpenAI" } : undefined,
+    disable && initialModel
+      ? {
+          kind: "disable",
+          id: initialModel.id,
+          label: initialModel.label,
+          mutation: { action: "model", model: { ...initialModel, status: "disabled" } },
+        }
+      : confirm
+        ? { kind: "provider", id: "openai", label: "OpenAI" }
+        : undefined,
   )
+  const dialogError = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (target && phase === "error") dialogError.current?.focus()
+  }, [target, phase])
+  const dialogFocus = useRef("admin-title")
+  useEffect(() => {
+    if (target)
+      dialogFocus.current = target.kind === "disable" ? `edit-model-${target.id}` : `edit-${target.kind}-${target.id}`
+  }, [target])
+  const focusAfterForm = useRef<string | undefined>(undefined)
+  const closeEditor = (kind: "provider" | "model", id?: string) => {
+    focusAfterForm.current = id === undefined ? `add-${kind}` : `edit-${kind}-${id}`
+    setEditor(undefined)
+  }
+  useEffect(() => {
+    if (editor === undefined && phase !== "saving" && focusAfterForm.current) {
+      const element = document.getElementById(focusAfterForm.current) ?? document.getElementById("admin-title")
+      element?.focus()
+      focusAfterForm.current = undefined
+    }
+  }, [editor, phase, data])
   const refresh = async () => {
     try {
       setData(await load())
@@ -62,16 +105,26 @@ export function Admin({
   }
   useEffect(() => {
     document.title = "Admin · Power Chat"
-    document.getElementById("admin-title")?.focus()
+    if (!document.querySelector('[data-mobile="true"]')) document.getElementById("admin-title")?.focus()
     if (!demo) void refresh()
   }, [demo])
-  const save: Save = async (input) => {
+  const save = async (input: unknown, confirmed = false): Promise<boolean> => {
     const parsed = AdminMutation.safeParse(input)
     if (!parsed.success) {
       setError(
         "Check the fields. Use lowercase letters, numbers, dots or hyphens for ids, an HTTPS base URL for compatible providers, and a key of at least 8 characters.",
       )
       setPhase("error")
+      return false
+    }
+    const mutation = parsed.data
+    if (
+      !confirmed &&
+      mutation.action === "model" &&
+      mutation.model.status === "disabled" &&
+      data?.models.some((model) => model.id === mutation.model.id && model.status === "enabled")
+    ) {
+      setTarget({ kind: "disable", id: mutation.model.id, label: mutation.model.label, mutation: mutation })
       return false
     }
     setPhase("saving")
@@ -83,13 +136,13 @@ export function Admin({
       const response = await fetch("/api/admin/mutate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(parsed.data),
+        body: JSON.stringify(mutation),
       })
       if (!response.ok) throw new Error("Could not save. Check the fields and your connection, then try again.")
-      if (parsed.data.action !== "limit") void models.reload()
+      if (mutation.action !== "limit") void models.reload()
       try {
         setData(await load())
-        setPhase(parsed.data.action === "provider" && parsed.data.key !== undefined ? "key-saved" : "saved")
+        setPhase(mutation.action === "provider" && mutation.key !== undefined ? "key-saved" : "saved")
       } catch {
         setError("Saved, but the list could not refresh. Try again to load the latest settings.")
         setPhase("error")
@@ -101,8 +154,20 @@ export function Admin({
       return false
     }
   }
+  const confirmTarget = async () => {
+    if (!target) return
+    const saved = await save(
+      target.kind === "disable"
+        ? target.mutation
+        : { action: target.kind === "provider" ? "remove-provider" : "remove-model", id: target.id },
+      true,
+    )
+    if (!saved) return
+    if (target.kind === "disable" && editor?.kind === "model") closeEditor("model", target.id)
+    setTarget(undefined)
+  }
   return (
-    <div id="admin-content" className="mx-auto grid w-full max-w-5xl gap-8 px-4 py-8 sm:px-8">
+    <div id="admin-content" className="mx-auto grid min-w-0 w-full max-w-5xl gap-8 px-4 py-8 sm:px-8">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 id="admin-title" tabIndex={-1} className="text-2xl font-semibold tracking-tight">
@@ -131,7 +196,7 @@ export function Admin({
                 ? "Changes saved."
                 : ""}
       </div>
-      {phase === "error" && (
+      {phase === "error" && target === undefined && (
         <div role="alert" className="flex flex-wrap items-center gap-4 rounded-lg border p-4 text-sm">
           <p>{error}</p>
           <Button variant="outline" onClick={() => void refresh()}>
@@ -141,7 +206,7 @@ export function Admin({
       )}
       {data && phase !== "loading" && (
         <fieldset disabled={phase === "saving"} className="grid min-w-0 gap-10" aria-busy={phase === "saving"}>
-          <section className="grid gap-5" aria-labelledby="providers-title">
+          <section className="grid min-w-0 gap-5" aria-labelledby="providers-title">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 id="providers-title" className="text-xl font-semibold">
@@ -151,7 +216,11 @@ export function Admin({
                   Keys stay on the server. Only the last four characters are shown.
                 </p>
               </div>
-              <Button variant="outline" onClick={() => setEditor({ kind: "provider", value: undefined })}>
+              <Button
+                id="add-provider"
+                variant="outline"
+                onClick={() => setEditor({ kind: "provider", value: undefined })}
+              >
                 Add provider
               </Button>
             </div>
@@ -160,7 +229,7 @@ export function Admin({
                 No providers yet. Add a provider, then add its models.
               </p>
             )}
-            <ul className="grid gap-3">
+            <ul className="grid min-w-0 gap-3">
               {data.providers.map((provider) => {
                 const key = data.keys.find((k) => k.provider === provider.id)
                 return (
@@ -187,6 +256,7 @@ export function Admin({
                       {provider.kind !== "workers-ai" && provider.kind !== "mock" && (
                         <Button
                           variant="outline"
+                          id={`edit-provider-${provider.id}`}
                           aria-label={`Edit ${provider.label} provider`}
                           onClick={() => setEditor({ kind: "provider", value: provider })}
                         >
@@ -209,12 +279,18 @@ export function Admin({
               <ProviderForm
                 key={editor.value?.id ?? "new-provider"}
                 provider={editor.value}
-                save={save}
-                cancel={() => setEditor(undefined)}
+                save={async (input) => {
+                  const result = await save(input)
+                  const parsed = AdminMutation.safeParse(input)
+                  if (result && parsed.success && parsed.data.action === "provider")
+                    closeEditor("provider", parsed.data.provider.id)
+                  return result
+                }}
+                cancel={() => closeEditor("provider", editor.value?.id)}
               />
             )}
           </section>
-          <section className="grid gap-5" aria-labelledby="models-title">
+          <section className="grid min-w-0 gap-5" aria-labelledby="models-title">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 id="models-title" className="text-xl font-semibold">
@@ -226,6 +302,7 @@ export function Admin({
               </div>
               <Button
                 variant="outline"
+                id="add-model"
                 disabled={data.providers.length === 0}
                 onClick={() => setEditor({ kind: "model", value: undefined })}
               >
@@ -237,7 +314,7 @@ export function Admin({
                 No models yet. Add a model to make it available in chat.
               </p>
             )}
-            <ul className="grid gap-3">
+            <ul className="grid min-w-0 gap-3">
               {data.models.map((model) => (
                 <li key={model.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
                   <div className="min-w-0 break-all">
@@ -261,6 +338,7 @@ export function Admin({
                     </Button>
                     <Button
                       variant="outline"
+                      id={`edit-model-${model.id}`}
                       aria-label={`Edit ${model.label} model`}
                       onClick={() => setEditor({ kind: "model", value: model })}
                     >
@@ -282,13 +360,19 @@ export function Admin({
                 key={editor.value?.id ?? "new-model"}
                 model={editor.value}
                 providers={data.providers}
-                save={save}
-                cancel={() => setEditor(undefined)}
+                save={async (input) => {
+                  const result = await save(input)
+                  const parsed = AdminMutation.safeParse(input)
+                  if (result && parsed.success && parsed.data.action === "model")
+                    closeEditor("model", parsed.data.model.id)
+                  return result
+                }}
+                cancel={() => closeEditor("model", editor.value?.id)}
               />
             )}
           </section>
           <Limits key={JSON.stringify(data.limits)} limits={data.limits} save={save} />
-          <Usage usage={data.usage} />
+          <Usage usage={data.usage} users={data.users} />
         </fieldset>
       )}
       <Dialog
@@ -297,34 +381,36 @@ export function Admin({
           if (!open && phase !== "saving") setTarget(undefined)
         }}
       >
-        <DialogContent>
+        <DialogContent
+          className="min-w-0 [overflow-wrap:anywhere]"
+          finalFocus={() => document.getElementById(dialogFocus.current) ?? document.getElementById("admin-title")}
+        >
           <DialogHeader>
-            <DialogTitle>Delete {target?.label}?</DialogTitle>
+            <DialogTitle>
+              {target?.kind === "disable" ? "Disable" : "Delete"} {target?.label}?
+            </DialogTitle>
             <DialogDescription>
-              {target?.kind === "provider"
-                ? "This removes the provider, its saved key and all its models. People will no longer be able to use them. This cannot be undone."
-                : "This removes the model from chat. Saved conversations stay available. This cannot be undone."}
+              {target?.kind === "disable"
+                ? `People won't be able to pick ${target.label} for new messages. Existing chats keep their history.`
+                : target?.kind === "provider"
+                  ? "This removes the provider, its saved key and all its models. People will no longer be able to use them. This cannot be undone."
+                  : "This removes the model from chat. Saved conversations stay available. This cannot be undone."}
             </DialogDescription>
           </DialogHeader>
+          {phase === "error" && (
+            <div role="alert" tabIndex={-1} ref={dialogError}>
+              <p>{error}</p>
+              <Button variant="outline" onClick={() => void confirmTarget()}>
+                Try again
+              </Button>
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" disabled={phase === "saving"} onClick={() => setTarget(undefined)}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              disabled={phase === "saving"}
-              onClick={async () => {
-                if (
-                  target &&
-                  (await save({
-                    action: target.kind === "provider" ? "remove-provider" : "remove-model",
-                    id: target.id,
-                  }))
-                )
-                  setTarget(undefined)
-              }}
-            >
-              Delete {target?.kind}
+            <Button variant="destructive" disabled={phase === "saving"} onClick={() => void confirmTarget()}>
+              {target?.kind === "disable" ? "Disable model" : `Delete ${target?.kind}`}
             </Button>
           </DialogFooter>
         </DialogContent>

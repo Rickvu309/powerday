@@ -15,7 +15,7 @@ export function ProviderForm({
 }) {
   return (
     <form
-      className="grid gap-4 rounded-xl border p-5"
+      className="grid min-w-0 gap-4 rounded-xl border p-5"
       onSubmit={async (event) => {
         event.preventDefault()
         const form = event.currentTarget
@@ -35,12 +35,13 @@ export function ProviderForm({
           })
         ) {
           form.reset()
-          cancel()
         }
       }}
     >
-      <h3 className="font-semibold">{provider ? `Edit ${provider.label}` : "Add provider"}</h3>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <h3 className="min-w-0 font-semibold [overflow-wrap:anywhere]">
+        {provider ? `Edit ${provider.label}` : "Add provider"}
+      </h3>
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
         <Field
           label="Provider id"
           autoFocus={provider === undefined}
@@ -61,12 +62,12 @@ export function ProviderForm({
           maxLength={120}
           placeholder="OpenAI"
         />
-        <label className="grid gap-2 text-sm font-medium">
+        <label className="grid min-w-0 gap-2 text-sm font-medium [overflow-wrap:anywhere]">
           Provider type
           <select
             name="kind"
             defaultValue={provider?.kind ?? "openai"}
-            className="h-10 w-full rounded-md border bg-background px-3 text-base sm:text-sm"
+            className="h-10 min-w-0 w-full max-w-full rounded-md border bg-background px-3 text-base sm:text-sm"
           >
             <option value="openai">OpenAI</option>
             <option value="anthropic">Anthropic</option>

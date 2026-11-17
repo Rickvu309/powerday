@@ -16,35 +16,32 @@ export function ModelForm({
 }) {
   return (
     <form
-      className="grid gap-4 rounded-xl border p-5"
+      className="grid min-w-0 gap-4 rounded-xl border p-5"
       onSubmit={async (event) => {
         event.preventDefault()
         const form = event.currentTarget
         const fields = new FormData(form)
-        if (
-          await save({
-            action: "model",
-            model: {
-              id: fields.get("id"),
-              label: fields.get("label"),
-              provider: fields.get("provider"),
-              upstreamId: fields.get("upstreamId"),
-              contextWindow: Number(fields.get("contextWindow")),
-              status: fields.has("enabled") ? "enabled" : "disabled",
-              price: model?.price ?? String(fields.get("id")),
-              capabilities: {
-                tools: fields.has("tools"),
-                vision: fields.has("vision"),
-                reasoning: fields.has("reasoning"),
-              },
+        await save({
+          action: "model",
+          model: {
+            id: fields.get("id"),
+            label: fields.get("label"),
+            provider: fields.get("provider"),
+            upstreamId: fields.get("upstreamId"),
+            contextWindow: Number(fields.get("contextWindow")),
+            status: fields.has("enabled") ? "enabled" : "disabled",
+            price: model?.price ?? String(fields.get("id")),
+            capabilities: {
+              tools: fields.has("tools"),
+              vision: fields.has("vision"),
+              reasoning: fields.has("reasoning"),
             },
-          })
-        )
-          cancel()
+          },
+        })
       }}
     >
-      <h3 className="font-semibold">{model ? `Edit ${model.label}` : "Add model"}</h3>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <h3 className="min-w-0 font-semibold [overflow-wrap:anywhere]">{model ? `Edit ${model.label}` : "Add model"}</h3>
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
         <Field
           label="Model id"
           autoFocus={model === undefined}
@@ -64,13 +61,13 @@ export function ModelForm({
           required
           maxLength={120}
         />
-        <label className="grid gap-2 text-sm font-medium">
+        <label className="grid min-w-0 gap-2 text-sm font-medium [overflow-wrap:anywhere]">
           Provider
           <select
             name="provider"
             defaultValue={model?.provider}
             required
-            className="h-10 w-full rounded-md border bg-background px-3 text-base sm:text-sm"
+            className="h-10 min-w-0 w-full max-w-full rounded-md border bg-background px-3 text-base sm:text-sm"
           >
             {providers.map((p) => (
               <option key={p.id} value={p.id}>
@@ -91,7 +88,7 @@ export function ModelForm({
         />
       </div>
       <fieldset className="flex flex-wrap gap-5">
-        <legend className="mb-3 text-sm font-medium">Capabilities</legend>
+        <legend className="mb-3 text-sm font-medium [overflow-wrap:anywhere]">Capabilities</legend>
         {(["tools", "vision", "reasoning"] as const).map((name) => (
           <label key={name} className="flex min-h-10 items-center gap-2 text-sm capitalize">
             <input type="checkbox" name={name} defaultChecked={model?.capabilities[name] ?? false} />

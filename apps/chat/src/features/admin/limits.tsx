@@ -14,6 +14,10 @@ export function Limits({ limits, save }: { limits: AdminOverview["limits"]; save
           Input and output tokens count toward the allowance. Limits reset at midnight UTC.
         </p>
       </div>
+      <p className="text-sm text-muted-foreground">
+        Current default: {limits.find((limit) => limit.email === "")?.tokens.toLocaleString() ?? 0} tokens /{" "}
+        {limits.find((limit) => limit.email === "")?.period ?? "day"}. Saving a daily limit starts a daily allowance.
+      </p>
       <form
         className="grid gap-4 rounded-xl border p-5 sm:grid-cols-2"
         onSubmit={async (event) => {
@@ -67,7 +71,7 @@ export function Limits({ limits, save }: { limits: AdminOverview["limits"]; save
               <span className="min-w-0 break-words text-sm">
                 <span>{limit.email}</span>
                 <span className="block tabular-nums text-muted-foreground">
-                  {limit.tokens.toLocaleString()} tokens / day
+                  {limit.tokens.toLocaleString()} tokens / {limit.period}
                 </span>
               </span>
               <Button

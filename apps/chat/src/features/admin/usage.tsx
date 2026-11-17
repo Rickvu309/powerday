@@ -48,7 +48,7 @@ function Totals({ title, rows }: { title: string; rows: Total[] }) {
   )
 }
 
-export function Usage({ usage }: { usage: AdminOverview["usage"] }) {
+export function Usage({ usage, users }: { usage: AdminOverview["usage"]; users: AdminOverview["users"] }) {
   return (
     <section className="grid gap-5" aria-labelledby="usage-title">
       <div>
@@ -58,6 +58,19 @@ export function Usage({ usage }: { usage: AdminOverview["usage"] }) {
         <p className="mt-1 text-sm text-muted-foreground">
           The last 7 days include today, in UTC. Input and output tokens count once.
         </p>
+      </div>
+      <div className="grid min-w-0 gap-3">
+        <h3 className="font-medium">Effective limits</h3>
+        <ul className="grid min-w-0 gap-3">
+          {users.map((user) => (
+            <li key={user.email} className="rounded-xl border p-4 text-sm [overflow-wrap:anywhere]">
+              {user.email}
+              <span className="block text-muted-foreground">
+                {user.tokens.toLocaleString()} tokens / {user.period}
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
       {usage.length === 0 ? (
         <p className="rounded-xl border p-5 text-sm text-muted-foreground">

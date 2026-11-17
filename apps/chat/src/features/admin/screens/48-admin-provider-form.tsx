@@ -1,5 +1,5 @@
 import { AdminScreen } from "../admin-screen"
 
 export default function Screen() {
-  return <AdminScreen editing="provider" />
+  return <AdminScreen longLabels editing="provider" />
 }
