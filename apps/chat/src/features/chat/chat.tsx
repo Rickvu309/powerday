@@ -3,6 +3,7 @@ import { useCallback, useContext, useEffect, useState, useSyncExternalStore } fr
 import { useAccount } from "@/features/auth/session"
 import { useModels } from "@/features/model-picker/model-choice"
 import { openConversation, useOpenConversation } from "@/open-conversation"
+import { rememberConversationContentReady } from "../sidebar/conversation-cache"
 import { Composer } from "./composer"
 import { LiveChats, type LiveConversation } from "./live-chats"
 import { Suggestions } from "./suggestions"
@@ -26,6 +27,10 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
     state: open === null || !conversation.needsLoad() ? "ready" : "loading",
   })
   const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    if (history.state === "ready" && view.Content !== undefined) rememberConversationContentReady(conversation.id)
+  }, [conversation.id, history.state, view.Content])
 
   const account = useAccount()
   const owner = account.status === "signed-in" ? account.userId : undefined

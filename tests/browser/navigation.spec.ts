@@ -341,6 +341,80 @@ test("a new chat shows its title after the reply and after renaming", async ({ p
   await expect(page).toHaveTitle("Revised research release · Power Chat")
 })
 
+for (const scenario of ["failed list refresh", "return navigation"]) {
+  test(`a created chat keeps its title and focus after ${scenario}`, async ({ page }) => {
+    await withChatFixtures(page)
+    let id = ""
+    let chatTitle = "Created chat"
+    let failListing = false
+    let historyReads = 0
+    let replies = 0
+    const other = { ...savedConversation.conversation, id: "other", title: "Other chat" }
+    await page.route("**/api/chat", async (route) => {
+      id = route.request().postDataJSON().id
+      await route.fulfill({
+        contentType: "text/event-stream",
+        body: replyStream(`Completed reply ${++replies}`).replace(
+          '"messageId":"reply"',
+          `"messageId":"reply-${replies}"`,
+        ),
+      })
+    })
+    await page.route("**/api/conversations", (route) =>
+      failListing
+        ? route.fulfill({ status: 503 })
+        : route.fulfill({
+            json: {
+              conversations: [other, ...(id ? [{ ...savedConversation.conversation, id, title: chatTitle }] : [])],
+            },
+          }),
+    )
+    await page.route("**/api/conversations/*", (route) => {
+      if (route.request().method() === "PATCH") {
+        chatTitle = route.request().postDataJSON().title
+        return route.fulfill({ json: {} })
+      }
+      if (new URL(route.request().url()).pathname.endsWith("/other"))
+        return route.fulfill({ json: { conversation: other, messages: savedConversation.messages } })
+      historyReads++
+      return route.fulfill({ status: 503 })
+    })
+    await page.goto("/")
+    const input = page.getByRole("textbox", { name: "Message" })
+    await input.fill("Create a chat")
+    await input.press("Enter")
+    await expect(page.locator(".is-assistant").last()).toContainText("Completed reply")
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(chatTitle)
+    await expect(input).toBeFocused()
+    expect(historyReads).toBe(0)
+    if (scenario === "failed list refresh") {
+      failListing = true
+      const failed = page.waitForResponse(
+        (response) => new URL(response.url()).pathname === "/api/conversations" && response.status() === 503,
+      )
+      await input.fill("Follow up")
+      await input.press("Enter")
+      await expect(page.locator(".is-assistant")).toHaveCount(2)
+      await expect(page.locator(".is-assistant").last()).toContainText("Completed reply 2")
+      await failed
+      await expect(input).toBeFocused()
+    } else {
+      await page.getByRole("button", { name: "Options for Created chat" }).click()
+      await page.getByRole("menuitem", { name: "Rename", exact: true }).click()
+      await page.getByRole("textbox", { name: "Chat title" }).fill("Renamed created chat")
+      await page.keyboard.press("Enter")
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Renamed created chat")
+      await page.locator("a[href='/c/other']").click()
+      await expect(page.locator("#conversation-main")).toBeFocused()
+      await page.locator(`a[href='/c/${id}']`).click()
+      await expect(page.locator("#conversation-main")).toBeFocused()
+      await expect(page.locator(".is-assistant").last()).toContainText("Completed reply")
+    }
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(chatTitle)
+    await expect(page).toHaveTitle(`${chatTitle} · Power Chat`)
+  })
+}
+
 test("typing three keys in keyboard modality causes no attribute mutations", async ({ page }) => {
   await withChatFixtures(page)
   await page.goto("/")

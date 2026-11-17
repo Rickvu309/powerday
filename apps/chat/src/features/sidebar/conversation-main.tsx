@@ -13,7 +13,7 @@ export function ConversationMain({ children }: { children: ReactNode }) {
   const listedTitle =
     listing.status === "ready" ? listing.conversations.find((each) => each.id === id)?.title : undefined
   const title = id === null ? "New chat" : (listedTitle ?? savedTitle ?? "Conversation")
-  const ready = id === null || savedTitle !== undefined
+  const ready = useSyncExternalStore(cache.subscribe, () => id === null || cache.contentReady(id))
 
   useEffect(() => {
     document.title = `${title} · Power Chat`
