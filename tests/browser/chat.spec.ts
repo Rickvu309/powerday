@@ -90,7 +90,7 @@ test("model choice survives a reload and removed models fall back", async ({ pag
   await page.goto("/")
   await page.getByRole("button", { name: /Model:/ }).click()
   const choice = page.getByRole("menuitemradio", { name: /Mock Reasoning/ })
-  await expect(choice).toContainText("Tools · Vision · Reasoning")
+  await expect(choice).toContainText("Tools, Vision, Reasoning")
   await choice.click()
   await page.reload()
   await expect(page.getByRole("button", { name: "Model: Mock Reasoning" })).toBeVisible()

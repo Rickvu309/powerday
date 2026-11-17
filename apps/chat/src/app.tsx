@@ -47,7 +47,8 @@ export function App() {
   useEffect(() => {
     if (wasAdmin.current && !admin) {
       void reload()
-      document.title = `${document.getElementById("conversation-title")?.textContent || "Power Chat"} · Power Chat`
+      document.title =
+        document.querySelector("#conversation-main h1")?.textContent?.replace(/^New chat$/, "") || "Power Chat"
       document.querySelector<HTMLTextAreaElement>('[aria-label="Message"]')?.focus()
     }
     wasAdmin.current = admin

@@ -90,7 +90,7 @@ test("an admin manages write-only keys, model availability and email limits", as
   await page.getByRole("button", { name: "Edit Test provider provider", exact: true }).click()
   await page.getByLabel("Replace API key (optional)").fill("browser-replacement-key-efgh")
   await page.getByRole("button", { name: "Save provider", exact: true }).click()
-  await expect(page.getByText(/openai · …efgh/)).toBeVisible()
+  await expect(page.getByText("…efgh", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "Edit Test provider provider", exact: true })).toBeFocused()
   await page.getByRole("button", { name: "Add model", exact: true }).click()
   await page.getByLabel("Model id", { exact: true }).fill("admin-test-model")

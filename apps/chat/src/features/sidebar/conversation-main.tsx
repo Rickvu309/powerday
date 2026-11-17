@@ -16,7 +16,7 @@ export function ConversationMain({ children }: { children: ReactNode }) {
   const ready = useSyncExternalStore(cache.subscribe, () => id === null || cache.contentReady(id))
 
   useEffect(() => {
-    document.title = `${title} · Power Chat`
+    document.title = id === null ? "Power Chat" : title
   }, [title])
 
   useEffect(() => {

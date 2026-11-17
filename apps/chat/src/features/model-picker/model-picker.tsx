@@ -22,7 +22,7 @@ const capabilitiesOf = (model: ListedModel) =>
   capabilityNames
     .filter(([capability]) => model.capabilities[capability])
     .map(([, name]) => name)
-    .join(" · ")
+    .join(", ")
 
 export function ModelPicker() {
   const { models, choose, reload } = useModels()

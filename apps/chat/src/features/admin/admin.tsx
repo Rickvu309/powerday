@@ -104,7 +104,7 @@ export function Admin({
     }
   }
   useEffect(() => {
-    document.title = "Admin · Power Chat"
+    document.title = "Power Chat Admin"
     if (!document.querySelector('[data-mobile="true"]')) document.getElementById("admin-title")?.focus()
     if (!demo) void refresh()
   }, [demo])
@@ -239,9 +239,11 @@ export function Admin({
                   >
                     <div className="min-w-0 break-all">
                       <h3 className="font-medium">{provider.label}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {provider.kind} ·{" "}
-                        {key?.suffix ?? (provider.kind === "workers-ai" ? "Uses AI binding" : "No saved key")}
+                      <p className="flex flex-wrap gap-x-3 text-sm text-muted-foreground">
+                        <span>{provider.kind}</span>
+                        <span>
+                          {key?.suffix ?? (provider.kind === "workers-ai" ? "Uses AI binding" : "No saved key")}
+                        </span>
                       </p>
                       {key && (
                         <p className="text-xs text-muted-foreground">
@@ -319,8 +321,9 @@ export function Admin({
                 <li key={model.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
                   <div className="min-w-0 break-all">
                     <h3 className="font-medium">{model.label}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {model.provider} · {model.status === "enabled" ? "Enabled" : "Disabled"}
+                    <p className="flex flex-wrap gap-x-3 text-sm text-muted-foreground">
+                      <span>{model.provider}</span>
+                      <span>{model.status === "enabled" ? "Enabled" : "Disabled"}</span>
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
