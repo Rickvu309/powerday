@@ -35,6 +35,9 @@ for (const colorScheme of ["light", "dark"] as const) {
           background = rgb(getComputedStyle(ancestor).backgroundColor)
           ancestor = ancestor.parentElement
         }
+        const token = getComputedStyle(element).getPropertyValue("--syntax-keyword").trim()
+        if (rgb(getComputedStyle(element).color).join() !== rgb(token).join())
+          throw new Error("Keyword does not use --syntax-keyword")
         const foreground = luminance(rgb(getComputedStyle(element).color))
         const surface = luminance(background)
         return (Math.max(foreground, surface) + 0.05) / (Math.min(foreground, surface) + 0.05)
@@ -68,6 +71,10 @@ test("the mobile shell declares safe areas and contains scrolling", async ({ pag
     element.style.setProperty("--safe-area-top", "24px")
     element.style.setProperty("--safe-area-bottom", "20px")
   })
+  await expect(page.getByRole("textbox", { name: "Message" }).locator("xpath=../../..")).toHaveCSS(
+    "padding-bottom",
+    "36px",
+  )
   await expect(page.locator('[data-slot="sidebar-inset"] > header')).toHaveCSS("padding-top", "24px")
   await expect(page.locator('[data-slot="sidebar-inset"] > header')).toHaveCSS("height", "72px")
   await page.locator('[data-slot="sidebar-trigger"]').click()

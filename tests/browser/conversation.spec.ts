@@ -11,7 +11,7 @@ for (const width of [320, 375]) {
   test(`complete identifiers remain selectable without document overflow at ${width}px`, async ({ page }) => {
     await withChatFixtures(page)
     await page.setViewportSize({ width, height: 900 })
-    await page.goto("/screens/40-long-identifiers")
+    await page.goto("/screens/70-long-identifiers")
     const bubble = page.locator(".is-user").first()
     await expect(bubble).toContainText(projectUrl)
     expect(
@@ -34,7 +34,7 @@ for (const width of [320, 375]) {
 test("code and tables scroll from the keyboard", async ({ page }) => {
   await withChatFixtures(page)
   await page.setViewportSize({ width: 375, height: 900 })
-  await page.goto("/screens/41-keyboard-code-table")
+  await page.goto("/screens/71-keyboard-code-table")
   for (const name of ["Code example", "Data table"]) {
     const region = page.getByRole("region", { name, exact: true }).first()
     await expect(region).toBeVisible()
@@ -235,7 +235,7 @@ for (const path of ["/", "/c/saved"]) {
       console.log(JSON.stringify({ path, gzipBytes }))
       expect(bodies.size).toBeGreaterThan(0)
       expect([...bodies.keys()].some((url) => /(?:mermaid|katex|github-light|typescript)-/.test(url))).toBe(false)
-      if (path === "/") expect(gzipBytes).toBeLessThan(200000)
+      expect(gzipBytes).toBeLessThanOrEqual(path === "/" ? 200000 : Math.floor(376938 * 1.02))
     } finally {
       server.closeAllConnections()
       await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())))
@@ -247,13 +247,13 @@ for (const width of [375, 1440]) {
   for (const colorScheme of ["light", "dark"] as const) {
     for (const reducedMotion of ["reduce", "no-preference"] as const) {
       for (const screen of [
-        "40-long-identifiers",
-        "41-keyboard-code-table",
-        "42-display-paused",
-        "43-server-still-running",
-        "44-finished-after-refresh",
-        "45-cold-thread-loading",
-        "46-multiline-mobile",
+        "70-long-identifiers",
+        "71-keyboard-code-table",
+        "72-display-paused",
+        "73-server-still-running",
+        "74-finished-after-refresh",
+        "75-cold-thread-loading",
+        "76-multiline-mobile",
       ]) {
         test(`${screen} ${width} ${colorScheme} ${reducedMotion}`, async ({ page }, info) => {
           await withChatFixtures(page)
@@ -261,11 +261,11 @@ for (const width of [375, 1440]) {
           await page.emulateMedia({ colorScheme, reducedMotion })
           await page.goto(`/screens/${screen}`)
           await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible()
-          if (screen.startsWith("41"))
+          if (screen.startsWith("71"))
             await expect(page.getByRole("region", { name: "Code example" }).first()).toBeVisible()
-          else if (!screen.startsWith("45")) await expect(page.locator(".is-user").first()).toBeVisible()
+          else if (!screen.startsWith("75")) await expect(page.locator(".is-user").first()).toBeVisible()
           await page.evaluate(() => document.fonts.ready)
-          if (screen.startsWith("40") || screen.startsWith("41"))
+          if (screen.startsWith("70") || screen.startsWith("71"))
             await page
               .getByRole("log")
               .locator(":scope > div")
@@ -321,7 +321,7 @@ test("syntax enhancement preserves selectable code geometry", async ({ page }) =
     await held
     await route.continue()
   })
-  await page.goto("/screens/41-keyboard-code-table")
+  await page.goto("/screens/71-keyboard-code-table")
   const code = page.getByRole("region", { name: "Code example" }).first()
   await expect(code).toContainText("const value0")
   await code.scrollIntoViewIfNeeded()
@@ -369,3 +369,33 @@ test("an interrupted historical answer retains its recovery copy after a follow-
   await expect(page.locator(".is-assistant").first()).toContainText("Reply interrupted. Try again to get a new reply.")
   await expect(page.locator(".is-assistant").last()).toContainText("Complete follow-up answer")
 })
+
+for (const [language, bold, suffix] of [
+  ["Korean", "한글！", "문장"],
+  ["Japanese", "日本語！", "文章"],
+  ["Chinese", "中文！", "句子"],
+  ["Hangul Jamo", "한！", "글"],
+  ["half-width Katakana", "ｶﾅ！", "ﾌﾞﾝ"],
+  ["full-width punctuation", "Ａ！", "Ｂ"],
+]) {
+  test(`saved ${language} emphasis survives deferred CJK loading`, async ({ page }) => {
+    await withChatFixtures(page)
+    await page.route("**/api/conversations/saved", (route) =>
+      route.fulfill({
+        json: {
+          ...savedConversation,
+          messages: [
+            savedConversation.messages[0],
+            {
+              ...savedConversation.messages[1],
+              parts: [{ type: "text", text: `**${bold}**${suffix}` }],
+            },
+          ],
+        },
+      }),
+    )
+    await page.goto("/c/saved")
+    await expect(page.locator('.is-assistant [data-streamdown="strong"]')).toHaveText(bold)
+    await expect(page.locator(".is-assistant")).toContainText(`${bold}${suffix}`)
+  })
+}

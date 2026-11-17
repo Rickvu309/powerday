@@ -23,7 +23,7 @@ export const Composer = memo(function Composer({
   const field = useRef<HTMLTextAreaElement>(null)
   const empty = text.trim() === ""
   return (
-    <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-[calc(16px+var(--safe-area-bottom,env(safe-area-inset-bottom,0px)))]">
+    <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-[calc(16px+var(--safe-area-bottom))]">
       <form
         className="group/composer w-full"
         onSubmit={(event) => {

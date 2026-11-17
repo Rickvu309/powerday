@@ -59,7 +59,10 @@ export const MessageResponse = memo(function MessageResponse({
   const math = /\$[^$]+\$|\\\(|\\\[/.test(children)
   const mermaid = /(?:```|~~~)mermaid\b/.test(children)
   const code = /(?:```|~~~)(?!mermaid\b)\S+/.test(children)
-  const cjk = /[\u3000-\u9fff]/.test(children)
+  const cjk =
+    /[\p{Script_Extensions=Han}\p{Script_Extensions=Hiragana}\p{Script_Extensions=Katakana}\p{Script_Extensions=Hangul}\u3000-\u303f\uff00-\uffef]/u.test(
+      children,
+    )
   useEffect(() => {
     let current = true
     if (math)
