@@ -32,13 +32,13 @@ export function SignIn({ google, initial }: SignInProps) {
   const emailInput = useRef<HTMLInputElement>(null)
   const heading = useRef<HTMLHeadingElement>(null)
   const pointer = useRef(false)
-  const cooldown = useRef<{ readonly email: string; readonly until: number }>(undefined)
+  const cooldowns = useRef(new Map<string, number>())
   const startCooldown = (email: string) => {
-    cooldown.current = { email, until: Date.now() + 30_000 }
+    cooldowns.current.set(email.trim().toLowerCase(), Date.now() + 30_000)
     setRemaining(30)
   }
   const waitFor = (email: string) =>
-    cooldown.current?.email === email ? Math.max(0, Math.ceil((cooldown.current.until - Date.now()) / 1000)) : 0
+    Math.max(0, Math.ceil(((cooldowns.current.get(email.trim().toLowerCase()) ?? 0) - Date.now()) / 1000))
   const sent = step.kind === "sent"
   const refusal = step.kind === "email" && step.failure === "not-invited"
 

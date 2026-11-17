@@ -97,6 +97,13 @@ test("using a different email keeps the cooldown for the address that was just s
   await page.getByRole("button", { name: "Continue with email" }).click()
   await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible()
   expect(sentTo).toEqual(["ada@example.com", "grace@example.com"])
+  for (const again of [" Ada@Example.com ", "grace@example.com", "ADA@example.com"]) {
+    await page.getByRole("button", { name: "Use a different email" }).click()
+    await email.fill(again)
+    await page.getByRole("button", { name: "Continue with email" }).click()
+    await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible()
+  }
+  expect(sentTo).toEqual(["ada@example.com", "grace@example.com"])
 })
 
 test("a long email remains fully readable at 200% text size", async ({ page }) => {
