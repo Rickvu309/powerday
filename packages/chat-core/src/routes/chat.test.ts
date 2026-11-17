@@ -236,15 +236,25 @@ describe("POST /api/chat", () => {
     vi.spyOn(deps.ledger, "allowance").mockResolvedValue({ user, period: "day", tokens: 200 })
     vi.spyOn(deps.ledger, "spent").mockResolvedValueOnce(0).mockResolvedValue(200)
     vi.spyOn(deps.store, "claim").mockResolvedValue(undefined)
-    const model = vi.spyOn(deps.gateway, "model")
+    const model = wordModel()
+    const stream = vi.spyOn(model, "doStream")
+    vi.spyOn(deps.gateway, "model").mockReturnValue(model)
     const response = await send(app, hello)
     expect(response.status).toBe(429)
-    expect(model).not.toHaveBeenCalled()
+    expect(stream).not.toHaveBeenCalled()
     expect(deps.store.claim).toHaveBeenCalledWith(expect.anything(), hello, expect.anything(), {
       since: expect.any(Date),
       tokens: 200,
       reservation: 200,
     })
+  })
+
+  it("does not claim a reply when provider credentials cannot be loaded", async () => {
+    const { app, deps } = setup()
+    vi.spyOn(deps.gateway, "model").mockRejectedValue(new Error("vault unavailable"))
+    const claim = vi.spyOn(deps.store, "claim")
+    expect((await send(app, hello)).status).toBe(503)
+    expect(claim).not.toHaveBeenCalled()
   })
 
   it("fails closed when usage cannot be read", async () => {

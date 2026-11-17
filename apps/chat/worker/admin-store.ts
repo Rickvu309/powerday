@@ -56,6 +56,14 @@ export const adminStore = (
       return { ...catalog, keys: keys.results, limits: limits.results, usage: usage.results }
     },
     mutate: async (input: AdminMutation, actor, at, id) => {
+      const subject =
+        input.action === "provider"
+          ? input.provider.id
+          : input.action === "model"
+            ? input.model.id
+            : input.action === "limit"
+              ? (input.email ?? "default")
+              : input.id
       const sealed = input.action === "provider" && input.key !== undefined ? await vault.seal(input.key) : undefined
       for (let attempt = 0; attempt < 5; attempt++) {
         const row = await seeded()
@@ -109,9 +117,9 @@ export const adminStore = (
           await db.batch([
             db
               .prepare(
-                "INSERT INTO admin_audit SELECT ?, ?, CASE WHEN revision = ? THEN ? ELSE NULL END, ? FROM admin_catalog WHERE id = 1",
+                "INSERT INTO admin_audit SELECT ?, ?, CASE WHEN revision = ? THEN ? ELSE NULL END, ?, ? FROM admin_catalog WHERE id = 1",
               )
-              .bind(id, actor, row.revision, input.action, at.getTime()),
+              .bind(id, actor, row.revision, input.action, subject, at.getTime()),
             db
               .prepare("UPDATE admin_catalog SET body = ?, revision = revision + 1 WHERE id = 1")
               .bind(JSON.stringify(catalogData(catalog))),

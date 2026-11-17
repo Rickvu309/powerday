@@ -65,7 +65,6 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
     new TextEncoder().encode(serializedMessages).length +
     modelMessages.length * chatTemplateTokensPerMessage +
     chatTemplateTokensPerRequest
-  if (inputBound + minimumReplyTokens > allowance.tokens) return refuse(413, "too long")
   const limitResponse = () => {
     const resetsAt = periodOf(allowance.period, started).end
     return Response.json(
@@ -76,11 +75,19 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
       },
     )
   }
+  if (allowance.tokens === 0) return limitResponse()
+  if (inputBound + minimumReplyTokens > allowance.tokens) return refuse(413, "too long")
   const spent = await deps.ledger.spent(user, since)
   const remaining = allowance.tokens - spent
   if (remaining < inputBound + minimumReplyTokens) return limitResponse()
   const maxOutputTokens = Math.min(remaining - inputBound, maxReplyTokens)
   const reservation = inputBound + maxOutputTokens
+  let model
+  try {
+    model = await deps.gateway.model(entry, deps.catalog)
+  } catch {
+    return refuse(503, "model unavailable")
+  }
   const now = deps.clock.now()
   const pending: ChatMessage = {
     id: deps.ids.message(),
@@ -107,7 +114,6 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
       ? limitResponse()
       : refuse(409, "message already answered or in progress")
   }
-  const model = await deps.gateway.model(entry, deps.catalog)
   const messages = claimed.messages.slice(0, -1)
 
   let failed = false

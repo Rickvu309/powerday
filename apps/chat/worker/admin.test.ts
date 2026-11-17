@@ -129,6 +129,19 @@ test("gates admins, seeds catalog, audits writes, enforces limits and aggregates
     const overview = AdminOverview.parse(await (await app.request("/api/admin/overview")).json())
     expect(overview.usage).toEqual([{ email: "owner@example.com", model: model.id, today: 1000, week: 1030 }])
     expect(await db.prepare("SELECT count(*) AS total FROM admin_audit").first("total")).toBe(4)
+    expect(await db.prepare("SELECT subject FROM admin_audit WHERE action = 'provider'").first("subject")).toBe(
+      "external",
+    )
+    expect((await mutate({ action: "limit", email: "owner@example.com", tokens: 0 })).status).toBe(200)
+    const zero = await app.request("/api/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        id: "zero",
+        model: model.id,
+        message: { id: "zero-message", role: "user", parts: [{ type: "text", text: "Hi" }] },
+      }),
+    })
+    expect(zero.status).toBe(429)
     expect((await mutate({ action: "remove-provider", id: "external" })).status).toBe(200)
     expect(await db.prepare("SELECT count(*) AS total FROM provider_keys").first("total")).toBe(0)
     const differentSeed = adminStore(db, { providers: [], models: [] }, vault)
