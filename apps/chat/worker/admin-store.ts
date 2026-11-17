@@ -1,5 +1,5 @@
+import { seedUsageLimits } from "./usage"
 import {
-  UsageLimits,
   catalogData,
   parseCatalog,
   type AdminMutation,
@@ -17,17 +17,8 @@ export const adminStore = (
   const seeded = async () => {
     const find = () =>
       db.prepare("SELECT body, revision FROM admin_catalog WHERE id = 1").first<{ body: string; revision: number }>()
-    const existing = await find()
-    if (existing !== null) return existing
-    const limits = limitSeed === undefined ? undefined : UsageLimits.parse(limitSeed)
+    await seedUsageLimits(db, limitSeed ?? { default: { period: "day", tokens: 0 }, overrides: {} })
     await db.batch([
-      ...(limits === undefined
-        ? []
-        : [
-            db
-              .prepare("INSERT OR IGNORE INTO admin_limits SELECT '', ? WHERE NOT EXISTS (SELECT 1 FROM admin_catalog)")
-              .bind(limits.default.tokens),
-          ]),
       db
         .prepare("INSERT OR IGNORE INTO admin_catalog (id, body) VALUES (1, ?)")
         .bind(JSON.stringify(catalogData(parseCatalog(seed)))),
@@ -40,9 +31,9 @@ export const adminStore = (
     read: async () => parseCatalog(JSON.parse((await seeded()).body)),
     overview: async (now) => {
       const catalog = catalogData(parseCatalog(JSON.parse((await seeded()).body)))
-      const [keys, limits, usage] = await Promise.all([
+      const [keys, limits, usage, users] = await Promise.all([
         db.prepare("SELECT provider, suffix, updated_at AS updatedAt FROM provider_keys").all(),
-        db.prepare("SELECT email, tokens FROM admin_limits").all(),
+        db.prepare("SELECT email, tokens, period FROM admin_limits").all(),
         db
           .prepare(`SELECT coalesce(u.email, e.user) AS email, e.model, sum(e.input_tokens + e.output_tokens) AS week,
           sum(CASE WHEN e.at >= ? THEN e.input_tokens + e.output_tokens ELSE 0 END) AS today
@@ -52,8 +43,12 @@ export const adminStore = (
             Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 6),
           )
           .all(),
+        db
+          .prepare(`SELECT u.email, coalesce(o.tokens, d.tokens) AS tokens, coalesce(o.period, d.period) AS period
+          FROM "user" u JOIN admin_limits d ON d.email = '' LEFT JOIN admin_limits o ON o.email = lower(u.email) OR o.email = u.id`)
+          .all(),
       ])
-      return { ...catalog, keys: keys.results, limits: limits.results, usage: usage.results }
+      return { ...catalog, keys: keys.results, limits: limits.results, usage: usage.results, users: users.results }
     },
     mutate: async (input: AdminMutation, actor, at, id) => {
       const subject =
@@ -107,7 +102,7 @@ export const adminStore = (
               statements.push(
                 db
                   .prepare(
-                    "INSERT INTO admin_limits VALUES (?, ?) ON CONFLICT(email) DO UPDATE SET tokens=excluded.tokens",
+                    "INSERT INTO admin_limits (email, tokens, period) VALUES (?, ?, 'day') ON CONFLICT(email) DO UPDATE SET tokens=excluded.tokens, period=excluded.period",
                   )
                   .bind(input.email ?? "", input.tokens),
               )

@@ -55,7 +55,8 @@ export { parseCatalog }
 
 export const AdminOverview = CatalogConfig.extend({
   keys: z.array(z.object({ provider: z.string(), suffix: z.string(), updatedAt: z.number() })),
-  limits: z.array(z.object({ email: z.string(), tokens: z.number() })),
+  limits: z.array(z.object({ email: z.string(), tokens: z.number(), period: z.enum(["day", "month"]) })),
+  users: z.array(z.object({ email: z.string(), tokens: z.number(), period: z.enum(["day", "month"]) })),
   usage: z.array(z.object({ email: z.string(), model: z.string(), today: z.number(), week: z.number() })),
 })
 export type AdminOverview = z.infer<typeof AdminOverview>

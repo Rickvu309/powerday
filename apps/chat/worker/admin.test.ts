@@ -151,3 +151,37 @@ test("gates admins, seeds catalog, audits writes, enforces limits and aggregates
     await platform.dispose()
   }
 }, 30000)
+
+test("seeds monthly limits and overrides once and uses only D1 thereafter", async () => {
+  const platform = await localD1()
+  try {
+    const db = platform.env.DB
+    await db
+      .prepare('INSERT INTO "user" (id, name, email, emailVerified, createdAt, updatedAt) VALUES (?, ?, ?, 1, 0, 0)')
+      .bind("seed-user", "Seed", "seed@example.com")
+      .run()
+    const user = UserId.parse("seed-user")
+    const seed = {
+      default: { period: "month", tokens: 1000 },
+      overrides: { "seed-user": { period: "month", tokens: 2000 } },
+    }
+    const store = adminStore(db, catalogConfig, keyVault(undefined), seed)
+    await store.read()
+    const ledger = usageLedger({ ...platform.env, USAGE_LIMITS: seed })
+    expect(await ledger.allowance(user)).toEqual({ user, period: "month", tokens: 2000 })
+    expect(await ledger.allowance(UserId.parse("other"))).toEqual({ user: "other", period: "month", tokens: 1000 })
+    await store.mutate(
+      { action: "limit", email: "seed@example.com", tokens: null },
+      "owner@example.com",
+      at,
+      "delete-limit",
+    )
+    await store.mutate({ action: "limit", tokens: 0 }, "owner@example.com", at, "zero-limit")
+    await adminStore(db, catalogConfig, keyVault(undefined), seed).read()
+    expect(await ledger.allowance(user)).toEqual({ user, period: "day", tokens: 0 })
+    const overview = AdminOverview.parse(await store.overview(at))
+    expect(overview.users).toContainEqual({ email: "seed@example.com", period: "day", tokens: 0 })
+  } finally {
+    await platform.dispose()
+  }
+}, 30000)

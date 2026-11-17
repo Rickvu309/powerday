@@ -6,7 +6,11 @@ import { MockLanguageModelV4 } from "ai/test"
 import type { Catalog, ModelEntry, Provider, ProviderKind } from "./catalog.js"
 
 export type ModelGateway = {
-  readonly model: (entry: ModelEntry, catalog?: Catalog) => LanguageModel | Promise<LanguageModel>
+  readonly model: (
+    entry: ModelEntry,
+    catalog?: Catalog,
+    secret?: (key: string) => void,
+  ) => LanguageModel | Promise<LanguageModel>
 }
 
 export type SyncModelGateway = { readonly model: (entry: ModelEntry) => LanguageModel }

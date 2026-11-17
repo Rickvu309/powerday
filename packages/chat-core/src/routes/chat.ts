@@ -1,5 +1,6 @@
 import { consumeStream, convertToModelMessages, streamText } from "ai"
 import * as z from "zod"
+import { errorSummary } from "../redaction.js"
 import { ModelId } from "../catalog.js"
 import { ConversationId } from "../ids.js"
 import type { ChatMessage, Reply } from "../message.js"
@@ -82,9 +83,11 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
   if (remaining < inputBound + minimumReplyTokens) return limitResponse()
   const maxOutputTokens = Math.min(remaining - inputBound, maxReplyTokens)
   const reservation = inputBound + maxOutputTokens
+  const secrets: string[] = []
+  const logError = (error: unknown) => console.error(errorSummary(error, entry.provider, entry.id, secrets))
   let model
   try {
-    model = await deps.gateway.model(entry, deps.catalog)
+    model = await deps.gateway.model(entry, deps.catalog, (key) => secrets.push(key))
   } catch {
     return refuse(503, "model unavailable")
   }
@@ -124,7 +127,7 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
     maxOutputTokens,
     onError: ({ error }) => {
       failed = true
-      console.error(error)
+      logError(error)
     },
   })
 
@@ -158,18 +161,18 @@ export const handle: Handler<ChatRequest> = async (input, { deps, request }) => 
         )
         return
       } catch (error) {
-        if (attempt === 2)
-          console.error({ event: "chat.completion_failed", user, conversation: input.id, message: pending.id, error })
+        if (attempt === 2) logError(error)
       }
     }
   }
 
   return result.toUIMessageStreamResponse<ChatMessage>({
+    onError: () => failure,
     headers: { "Server-Timing": `overhead;dur=${deps.clock.now().getTime() - started.getTime()}` },
     originalMessages: messages,
     generateMessageId: () => pending.id,
     messageMetadata: ({ part }) => (part.type === "start" ? { model: entry.id } : undefined),
     onEnd: ({ responseMessage, isAborted }) => finish(responseMessage, isAborted),
-    consumeSseStream: ({ stream }) => deps.waitUntil(consumeStream({ stream, onError: console.error })),
+    consumeSseStream: ({ stream }) => deps.waitUntil(consumeStream({ stream, onError: logError })),
   })
 }

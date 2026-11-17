@@ -1,5 +1,20 @@
 import { UsageLimits, type UsageLedger } from "@powerday/chat-core"
 
+export const seedUsageLimits = async (db: D1Database, seed: unknown) => {
+  const limits = UsageLimits.parse(seed)
+  const rows = [
+    { user: "", ...limits.default },
+    ...Object.entries(limits.overrides).map(([user, limit]) => ({ user, ...limit })),
+  ]
+  await db
+    .prepare(`INSERT OR IGNORE INTO admin_limits (email, tokens, period)
+    SELECT coalesce((SELECT lower(email) FROM "user" WHERE id = json_extract(value, '$.user')), json_extract(value, '$.user')),
+      json_extract(value, '$.tokens'), json_extract(value, '$.period')
+    FROM json_each(?) WHERE NOT EXISTS (SELECT 1 FROM admin_limits)`)
+    .bind(JSON.stringify(rows))
+    .run()
+}
+
 export const usageLedger = ({ DB: db, USAGE_LIMITS }: Cloudflare.Env): UsageLedger => {
   const limits = UsageLimits.parse(USAGE_LIMITS)
   return {
@@ -31,18 +46,15 @@ export const usageLedger = ({ DB: db, USAGE_LIMITS }: Cloudflare.Env): UsageLedg
         .bind(user, since.getTime())
         .first<number>("spent")) ?? 0,
     allowance: async (user) => {
-      const override = await db
-        .prepare('SELECT tokens FROM admin_limits WHERE email = lower((SELECT email FROM "user" WHERE id = ?))')
+      await seedUsageLimits(db, limits)
+      const row = await db
+        .prepare(`SELECT tokens, period FROM admin_limits
+        WHERE email = lower((SELECT email FROM "user" WHERE id = ?1)) OR email = ?1 OR email = ''
+        ORDER BY CASE WHEN email = '' THEN 1 ELSE 0 END LIMIT 1`)
         .bind(user)
-        .first<number>("tokens")
-      const fallback = await db.prepare("SELECT tokens FROM admin_limits WHERE email = ''").first<number>("tokens")
-      return {
-        user,
-        ...(override !== null
-          ? { period: "day" as const, tokens: override }
-          : (limits.overrides[user] ??
-            (fallback !== null ? { period: "day" as const, tokens: fallback } : limits.default))),
-      }
+        .first()
+      const limit = UsageLimits.parse({ default: row ?? { period: "day", tokens: 0 }, overrides: {} }).default
+      return { user, ...limit }
     },
   }
 }

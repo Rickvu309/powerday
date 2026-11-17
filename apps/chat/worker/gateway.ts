@@ -25,14 +25,18 @@ export function modelGateway(
 ): ModelGateway {
   if (source !== undefined && vault !== undefined)
     return {
-      model: async (entry, snapshot) => {
+      model: async (entry, snapshot, secret) => {
         const current = snapshot ?? (await source.read())
         const provider = current.providers.get(entry.provider)
         const ciphertext = await env.DB?.prepare("SELECT ciphertext FROM provider_keys WHERE provider = ?")
           .bind(entry.provider)
           .first<string>("ciphertext")
         const keys = new Map<string, string>()
-        if (ciphertext != null) keys.set(entry.provider, await vault.open(ciphertext))
+        if (ciphertext != null) {
+          const key = await vault.open(ciphertext)
+          secret?.(key)
+          keys.set(entry.provider, key)
+        }
         const subset = {
           providers: new Map(provider === undefined ? [] : [[provider.id, provider]]),
           models: current.models,

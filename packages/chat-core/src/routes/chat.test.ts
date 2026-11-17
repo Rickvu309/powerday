@@ -296,7 +296,7 @@ describe("POST /api/chat", () => {
     })
     expect((await send(app, { ...hello, id: "m2" })).status).toBe(409)
     expect(save).toHaveBeenCalledTimes(3)
-    expect(log).toHaveBeenCalledWith(expect.objectContaining({ event: "chat.completion_failed", message: "a1" }))
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({ name: "Error", provider: "mock", model: "mock-fast" }))
   })
 
   it("retries atomic completion and does not double-charge an ambiguous write", async () => {
@@ -557,4 +557,36 @@ describe("POST /api/chat", () => {
     await settle()
     expect(asked - sent).toBeLessThan(150)
   })
+})
+
+it("redacts upstream errors from logs and responses", async () => {
+  const key = "unusual-provider-secret-value"
+  const log = vi.spyOn(console, "error").mockImplementation(() => {})
+  const error = Object.assign(new Error(`Rejected ${key}`), {
+    name: `Upstream-${key}-sk-ant-example-secret`,
+    statusCode: 401,
+    responseBody: `Invalid ${key}`,
+    url: `https://example.com/?key=${key}`,
+  })
+  const { app, settle } = setup({
+    gateway: {
+      model: (_entry, _catalog, secret) => {
+        secret?.(key)
+        return new MockLanguageModelV4({
+          doStream: async () => {
+            throw error
+          },
+        })
+      },
+    },
+  })
+  const response = await (await send(app, hello)).text()
+  await settle()
+  expect(log).toHaveBeenCalled()
+  const logs = JSON.stringify(log.mock.calls)
+  expect(logs).not.toContain(key)
+  expect(logs).not.toContain("sk-ant-example-secret")
+  expect(logs).not.toContain("Rejected")
+  expect(logs).toContain("401")
+  expect(response).not.toContain(key)
 })
