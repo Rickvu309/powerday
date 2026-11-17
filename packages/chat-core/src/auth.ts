@@ -222,7 +222,7 @@ export const createAuth = (config: AuthConfig): Auth => {
           headers.set("cache-control", "no-store")
           headers.set("referrer-policy", "no-referrer")
           return new Response(
-            '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Try again shortly · Power Chat</title><main><h1>Too many attempts</h1><p>Too many attempts. Wait a minute and try again.</p><a href="/">Return to sign in</a></main></html>',
+            '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Too many attempts</title><main><h1>Too many attempts</h1><p>Too many attempts. Wait a minute and try again.</p><a href="/">Return to sign in</a></main></html>',
             { status: 429, headers },
           )
         }

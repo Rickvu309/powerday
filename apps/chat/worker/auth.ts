@@ -67,7 +67,7 @@ export const auth = (env: Cloudflare.Env): Auth => {
 }
 
 export const rateLimitRetentionMs = 60_000
-export const rateLimitCleanupBatch = 10
+export const rateLimitCleanupBatch = 50
 
 export const pruneRateLimits = async (db: D1Database, now: Date): Promise<void> => {
   await db
