@@ -3,6 +3,7 @@ import type { ChatTransport } from "ai"
 import { createContext } from "react"
 import type { createSession } from "./chat-session"
 import { readOpenConversation, subscribeOpenConversation } from "../../open-conversation"
+import { refreshConversationListing } from "../sidebar/conversation-cache"
 import { ReplyProblem } from "./reply-problem"
 
 type Attempt =
@@ -83,6 +84,7 @@ export const liveChats = (transport?: ChatTransport<ChatMessage>, seed: ChatMess
       void work().then(
         () => {
           if (session?.chat.error === undefined && session?.chat.status === "ready") {
+            refreshConversationListing()
             confirmSent?.()
             confirmSent = undefined
           }

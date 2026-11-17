@@ -22,6 +22,8 @@ export const createConversationCache = (api: ConversationApi) => {
   let listing: Listing = { status: "loading" }
   let loading: Promise<void> | undefined
   const opened = new Map<ConversationId, Opened>()
+  const titles = new Map<ConversationId, string>()
+  const contentReady = new Set<ConversationId>()
   const listeners = new Set<() => void>()
   const emit = () => listeners.forEach((listener) => listener())
 
@@ -31,6 +33,7 @@ export const createConversationCache = (api: ConversationApi) => {
       .list(before)
       .then(
         (page) => {
+          for (const conversation of page.conversations) titles.set(conversation.id, conversation.title)
           const earlier = before !== undefined && listing.status === "ready" ? listing.conversations : []
           listing = {
             status: "ready",
@@ -75,7 +78,21 @@ export const createConversationCache = (api: ConversationApi) => {
       return () => listeners.delete(listener)
     },
     listing: () => listing,
+    refresh: () => {
+      if (listeners.size > 0) fetchPage(undefined)
+    },
     opened: (id: ConversationId) => opened.get(id),
+    title: (id: ConversationId) => titles.get(id),
+    contentReady: (id: ConversationId) => contentReady.has(id),
+    rememberContentReady: (id: ConversationId) => {
+      if (contentReady.has(id)) return
+      contentReady.add(id)
+      emit()
+    },
+    rememberTitle: ({ id, title }: Pick<Conversation, "id" | "title">) => {
+      titles.set(id, title)
+      emit()
+    },
     load: () => {
       if (listing.status === "failed") {
         listing = { status: "loading" }
@@ -113,10 +130,13 @@ export const createConversationCache = (api: ConversationApi) => {
       emit()
     },
     rename: (id: ConversationId, title: string) => {
+      titles.set(id, title)
       change(id, (conversation) => ({ ...conversation, title }))
       api.rename(id, title).catch(reload)
     },
     delete: (id: ConversationId) => {
+      titles.delete(id)
+      contentReady.delete(id)
       change(id, () => undefined)
       api.delete(id).catch(reload)
     },
@@ -126,7 +146,15 @@ export const createConversationCache = (api: ConversationApi) => {
 
 export type ConversationCache = ReturnType<typeof createConversationCache>
 
-const CacheContext = createContext(createConversationCache(httpApi))
+const cache = createConversationCache(httpApi)
+const CacheContext = createContext(cache)
+
+export const rememberConversationTitle = (conversation: Pick<Conversation, "id" | "title">) =>
+  cache.rememberTitle(conversation)
+
+export const rememberConversationContentReady = (id: ConversationId) => cache.rememberContentReady(id)
+
+export const refreshConversationListing = () => cache.refresh()
 
 export const ConversationCacheProvider = CacheContext
 

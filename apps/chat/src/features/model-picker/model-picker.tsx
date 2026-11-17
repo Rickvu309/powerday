@@ -53,15 +53,15 @@ export function ModelPicker() {
         render={
           <Button
             variant="ghost"
-            className="gap-1 px-2.5 text-base font-medium"
+            className="min-w-0 max-w-[calc(100vw-3.75rem)] shrink gap-1 px-2.5 text-base font-medium"
             aria-label={`Model: ${chosen.label}`}
           />
         }
       >
-        {chosen.label}
-        <ChevronDownIcon className="text-muted-foreground" />
+        <span className="min-w-0 truncate">{chosen.label}</span>
+        <ChevronDownIcon className="shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-72">
+      <DropdownMenuContent className="w-72 max-w-[calc(100vw-2rem)]">
         <DropdownMenuRadioGroup
           value={chosen.id}
           onValueChange={(value) => {
@@ -75,7 +75,7 @@ export function ModelPicker() {
             return (
               <DropdownMenuRadioItem key={model.id} value={model.id} closeOnClick className="py-2">
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="truncate">{model.label}</span>
+                  <span className="whitespace-normal leading-[1.4] [overflow-wrap:anywhere]">{model.label}</span>
                   {capabilities === "" ? null : (
                     <span className="truncate text-xs text-muted-foreground">{capabilities}</span>
                   )}

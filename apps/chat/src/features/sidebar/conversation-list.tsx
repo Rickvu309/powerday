@@ -172,7 +172,7 @@ function Results({ query, go }: { query: string; go: Go }) {
       <div className="flex flex-col items-start gap-2">
         <p
           role="status"
-          tabIndex={0}
+          aria-live="polite"
           className={
             search?.status === "ready" && search.found.length > 0 ? "sr-only" : "px-2 text-sm text-muted-foreground"
           }
@@ -222,7 +222,7 @@ export function ConversationList({ initialQuery = "" }: { initialQuery?: string 
   const search = useRef<HTMLInputElement>(null)
   const go: Go = useCallback(
     (id) => {
-      openConversation(id)
+      openConversation(id, { focus: true })
       if (isMobile) setOpenMobile(false)
     },
     [isMobile, setOpenMobile],

@@ -2,6 +2,9 @@ import { ConversationId } from "@powerday/chat-core"
 import { useSyncExternalStore } from "react"
 
 const prefix = "/c/"
+let navigation = 0
+
+export const readConversationNavigation = () => navigation
 
 export const subscribeOpenConversation = (onChange: () => void) => {
   window.addEventListener("popstate", onChange)
@@ -26,7 +29,8 @@ export const readOpenConversation = () => {
 export const useOpenConversation = () =>
   useSyncExternalStore(subscribeOpenConversation, readOpenConversation, () => null)
 
-export const openConversation = (id: ConversationId | null) => {
+export const openConversation = (id: ConversationId | null, { focus = id === null }: { focus?: boolean } = {}) => {
+  if (focus) navigation++
   window.history.pushState(null, "", id === null ? "/" : `${prefix}${encodeURIComponent(id)}`)
   window.dispatchEvent(new PopStateEvent("popstate"))
 }
