@@ -129,6 +129,9 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
       ) : view.Content ? (
         <view.Content
           empty={<Suggestions ready={model !== undefined} onPick={send} />}
+          onRefresh={() => {
+            void conversation.load().catch((error: unknown) => setHistory({ state: "error", error }))
+          }}
           stopped={view.stopped}
           attemptError={view.attempt.kind === "failed" ? view.attempt.error : undefined}
           onRetry={retry}
