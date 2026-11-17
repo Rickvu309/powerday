@@ -3,16 +3,11 @@ import type { ChatStatus } from "ai"
 import { CheckIcon, ChevronRightIcon, CircleAlertIcon, CopyIcon, LogInIcon, RotateCcwIcon } from "lucide-react"
 import { memo, useState, type ReactNode } from "react"
 import { Conversation, ConversationContent, ConversationScrollButton } from "@/components/ai-elements/conversation"
-import {
-  Message,
-  MessageAction,
-  MessageActions,
-  MessageContent,
-  MessageResponse,
-} from "@/components/ai-elements/message"
+import { Message, MessageAction, MessageActions, MessageContent } from "./message-chrome"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/class-names"
+import { MessageResponse } from "./message-response"
 import { OverLimit } from "./over-limit"
 import { TooLong } from "./too-long"
 import { problemOf, sessionExpired, tooLongOf, usageLimitOf } from "./reply-problem"
@@ -56,7 +51,7 @@ function CopyAction({ text }: { text: string }) {
 const Ask = memo(function Ask({ message }: { message: ChatMessage }) {
   return (
     <Message from="user" className="max-w-[85%]">
-      <MessageContent className="rounded-3xl px-4 py-2.5 text-base leading-7 whitespace-pre-wrap">
+      <MessageContent className="min-w-0 rounded-3xl px-4 py-2.5 text-base leading-7 whitespace-pre-wrap [overflow-wrap:anywhere]">
         {textOf(message)}
       </MessageContent>
     </Message>
@@ -66,12 +61,10 @@ const Ask = memo(function Ask({ message }: { message: ChatMessage }) {
 const Answer = memo(function Answer({
   message,
   streaming,
-  stopped,
   onRetry,
 }: {
   message: ChatMessage
   streaming: boolean
-  stopped: boolean
   onRetry: (() => void) | undefined
 }) {
   const text = textOf(message)
@@ -103,19 +96,15 @@ const Answer = memo(function Answer({
           return null
         })}
       </MessageContent>
-      {stopped ? (
-        <p className="text-sm text-muted-foreground">
-          Display paused. The reply continues on the server. Reopen this chat to see the full answer.
-        </p>
-      ) : message.metadata?.reply?.state === "stopped" ? (
-        <p className="text-sm text-muted-foreground">Reply interrupted.</p>
+      {message.metadata?.reply?.state === "stopped" ? (
+        <p className="text-sm text-muted-foreground">Reply interrupted. Try again to get a new reply.</p>
       ) : null}
       {streaming ? null : (
         <MessageActions
           className={cn(
             "-ml-2",
             onRetry === undefined &&
-              "opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100",
+              "opacity-0 transition-opacity [transition-duration:var(--motion-fast,125ms)] [transition-timing-function:var(--ease-out,cubic-bezier(0.23,1,0.32,1))] motion-reduce:transition-none group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100",
           )}
         >
           {text === "" ? null : <CopyAction text={text} />}
@@ -173,10 +162,11 @@ export type ThreadProps = {
   error: Error | undefined
   stopped: ReadonlySet<string>
   onRetry: () => void
+  onRefresh: () => void
   onSignIn: (question: string, saved: boolean) => void
 }
 
-export default function Thread({ messages, status, error, stopped, onRetry, onSignIn }: ThreadProps) {
+export default function Thread({ messages, status, error, stopped, onRetry, onSignIn, onRefresh }: ThreadProps) {
   const last = messages.at(-1)
   const limit = usageLimitOf(error)
   const question = messages.findLast((message) => message.role === "user")
@@ -190,6 +180,7 @@ export default function Thread({ messages, status, error, stopped, onRetry, onSi
       className="min-h-0"
       initial={scrolling}
       resize={scrolling}
+      aria-live="off"
       aria-label="Conversation"
       aria-busy={status === "submitted" || status === "streaming"}
     >
@@ -202,11 +193,12 @@ export default function Thread({ messages, status, error, stopped, onRetry, onSi
               key={message.id}
               message={message}
               streaming={status === "streaming" && message === last}
-              stopped={stopped.has(message.id)}
               onRetry={
                 status === "ready" &&
                 error === undefined &&
                 message.metadata?.reply?.state !== "failed" &&
+                message.metadata?.reply?.state !== "streaming" &&
+                !stopped.has(message.id) &&
                 message === last
                   ? onRetry
                   : undefined
@@ -219,10 +211,24 @@ export default function Thread({ messages, status, error, stopped, onRetry, onSi
             <span className="size-3 rounded-full bg-foreground motion-safe:animate-pulse" />
           </span>
         ) : null}
-        {status === "ready" && last?.metadata?.reply?.state === "streaming" ? (
-          <p role="status" className="text-sm text-muted-foreground">
-            The reply is still running on the server. Reopen this chat after it finishes to see the full answer.
-          </p>
+        <div
+          role="status"
+          aria-live="polite"
+          className={cn(
+            "text-sm text-muted-foreground empty:sr-only",
+            last?.metadata?.reply?.state === "stopped" && "sr-only",
+          )}
+        >
+          {status === "ready" && (last?.metadata?.reply?.state === "streaming" || stopped.size > 0)
+            ? "Display paused. Your reply is still being saved."
+            : last?.metadata?.reply?.state === "stopped"
+              ? "Reply interrupted. Try again to get a new reply."
+              : ""}
+        </div>
+        {status === "ready" && (last?.metadata?.reply?.state === "streaming" || stopped.size > 0) ? (
+          <Button variant="outline" className="w-fit" onClick={onRefresh}>
+            Check for finished reply
+          </Button>
         ) : null}
         {error !== undefined || status === "error" || last?.metadata?.reply?.state === "failed" ? (
           limit ? (
@@ -237,13 +243,6 @@ export default function Thread({ messages, status, error, stopped, onRetry, onSi
               onSignIn={sessionExpired(error) ? signIn : undefined}
             />
           )
-        ) : null}
-        {status === "ready" && last?.role === "user" && stopped.has(last.id) ? (
-          <Note
-            tone="quiet"
-            text="Display paused. The reply continues on the server. Reopen this chat to see the full answer."
-            onRetry={onRetry}
-          />
         ) : null}
       </ConversationContent>
       <ConversationScrollButton aria-label="Jump to latest" />

@@ -5,12 +5,15 @@ import { lazy, Suspense, type ReactNode } from "react"
 import { readConversation } from "./read-conversation"
 import { chatFetch } from "./reply-problem"
 
-const Thread = lazy(() => import("./thread"))
+import { ThreadLoading } from "./thread-loading"
+import { preloadThread } from "./thread-loader"
+const Thread = lazy(preloadThread)
 
 type ContentProps = {
   empty: ReactNode
   stopped: ReadonlySet<string>
   attemptError: Error | undefined
+  onRefresh: () => void
   onRetry: () => void
   onSignIn: (question: string, saved: boolean) => void
 }
@@ -38,16 +41,28 @@ export const createSession = ({
         }),
       }),
   })
-  function Content({ empty, stopped, attemptError, onRetry, onSignIn }: ContentProps) {
+  function Content({ empty, stopped, attemptError, onRetry, onSignIn, onRefresh }: ContentProps) {
     const { messages, status, error } = useChat({ chat, throttle: 32 })
     if (messages.length === 0) return empty
     return (
-      <Suspense fallback={<div className="flex-1" />}>
+      <Suspense
+        fallback={
+          <ThreadLoading
+            question={
+              messages
+                .findLast((message) => message.role === "user")
+                ?.parts.flatMap((part) => (part.type === "text" ? [part.text] : []))
+                .join("\n\n") ?? ""
+            }
+          />
+        }
+      >
         <Thread
           messages={messages}
           status={status}
           error={attemptError ?? error}
           stopped={stopped}
+          onRefresh={onRefresh}
           onRetry={onRetry}
           onSignIn={onSignIn}
         />

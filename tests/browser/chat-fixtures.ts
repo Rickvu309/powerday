@@ -72,7 +72,10 @@ export const settled = async (page: Page, screen: string) => {
     screen.includes("too-long")
   ) {
     await expect(page.getByRole("alert")).toBeVisible()
-  } else if (screen.includes("stopped")) await expect(page.getByText("Reply interrupted.")).toBeVisible()
+  } else if (screen.includes("stopped"))
+    await expect(
+      page.locator(".is-assistant").getByText("Reply interrupted. Try again to get a new reply."),
+    ).toBeVisible()
   else await expect(page.locator("table")).toBeVisible()
   await page.evaluate(() => document.fonts.ready)
 }

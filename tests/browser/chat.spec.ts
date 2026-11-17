@@ -54,9 +54,7 @@ test("the composer grows to its cap and preserves a draft while stopping", async
   await input.press("Enter")
   await expect(input).toHaveValue(draft)
   await page.getByRole("button", { name: "Stop display", exact: true }).click()
-  await expect(
-    page.getByText("Display paused. The reply continues on the server. Reopen this chat to see the full answer."),
-  ).toBeVisible()
+  await expect(page.getByText("Display paused. Your reply is still being saved.")).toBeVisible()
   await expect(input).toHaveValue(draft)
   await expect(input).toBeFocused()
 })
@@ -248,7 +246,7 @@ test("sidebar reopening refreshes a paused reply after the server completes", as
   paused = true
   await page.getByRole("button", { name: "New chat", exact: true }).click()
   await page.getByRole("link", { name: "Saved", exact: true }).click()
-  await expect(page.getByRole("status")).toContainText("still running on the server")
+  await expect(page.getByRole("status")).toContainText("Display paused. Your reply is still being saved.")
   completed = true
   await page.getByRole("button", { name: "New chat", exact: true }).click()
   await expect(page).toHaveURL(/\/$/)
@@ -414,7 +412,7 @@ test("Retry refreshes saved history and appends a distinct question", async ({ p
   ])
 })
 
-test("Retry waits for a reply that is still running on the server", async ({ page }) => {
+test("Checking for a finished reply waits while the server is still running", async ({ page }) => {
   await page.route("**/api/conversations/running", (route) =>
     route.fulfill({
       json: {
@@ -439,8 +437,8 @@ test("Retry waits for a reply that is still running on the server", async ({ pag
     await route.fulfill({ status: 409, json: { error: "already in progress" } })
   })
   await page.goto("/c/running")
-  await page.getByRole("button", { name: "Retry", exact: true }).click()
-  await expect(page.getByRole("alert")).toContainText("A reply is already running or saved.")
+  await page.getByRole("button", { name: "Check for finished reply", exact: true }).click()
+  await expect(page.getByRole("status")).toContainText("Display paused. Your reply is still being saved.")
   expect(posts).toHaveLength(0)
   await expect(page.locator(".is-user")).toHaveText("Keep answering")
 })
