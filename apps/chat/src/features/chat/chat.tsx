@@ -1,12 +1,16 @@
 import type { ConversationId } from "@powerday/chat-core"
 import { useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react"
+import { useAccount } from "@/features/auth/session"
 import { useModels } from "@/features/model-picker/model-choice"
 import { openConversation, useOpenConversation } from "@/open-conversation"
 import { Composer } from "./composer"
 import { LiveChats, type LiveConversation } from "./live-chats"
 import { Suggestions } from "./suggestions"
 import { useLimitReset } from "./over-limit"
-import { problemOf, usageLimitOf } from "./reply-problem"
+import { usageLimitOf } from "./reply-problem"
+import { ConversationProblem } from "./conversation-problem"
+import { clearKeptDraft, readKeptDraft, reviseKeptDraft, signInKeepingDraft } from "./kept-draft"
+import { UnkeptDraft } from "./unkept-draft"
 import { Button } from "@/components/ui/button"
 
 export function Chat() {
@@ -22,6 +26,15 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
     state: open === null || !conversation.needsLoad() ? "ready" : "loading",
   })
   const [attempt, setAttempt] = useState(0)
+
+  const account = useAccount()
+  const owner = account.status === "signed-in" ? account.userId : undefined
+
+  useEffect(() => {
+    if (owner === undefined) return
+    const kept = readKeptDraft(owner)
+    if (kept !== "") conversation.draft.edit(kept)
+  }, [owner, conversation])
 
   useEffect(() => {
     if (open === null || !conversation.needsLoad()) return
@@ -49,16 +62,32 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
   const send = useCallback(
     (text: string): boolean => {
       if (model === undefined) return false
-      const id = conversation.send({ text, model: model.id })
+      if (owner !== undefined) reviseKeptDraft(owner, text)
+      const id = conversation.send({
+        text,
+        model: model.id,
+        onSent: () => {
+          if (owner !== undefined) clearKeptDraft(owner, text)
+        },
+      })
       if (id === undefined) return false
       if (open === null) openConversation(id)
       return true
     },
-    [model, conversation, open],
+    [model, conversation, open, owner],
   )
   const retry = useCallback(() => {
     if (model !== undefined) conversation.retry({ model: model.id })
   }, [model, conversation])
+  const [unkept, setUnkept] = useState<{ draft: string; path: string }>()
+  const signIn = useCallback(
+    (question: string, saved: boolean) => {
+      const draft = [question, conversation.draft.read()].filter((text) => text.trim() !== "").join("\n\n")
+      const path = saved ? location.pathname : "/"
+      if (!signInKeepingDraft(owner, draft, path)) setUnkept({ draft, path })
+    },
+    [owner, conversation],
+  )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -67,12 +96,12 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
           Loading conversation…
         </div>
       ) : history.state === "error" ? (
-        <div role="alert" className="m-auto flex max-w-sm flex-col items-center gap-4 p-4 text-center text-sm">
-          <p>{problemOf(history.error)}</p>
-          <Button variant="outline" onClick={() => setAttempt((value) => value + 1)}>
-            Retry
-          </Button>
-        </div>
+        <ConversationProblem
+          error={history.error}
+          onRetry={() => setAttempt((value) => value + 1)}
+          onSignIn={() => signIn("", true)}
+          onNewChat={() => openConversation(null)}
+        />
       ) : view.attempt.kind === "preparing" ||
         view.attempt.kind === "preparation-failed" ||
         view.attempt.kind === "cancelled" ? (
@@ -98,10 +127,12 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
           stopped={view.stopped}
           attemptError={view.attempt.kind === "failed" ? view.attempt.error : undefined}
           onRetry={retry}
+          onSignIn={signIn}
         />
       ) : (
         <Suggestions ready={model !== undefined} onPick={send} />
       )}
+      {unkept && <UnkeptDraft draft={unkept.draft} onSignIn={() => location.assign(unkept.path)} />}
       <Composer
         draft={conversation.draft}
         busy={busy}

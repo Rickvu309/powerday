@@ -61,6 +61,7 @@ export const liveChats = (transport?: ChatTransport<ChatMessage>, seed: ChatMess
     const listeners = new Set<() => void>()
     let history: "current" | "unloaded" | "stale" = initialHistory
     let revision = 0
+    let confirmSent: (() => void) | undefined
     let reading: Promise<ChatMessage[]> | undefined
     const busy = () => session?.chat.status === "submitted" || session?.chat.status === "streaming"
     const publish = (next: ConversationView) => {
@@ -80,7 +81,13 @@ export const liveChats = (transport?: ChatTransport<ChatMessage>, seed: ChatMess
       revision++
       publish({ ...view, attempt: { kind: "pending", operation, dispatch: operation === "send" } })
       void work().then(
-        () => publish({ ...view, attempt: { kind: "idle" } }),
+        () => {
+          if (session?.chat.error === undefined && session?.chat.status === "ready") {
+            confirmSent?.()
+            confirmSent = undefined
+          }
+          publish({ ...view, attempt: { kind: "idle" } })
+        },
         (error: unknown) =>
           publish({
             ...view,
@@ -164,12 +171,21 @@ export const liveChats = (transport?: ChatTransport<ChatMessage>, seed: ChatMess
           throw error
         }
       },
-      send: ({ text, model }: { text: string; model: ModelId }): ConversationId | undefined => {
+      send: ({
+        text,
+        model,
+        onSent,
+      }: {
+        text: string
+        model: ModelId
+        onSent?: () => void
+      }): ConversationId | undefined => {
         const said = text.trim()
         if (said === "") return undefined
         if (!["idle", "failed"].includes(view.attempt.kind) || busy()) return undefined
         revision++
         draft.edit("")
+        confirmSent = onSent
         prepare({ text: said, model })
         promote(id)
         return id

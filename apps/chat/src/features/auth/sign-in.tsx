@@ -1,5 +1,5 @@
 import { MailCheckIcon } from "lucide-react"
-import { useState, type FormEvent, type ReactNode } from "react"
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
@@ -15,7 +15,7 @@ export type Step =
 type SignInProps = { readonly google: boolean; readonly initial: Step }
 
 const failures: Readonly<Record<Failure, string>> = {
-  "not-invited": "This email isn't invited to Power Chat yet.",
+  "not-invited": "Use an invited email address, or ask your administrator for access.",
   unsent: "We couldn't send the link. Check your connection and try again.",
   expired: "That sign-in link expired or was already used. Enter your email to get a new one.",
   unfinished: "Sign-in didn't finish. Try again.",
@@ -23,6 +23,15 @@ const failures: Readonly<Record<Failure, string>> = {
 
 export function SignIn({ google, initial }: SignInProps) {
   const [step, setStep] = useState(initial)
+
+  const emailInput = useRef<HTMLInputElement>(null)
+  const refusal = step.kind === "email" && step.failure === "not-invited"
+  useEffect(() => {
+    if (refusal) {
+      emailInput.current?.focus()
+      emailInput.current?.select()
+    }
+  }, [refusal])
 
   if (step.kind === "sent") {
     return (
@@ -86,6 +95,7 @@ export function SignIn({ google, initial }: SignInProps) {
         <label className="flex flex-col gap-1.5 text-sm font-medium">
           Email
           <Input
+            ref={emailInput}
             className="h-10 text-base md:text-sm"
             type="email"
             name="email"
@@ -100,7 +110,7 @@ export function SignIn({ google, initial }: SignInProps) {
           />
         </label>
         {failure !== undefined && (
-          <p id="sign-in-failure" role="alert" className="text-sm text-destructive">
+          <p id="sign-in-failure" role="alert" tabIndex={0} className="text-sm text-destructive">
             {failures[failure]}
           </p>
         )}
@@ -149,7 +159,7 @@ export function AccountUnavailable() {
     <main className="flex min-h-dvh items-center justify-center px-4 py-12">
       <div className="flex max-w-sm flex-col gap-3 text-center">
         <h1 className="text-2xl font-medium">Couldn't load your account</h1>
-        <p role="alert" className="text-sm text-muted-foreground">
+        <p role="alert" tabIndex={0} className="text-sm text-muted-foreground">
           Check your connection and try again.
         </p>
         <Button onClick={() => location.reload()}>Try again</Button>

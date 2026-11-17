@@ -1,6 +1,6 @@
 import type { ChatMessage } from "@powerday/chat-core"
 import type { ChatStatus } from "ai"
-import { CheckIcon, ChevronRightIcon, CircleAlertIcon, CopyIcon, RotateCcwIcon } from "lucide-react"
+import { CheckIcon, ChevronRightIcon, CircleAlertIcon, CopyIcon, LogInIcon, RotateCcwIcon } from "lucide-react"
 import { memo, useState, type ReactNode } from "react"
 import { Conversation, ConversationContent, ConversationScrollButton } from "@/components/ai-elements/conversation"
 import {
@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/class-names"
 import { OverLimit } from "./over-limit"
 import { TooLong } from "./too-long"
-import { problemOf, tooLongOf, usageLimitOf } from "./reply-problem"
+import { problemOf, sessionExpired, tooLongOf, usageLimitOf } from "./reply-problem"
 
 const scrolling = matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth"
 
@@ -130,10 +130,21 @@ const Answer = memo(function Answer({
   )
 })
 
-function Note({ tone, text, onRetry }: { tone: "problem" | "quiet"; text: string; onRetry: () => void }) {
+function Note({
+  tone,
+  text,
+  onRetry,
+  onSignIn,
+}: {
+  tone: "problem" | "quiet"
+  text: string
+  onRetry: () => void
+  onSignIn?: (() => void) | undefined
+}) {
   return (
     <div
       role={tone === "problem" ? "alert" : undefined}
+      tabIndex={tone === "problem" ? 0 : undefined}
       className={cn(
         "flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border px-4 py-3 text-sm",
         tone === "problem" ? "border-destructive/30 bg-destructive/5" : "text-muted-foreground",
@@ -141,10 +152,17 @@ function Note({ tone, text, onRetry }: { tone: "problem" | "quiet"; text: string
     >
       {tone === "problem" ? <CircleAlertIcon className="size-4 shrink-0 text-destructive" /> : null}
       <span className="min-w-0 flex-1">{text}</span>
-      <Button variant="outline" size="sm" onClick={onRetry}>
-        <RotateCcwIcon />
-        Retry
-      </Button>
+      {onSignIn ? (
+        <Button variant="outline" size="sm" onClick={onSignIn}>
+          <LogInIcon />
+          Sign in
+        </Button>
+      ) : (
+        <Button variant="outline" size="sm" onClick={onRetry}>
+          <RotateCcwIcon />
+          Retry
+        </Button>
+      )}
     </div>
   )
 }
@@ -155,11 +173,18 @@ export type ThreadProps = {
   error: Error | undefined
   stopped: ReadonlySet<string>
   onRetry: () => void
+  onSignIn: (question: string, saved: boolean) => void
 }
 
-export default function Thread({ messages, status, error, stopped, onRetry }: ThreadProps) {
+export default function Thread({ messages, status, error, stopped, onRetry, onSignIn }: ThreadProps) {
   const last = messages.at(-1)
   const limit = usageLimitOf(error)
+  const question = messages.findLast((message) => message.role === "user")
+  const signIn = () =>
+    onSignIn(
+      question ? textOf(question) : "",
+      messages.some((message) => message.role === "assistant"),
+    )
   return (
     <Conversation
       className="min-h-0"
@@ -205,7 +230,12 @@ export default function Thread({ messages, status, error, stopped, onRetry }: Th
           ) : tooLongOf(error) ? (
             <TooLong />
           ) : (
-            <Note tone="problem" text={problemOf(error)} onRetry={onRetry} />
+            <Note
+              tone="problem"
+              text={problemOf(error)}
+              onRetry={onRetry}
+              onSignIn={sessionExpired(error) ? signIn : undefined}
+            />
           )
         ) : null}
         {status === "ready" && last?.role === "user" && stopped.has(last.id) ? (

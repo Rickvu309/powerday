@@ -5,7 +5,12 @@ import { httpApi, type ConversationApi } from "./conversation-api"
 export type Listing =
   | { readonly status: "loading" }
   | { readonly status: "failed" }
-  | { readonly status: "ready"; readonly conversations: readonly Conversation[]; readonly next: string | undefined }
+  | {
+      readonly status: "ready"
+      readonly conversations: readonly Conversation[]
+      readonly next: string | undefined
+      readonly moreFailed: boolean
+    }
 
 export type Opened =
   | { readonly status: "loading" }
@@ -27,10 +32,16 @@ export const createConversationCache = (api: ConversationApi) => {
       .then(
         (page) => {
           const earlier = before !== undefined && listing.status === "ready" ? listing.conversations : []
-          listing = { status: "ready", conversations: [...earlier, ...page.conversations], next: page.next }
+          listing = {
+            status: "ready",
+            conversations: [...earlier, ...page.conversations],
+            next: page.next,
+            moreFailed: false,
+          }
         },
         () => {
           if (before === undefined) listing = { status: "failed" }
+          else if (listing.status === "ready") listing = { ...listing, moreFailed: true }
         },
       )
       .finally(() => {
@@ -66,10 +77,19 @@ export const createConversationCache = (api: ConversationApi) => {
     listing: () => listing,
     opened: (id: ConversationId) => opened.get(id),
     load: () => {
+      if (listing.status === "failed") {
+        listing = { status: "loading" }
+        emit()
+      }
       if (listing.status !== "ready") fetchPage(undefined)
     },
     more: () => {
-      if (listing.status === "ready" && listing.next !== undefined) fetchPage(listing.next)
+      if (listing.status !== "ready" || listing.next === undefined) return
+      if (listing.moreFailed) {
+        listing = { ...listing, moreFailed: false }
+        emit()
+      }
+      fetchPage(listing.next)
     },
     open: (id: ConversationId) => {
       if ((opened.get(id)?.status ?? "failed") !== "failed") return
