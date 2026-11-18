@@ -56,10 +56,9 @@ export function ModelPicker() {
         <span className="min-w-0 truncate">{name}</span>
         <ChevronDownIcon className="shrink-0 text-muted-foreground" />
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-60 gap-1 rounded-3xl p-4 shadow-lg">
+      <PopoverContent align="end" className="w-60 gap-3 rounded-3xl p-4 shadow-lg">
         <p className="text-center text-base font-medium">{name}</p>
-        <p className="truncate text-center text-xs text-muted-foreground">{chosen.label}</p>
-        <div className="relative mt-3 h-7">
+        <div className="relative h-7">
           <div
             aria-hidden
             className="absolute inset-0 rounded-full"
@@ -82,9 +81,9 @@ export function ModelPicker() {
             step={1}
             value={level}
             aria-label="Thinking effort"
-            aria-valuetext={`${name}, ${chosen.label}`}
+            aria-valuetext={name}
             onChange={(event) => pick(Number(event.currentTarget.value))}
-            className="relative block h-7 w-full cursor-pointer appearance-none bg-transparent focus-visible:outline-none! [&::-moz-range-thumb]:size-7 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-border [&::-moz-range-thumb]:bg-card [&::-webkit-slider-thumb]:size-7 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-border [&::-webkit-slider-thumb]:bg-card [&::-webkit-slider-thumb]:shadow-sm [&:focus-visible::-webkit-slider-thumb]:ring-2 [&:focus-visible::-webkit-slider-thumb]:ring-foreground"
+            className="relative block h-7 w-full cursor-pointer appearance-none bg-transparent focus-visible:outline-none! [&::-moz-range-thumb]:size-7 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-border [&::-moz-range-thumb]:bg-card [&::-webkit-slider-thumb]:size-7 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-border [&::-webkit-slider-thumb]:bg-card [&::-webkit-slider-thumb]:shadow-sm [&:focus-visible::-webkit-slider-thumb]:ring-4 [&:focus-visible::-webkit-slider-thumb]:ring-foreground/10"
           />
         </div>
       </PopoverContent>
