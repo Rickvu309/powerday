@@ -126,6 +126,7 @@ test("features we do not have yet say they are coming soon", async ({ page }) =>
     ["Voice", "Voice"],
     ["Library", "Library"],
     ["Apps", "Apps"],
+    ["Temporary chat", "Temporary chat"],
   ]) {
     await page.getByRole("button", { name, exact: true }).click()
     await expect(toast).toHaveText(`${feature} is coming soon`)

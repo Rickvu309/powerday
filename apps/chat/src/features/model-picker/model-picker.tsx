@@ -69,7 +69,7 @@ function EffortPopover({
         className="h-9 max-w-56 min-w-0 shrink gap-1 rounded-full px-3 text-base font-normal text-muted-foreground hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
         aria-label={`Model: ${label} (${name})`}
       >
-        <span className="min-w-0 truncate">{name}</span>
+        <span className="min-w-0 truncate">{open ? "Thinking effort" : name}</span>
         <ChevronDownIcon className="shrink-0 text-muted-foreground" />
       </Button>
       <div

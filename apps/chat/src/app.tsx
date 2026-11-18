@@ -1,9 +1,8 @@
 import { lazy, Suspense, useContext, useEffect, useRef, type CSSProperties } from "react"
-import { SquarePenIcon } from "lucide-react"
+import { MessageCircleDashedIcon } from "lucide-react"
 import { SpaceSwitch } from "@/features/chat/space-switch"
-import { ComingSoonToast } from "@/features/toast/coming-soon"
+import { ComingSoonToast, showComingSoon } from "@/features/toast/coming-soon"
 import { Button } from "@/components/ui/button"
-import { openConversation } from "@/open-conversation"
 import { useAdminPage } from "@/features/admin/admin-navigation"
 import { ModelChoice } from "@/features/model-picker/model-choice"
 import { ConversationMain } from "@/features/sidebar/conversation-main"
@@ -51,19 +50,18 @@ function PanelTrigger() {
   return isMobile || state === "expanded" ? <HandoffTrigger className="text-muted-foreground" /> : null
 }
 
-function PhoneNewChat() {
-  const { isMobile } = useSidebar()
-  return isMobile ? (
+function TemporaryChat() {
+  return (
     <Button
       variant="ghost"
       size="icon-lg"
-      aria-label="New chat"
+      aria-label="Temporary chat"
       className="ml-auto [&_svg]:size-5"
-      onClick={() => openConversation(null, { focus: true })}
+      onClick={() => showComingSoon("Temporary chat")}
     >
-      <SquarePenIcon />
+      <MessageCircleDashedIcon />
     </Button>
-  ) : null
+  )
 }
 
 function MainTrigger() {
@@ -143,7 +141,7 @@ export function App() {
             <header className="relative flex shrink-0 items-center gap-1 px-2">
               <MainTrigger />
               <SpaceSwitch className="absolute top-[calc(50%+var(--safe-area-top)/2)] left-1/2 -translate-x-1/2 -translate-y-1/2" />
-              <PhoneNewChat />
+              <TemporaryChat />
             </header>
             <ComingSoonToast />
             {admin ? (
