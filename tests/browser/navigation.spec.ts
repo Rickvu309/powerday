@@ -115,6 +115,25 @@ test("touch Options exposes the full title before actions", async ({ browser, ba
   await context.close()
 })
 
+test("features we do not have yet say they are coming soon", async ({ page }) => {
+  await navigationFixtures(page)
+  await page.goto("/")
+  await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible()
+  const toast = page.getByRole("status").filter({ hasText: "coming soon" })
+  for (const [name, feature] of [
+    ["Work", "Work"],
+    ["Attach", "Attachments"],
+    ["Voice", "Voice"],
+    ["Library", "Library"],
+    ["Apps", "Apps"],
+  ]) {
+    await page.getByRole("button", { name, exact: true }).click()
+    await expect(toast).toHaveText(`${feature} is coming soon`)
+  }
+  await expect(page).toHaveURL(/\/$/)
+  await expect(toast).toHaveCount(0, { timeout: 5000 })
+})
+
 test("skip link is first and focuses the conversation", async ({ page }) => {
   await navigationFixtures(page)
   await page.goto("/")

@@ -9,7 +9,7 @@
 @source "../../node_modules/@streamdown/math/dist/*.js";
 @source "../../node_modules/@streamdown/mermaid/dist/*.js";
 
-@custom-variant dark (@media (prefers-color-scheme: dark));
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
   --font-heading: var(--font-sans);

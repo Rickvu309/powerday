@@ -98,7 +98,7 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
   )
 
   return (
-    <div className="group/chat flex min-h-0 flex-1 flex-col has-data-chat-empty:justify-center-safe has-data-chat-empty:pb-[6vh]">
+    <div className="group/chat flex min-h-0 flex-1 flex-col md:has-data-chat-empty:justify-center-safe md:has-data-chat-empty:pb-[6vh]">
       {history.state === "loading" ? (
         <div role="status" className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
           Loading conversation…
@@ -156,7 +156,11 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
         onSend={send}
         onStop={conversation.stopDisplay}
       />
-      <Suggestions ready={model !== undefined} onPick={send} className="hidden group-has-data-chat-empty/chat:flex" />
+      <Suggestions
+        ready={model !== undefined}
+        onPick={send}
+        className="hidden md:group-has-data-chat-empty/chat:flex"
+      />
     </div>
   )
 }

@@ -1,5 +1,9 @@
 import { lazy, Suspense, useContext, useEffect, useRef, type CSSProperties } from "react"
-import { AdminSwitch } from "@/features/admin/admin-switch"
+import { SquarePenIcon } from "lucide-react"
+import { SpaceSwitch } from "@/features/chat/space-switch"
+import { ComingSoonToast } from "@/features/toast/coming-soon"
+import { Button } from "@/components/ui/button"
+import { openConversation } from "@/open-conversation"
 import { useAdminPage } from "@/features/admin/admin-navigation"
 import { ModelChoice } from "@/features/model-picker/model-choice"
 import { ConversationMain } from "@/features/sidebar/conversation-main"
@@ -45,6 +49,21 @@ function HandoffTrigger({ className }: { className?: string }) {
 function PanelTrigger() {
   const { isMobile, state } = useSidebar()
   return isMobile || state === "expanded" ? <HandoffTrigger className="text-muted-foreground" /> : null
+}
+
+function PhoneNewChat() {
+  const { isMobile } = useSidebar()
+  return isMobile ? (
+    <Button
+      variant="ghost"
+      size="icon-lg"
+      aria-label="New chat"
+      className="ml-auto [&_svg]:size-5"
+      onClick={() => openConversation(null, { focus: true })}
+    >
+      <SquarePenIcon />
+    </Button>
+  ) : null
 }
 
 function MainTrigger() {
@@ -123,8 +142,10 @@ export function App() {
           >
             <header className="relative flex shrink-0 items-center gap-1 px-2">
               <MainTrigger />
-              <AdminSwitch className="absolute top-[calc(50%+var(--safe-area-top)/2)] left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              <SpaceSwitch className="absolute top-[calc(50%+var(--safe-area-top)/2)] left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              <PhoneNewChat />
             </header>
+            <ComingSoonToast />
             {admin ? (
               <div className="overflow-y-auto">
                 <Suspense

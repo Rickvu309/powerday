@@ -245,18 +245,14 @@ for (const width of [320, 375]) {
   })
 }
 
-test("mobile Admin sits in the header, outside the sidebar, and focuses the heading", async ({ page }) => {
+test("mobile Admin navigation closes the sidebar before focusing the heading", async ({ page }) => {
   await signIn(page, "admin@example.com")
   await page.setViewportSize({ width: 375, height: 900 })
-  const admin = page.getByRole("navigation", { name: "Spaces" }).getByRole("link", { name: "Admin", exact: true })
-  await expect(admin).toBeVisible()
   await page.getByRole("button", { name: "Toggle Sidebar", exact: true }).click()
   await expect(page.getByRole("dialog")).toBeVisible()
-  await expect(page.getByRole("dialog").getByRole("link", { name: "Admin", exact: true })).toHaveCount(0)
-  await page.keyboard.press("Escape")
-  await expect(page.getByRole("dialog")).toHaveCount(0)
-  await admin.click()
+  await page.getByRole("link", { name: "Admin", exact: true }).click()
   await expect(page).toHaveURL(/\/admin$/)
+  await expect(page.getByRole("dialog")).toHaveCount(0)
   await expect(page.getByRole("heading", { name: "Admin", exact: true })).toBeFocused()
   await page.keyboard.press("Tab")
   await expect(page.getByRole("link", { name: "Back to chat", exact: true })).toBeFocused()

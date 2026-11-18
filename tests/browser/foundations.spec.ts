@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test"
 import { withChatFixtures, settled } from "./chat-fixtures"
 
 for (const colorScheme of ["light", "dark"] as const) {
-  test(`syntax keywords and browser chrome follow ${colorScheme} tokens`, async ({ page }, info) => {
+  test(`syntax keywords and browser chrome stay light when the system is ${colorScheme}`, async ({ page }, info) => {
     await page.setViewportSize({ width: 375, height: 900 })
     await page.emulateMedia({ colorScheme })
     await withChatFixtures(page)
@@ -48,9 +48,8 @@ for (const colorScheme of ["light", "dark"] as const) {
     const background = await page
       .locator("html")
       .evaluate((element) => getComputedStyle(element).getPropertyValue("--background").trim())
-    await expect(
-      page.locator(`meta[name="theme-color"][media="(prefers-color-scheme: ${colorScheme})"]`),
-    ).toHaveAttribute("content", background)
+    expect(background).toBe("#fff")
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", background)
   })
 }
 

@@ -1,4 +1,5 @@
-import { ArrowUpIcon, SquareIcon } from "lucide-react"
+import { ArrowUpIcon, MicIcon, PlusIcon, SquareIcon } from "lucide-react"
+import { showComingSoon } from "@/features/toast/coming-soon"
 import { memo, useRef, useSyncExternalStore } from "react"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group"
 import { ModelPicker } from "@/features/model-picker/model-picker"
@@ -24,7 +25,7 @@ export const Composer = memo(function Composer({
   const field = useRef<HTMLTextAreaElement>(null)
   const empty = text.trim() === ""
   return (
-    <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-[calc(16px+var(--safe-area-bottom))] group-has-data-chat-empty/chat:pb-0">
+    <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-[calc(16px+var(--safe-area-bottom))] md:group-has-data-chat-empty/chat:pb-0">
       <form
         className="group/composer w-full"
         onSubmit={(event) => {
@@ -33,7 +34,15 @@ export const Composer = memo(function Composer({
           if (onSend(text)) field.current?.focus()
         }}
       >
-        <InputGroup className="flex-wrap items-end gap-x-1 rounded-[1.75rem] border-border bg-card! p-1.5 shadow-lg shadow-foreground/5 has-disabled:opacity-100! has-focus-visible:border-muted-foreground/40! has-focus-visible:ring-0!">
+        <InputGroup className="flex-wrap items-end gap-x-1 rounded-[1.75rem] border-border bg-card! p-1.5 shadow-lg shadow-foreground/5 has-disabled:opacity-100! has-focus-visible:border-foreground! has-focus-visible:ring-0! has-focus-visible:outline-none!">
+          <InputGroupButton
+            aria-label="Attach"
+            size="icon-sm"
+            className="size-9 rounded-full text-foreground max-md:order-1 pointer-coarse:size-11 [&_svg]:size-5"
+            onClick={() => showComingSoon("Attachments")}
+          >
+            <PlusIcon />
+          </InputGroupButton>
           <InputGroupTextarea
             ref={field}
             onPointerDown={() => {
@@ -48,7 +57,7 @@ export const Composer = memo(function Composer({
             autoFocus={finePointer}
             enterKeyHint={finePointer ? "send" : "enter"}
             value={text}
-            className="max-h-48 min-h-9 min-w-0 grow basis-64 px-3 py-1.5 text-base md:text-base"
+            className="max-h-48 min-h-9 min-w-0 grow basis-0 px-3 py-1.5 text-base max-md:order-first max-md:basis-full md:text-base"
             onChange={(event) => draft.edit(event.currentTarget.value)}
             onKeyDown={(event) => {
               if (
@@ -64,9 +73,17 @@ export const Composer = memo(function Composer({
           />
           <InputGroupAddon
             align="inline-end"
-            className="ml-auto min-w-0 cursor-default gap-1 py-0 pr-0 has-[>button]:mr-0"
+            className="ml-auto min-w-0 cursor-default gap-1 py-0 pr-0 has-[>button]:mr-0 max-md:order-2"
           >
             <ModelPicker />
+            <InputGroupButton
+              aria-label="Voice"
+              size="icon-sm"
+              className="size-9 rounded-full text-muted-foreground pointer-coarse:size-11 [&_svg]:size-5"
+              onClick={() => showComingSoon("Voice")}
+            >
+              <MicIcon />
+            </InputGroupButton>
             <InputGroupButton
               type={busy ? "button" : "submit"}
               aria-label={busy ? "Stop display" : "Send"}
