@@ -110,9 +110,9 @@ for (const mode of ["pointer", "keyboard", "reduce"] as const) {
     })
     if (mode === "keyboard") {
       await model.focus()
-      await page.keyboard.press("ArrowDown")
+      await page.keyboard.press("Enter")
     } else await model.click()
-    const menu = page.getByRole("menu")
+    const menu = page.locator('[data-slot="popover-content"]')
     await expect(menu).toBeVisible()
     await expect(menu).toHaveCSS("animation-name", "none")
     await expect(menu).toHaveCSS("transition-duration", mode === "pointer" ? "0.15s" : "0s")
@@ -148,12 +148,12 @@ for (const mode of ["pointer", "keyboard", "reduce"] as const) {
     })
     if (mode !== "pointer") expect(animations).toEqual([])
     else {
-      expect(animations.some((animation) => animation.slot === "dropdown-menu-content")).toBe(true)
+      expect(animations.some((animation) => animation.slot === "popover-content")).toBe(true)
       expect(animations.some((animation) => animation.slot === "sheet-overlay")).toBe(true)
       expect(animations.some((animation) => animation.slot === "sidebar")).toBe(true)
       expect(
         animations
-          .filter((animation) => ["dropdown-menu-content", "sidebar", "sheet-overlay"].includes(animation.slot ?? ""))
+          .filter((animation) => ["popover-content", "sidebar", "sheet-overlay"].includes(animation.slot ?? ""))
           .every((animation) => ["opacity", "scale", "translate", "transform"].includes(animation.kind)),
       ).toBe(true)
     }

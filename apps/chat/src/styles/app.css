@@ -150,6 +150,7 @@ select,
 @media (prefers-reduced-motion: no-preference) {
   [data-slot="dropdown-menu-content"],
   [data-slot="dropdown-menu-sub-content"],
+  [data-slot="popover-content"],
   [data-slot="select-content"],
   [data-slot="hover-card-content"],
   [data-slot="tooltip-content"] {
@@ -166,12 +167,20 @@ select,
   :is(
     [data-slot="dropdown-menu-content"],
     [data-slot="dropdown-menu-sub-content"],
+    [data-slot="popover-content"],
     [data-slot="select-content"],
     [data-slot="hover-card-content"],
     [data-slot="tooltip-content"]
   ):is([data-starting-style], [data-ending-style]) {
     opacity: 0;
     scale: 0.97;
+  }
+
+  @starting-style {
+    [data-slot="popover-content"]:popover-open {
+      opacity: 0;
+      scale: 0.97;
+    }
   }
 
   :is([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"])[data-ending-style] {

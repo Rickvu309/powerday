@@ -40,7 +40,7 @@ for (const width of [320, 375]) {
       await page.route("**/api/models", (route) => route.fulfill({ json: { models: [{ ...models[0], label: long }] } }))
       await page.setViewportSize({ width, height: 900 })
       await page.goto("/")
-      const trigger = page.getByRole("button", { name: `Model: ${long} (Fast)`, exact: true })
+      const trigger = page.getByRole("button", { name: `Model: ${long} (Instant)`, exact: true })
       await expect(trigger).toBeVisible()
       for (const size of ["100%", "200%"]) {
         await page.evaluate((size) => {
@@ -51,9 +51,9 @@ for (const width of [320, 375]) {
         expect(await trigger.evaluate((element) => element.getBoundingClientRect().right <= innerWidth)).toBe(true)
         if (size === "100%") await page.screenshot({ path: info.outputPath("model-trigger.png") })
         await trigger.click()
-        const choice = page.getByRole("menuitemradio").filter({ hasText: long })
-        await expect(choice).toBeVisible()
-        expect(await choice.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+        const popover = page.locator('[data-slot="popover-content"]')
+        await expect(popover).toBeVisible()
+        expect(await popover.evaluate((element) => element.getBoundingClientRect().right <= innerWidth)).toBe(true)
         if (size === "100%")
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
         if (size === "100%") await page.screenshot({ path: info.outputPath("model-menu.png") })
@@ -119,7 +119,7 @@ test("features we do not have yet say they are coming soon", async ({ page }) =>
   await navigationFixtures(page)
   await page.goto("/")
   await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible()
-  const toast = page.getByRole("status").filter({ hasText: "coming soon" })
+  const toast = page.locator('[aria-live="polite"][aria-atomic="true"]')
   for (const [name, feature] of [
     ["Work", "Work"],
     ["Attach", "Attachments"],
@@ -131,7 +131,7 @@ test("features we do not have yet say they are coming soon", async ({ page }) =>
     await expect(toast).toHaveText(`${feature} is coming soon`)
   }
   await expect(page).toHaveURL(/\/$/)
-  await expect(toast).toHaveCount(0, { timeout: 5000 })
+  await expect(toast).toHaveText("", { timeout: 5000 })
 })
 
 test("skip link is first and focuses the conversation", async ({ page }) => {

@@ -28,8 +28,8 @@ export function ComingSoonToast() {
   }, [text, count])
   return (
     <div
-      role="status"
       aria-live="polite"
+      aria-atomic="true"
       className="pointer-events-none fixed inset-x-0 top-[calc(3.75rem+var(--safe-area-top))] z-50 flex justify-center px-4"
     >
       {text === "" ? null : (

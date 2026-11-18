@@ -1,11 +1,11 @@
 import { ChevronDownIcon } from "lucide-react"
+import { useId, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
 import { showComingSoon } from "@/features/toast/coming-soon"
 import { useModels } from "./model-choice"
 
-const stops = ["Fast", "Think", "Ultra"] as const
+const stops = ["Instant", "Medium", "High", "Extra High", "Pro"] as const
 
 const filled = (index: number) => `calc(0.875rem + (100% - 1.75rem) * ${String(index / (stops.length - 1))})`
 
@@ -37,26 +37,62 @@ export function ModelPicker() {
   const level = chosen.capabilities.reasoning ? 1 : 0
   const name = stops[level]
   const pick = (next: number) => {
-    if (next === 2) return showComingSoon("Ultra")
-    const model = next === 1 ? think : fast
-    if (model === undefined) return showComingSoon(stops[next] ?? "Think")
+    const model = next === 0 ? fast : next === 1 ? think : undefined
+    if (model === undefined) return showComingSoon(stops[next] ?? "Thinking effort")
     choose(model.id)
   }
+  return <EffortPopover name={name} level={level} label={chosen.label} onPick={pick} />
+}
+
+function EffortPopover({
+  name,
+  level,
+  label,
+  onPick,
+}: {
+  name: string
+  level: number
+  label: string
+  onPick: (next: number) => void
+}) {
+  const id = useId()
+  const trigger = useRef<HTMLButtonElement>(null)
+  const slider = useRef<HTMLInputElement>(null)
+  const [open, setOpen] = useState(false)
   return (
-    <Popover>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="ghost"
-            className="h-9 max-w-56 min-w-0 shrink gap-1 rounded-full px-3 text-base font-normal text-muted-foreground hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
-            aria-label={`Model: ${chosen.label} (${name})`}
-          />
-        }
+    <>
+      <Button
+        ref={trigger}
+        variant="ghost"
+        popoverTarget={id}
+        aria-expanded={open}
+        className="h-9 max-w-56 min-w-0 shrink gap-1 rounded-full px-3 text-base font-normal text-muted-foreground hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
+        aria-label={`Model: ${label} (${name})`}
       >
         <span className="min-w-0 truncate">{name}</span>
         <ChevronDownIcon className="shrink-0 text-muted-foreground" />
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-60 gap-3 rounded-3xl p-4 shadow-lg">
+      </Button>
+      <div
+        id={id}
+        popover="auto"
+        data-slot="popover-content"
+        className="fixed inset-auto m-0 w-[min(15rem,calc(100vw-1rem))] flex-col gap-3 rounded-3xl bg-popover p-4 text-popover-foreground shadow-lg ring-1 ring-foreground/10 open:flex"
+        onBeforeToggle={(event) => {
+          if (event.newState !== "open" || trigger.current === null) return
+          const anchor = trigger.current.getBoundingClientRect()
+          const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+          const width = Math.min(15 * rem, innerWidth - 16)
+          const below = innerHeight - anchor.bottom - 8 >= 8 * rem
+          event.currentTarget.style.top = below ? `${String(anchor.bottom + 4)}px` : "auto"
+          event.currentTarget.style.bottom = below ? "auto" : `${String(innerHeight - anchor.top + 4)}px`
+          event.currentTarget.style.left = `${String(Math.max(8, Math.min(anchor.right - width, innerWidth - width - 8)))}px`
+        }}
+        onToggle={(event) => {
+          const shown = event.newState === "open"
+          setOpen(shown)
+          if (shown) slider.current?.focus()
+        }}
+      >
         <p className="text-center text-base font-medium">{name}</p>
         <div className="relative h-7">
           <div
@@ -75,18 +111,19 @@ export function ModelPicker() {
             />
           ))}
           <input
+            ref={slider}
             type="range"
             min={0}
-            max={2}
+            max={stops.length - 1}
             step={1}
             value={level}
             aria-label="Thinking effort"
             aria-valuetext={name}
-            onChange={(event) => pick(Number(event.currentTarget.value))}
+            onChange={(event) => onPick(Number(event.currentTarget.value))}
             className="relative block h-7 w-full cursor-pointer appearance-none bg-transparent focus-visible:outline-none! [&::-moz-range-thumb]:size-7 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-border [&::-moz-range-thumb]:bg-card [&::-webkit-slider-thumb]:size-7 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-border [&::-webkit-slider-thumb]:bg-card [&::-webkit-slider-thumb]:shadow-sm [&:focus-visible::-webkit-slider-thumb]:ring-4 [&:focus-visible::-webkit-slider-thumb]:ring-foreground/10"
           />
         </div>
-      </PopoverContent>
-    </Popover>
+      </div>
+    </>
   )
 }

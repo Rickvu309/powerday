@@ -36,8 +36,8 @@ const groups: readonly (readonly [string, readonly (readonly [string, Fixture])[
   [
     "Choice",
     [
-      ["fast", { load: async () => [llama, qwen, deepseek], chosen: llama }],
-      ["think", { load: async () => [llama, qwen, deepseek], chosen: deepseek }],
+      ["instant", { load: async () => [llama, qwen, deepseek], chosen: llama }],
+      ["medium", { load: async () => [llama, qwen, deepseek], chosen: deepseek }],
       ["no-reasoning-model", { load: async () => [llama, qwen], chosen: llama }],
       ["long-model-name", { load: async () => [long, deepseek], chosen: long }],
     ],
@@ -45,8 +45,8 @@ const groups: readonly (readonly [string, readonly (readonly [string, Fixture])[
   [
     "Open",
     [
-      ["fast-open", { load: async () => [llama, qwen, deepseek], chosen: llama, open: true }],
-      ["think-open", { load: async () => [llama, qwen, deepseek], chosen: deepseek, open: true }],
+      ["instant-open", { load: async () => [llama, qwen, deepseek], chosen: llama, open: true }],
+      ["medium-open", { load: async () => [llama, qwen, deepseek], chosen: deepseek, open: true }],
       ["no-reasoning-open", { load: async () => [llama, qwen], chosen: llama, open: true }],
     ],
   ],
@@ -55,8 +55,8 @@ const groups: readonly (readonly [string, readonly (readonly [string, Fixture])[
 const fixtures = new Map(groups.flatMap(([, states]) => states))
 
 export default function ThinkingEffortStates() {
-  const state = new URLSearchParams(location.search).get("__state") ?? "fast"
-  const fixture = fixtures.get(state) ?? fixtures.get("fast")!
+  const state = new URLSearchParams(location.search).get("__state") ?? "instant"
+  const fixture = fixtures.get(state) ?? fixtures.get("instant")!
   const choice = useMemo(() => {
     const store = modelChoice(fixture.load)
     void store.reload().then(() => {
