@@ -25,7 +25,7 @@ export const Composer = memo(function Composer({
   const field = useRef<HTMLTextAreaElement>(null)
   const empty = text.trim() === ""
   return (
-    <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-[calc(16px+var(--safe-area-bottom))] md:group-has-data-chat-empty/chat:pb-0">
+    <div className="mx-auto w-full max-w-[50.375rem] shrink-0 px-4 pb-[calc(16px+var(--safe-area-bottom))] md:group-has-data-chat-empty/chat:pb-0">
       <form
         className="group/composer w-full"
         onSubmit={(event) => {
@@ -34,7 +34,7 @@ export const Composer = memo(function Composer({
           if (onSend(text)) field.current?.focus()
         }}
       >
-        <InputGroup className="flex-wrap items-end gap-x-1 rounded-[1.75rem] border-transparent! bg-card! p-1.5 shadow-lg shadow-foreground/10 has-disabled:opacity-100! has-focus-visible:ring-0! has-focus-visible:outline-none!">
+        <InputGroup className="flex-wrap items-end gap-x-1 rounded-[1.75rem] border-transparent! bg-card! p-1.5 shadow-xl shadow-foreground/10 has-disabled:opacity-100! has-focus-visible:ring-0! has-focus-visible:outline-none!">
           <InputGroupButton
             aria-label="Attach"
             size="icon-sm"
@@ -87,7 +87,7 @@ export const Composer = memo(function Composer({
             <InputGroupButton
               type={busy ? "button" : "submit"}
               aria-label={busy ? "Stop display" : "Send"}
-              className="size-9 rounded-full bg-foreground text-background hover:bg-foreground/85 disabled:bg-foreground/25 disabled:opacity-100 pointer-coarse:size-11 [&_svg]:size-5"
+              className="size-9 rounded-full bg-foreground text-background hover:bg-foreground/85 disabled:bg-foreground/70 disabled:opacity-100 pointer-coarse:size-11 [&_svg]:size-5"
               size="icon-sm"
               variant="default"
               disabled={!busy && (empty || !ready)}

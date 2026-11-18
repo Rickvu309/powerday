@@ -122,7 +122,7 @@ export function App() {
                 className="flex h-full min-w-0 flex-1 flex-col bg-background text-sidebar-foreground group-data-[collapsible=icon]:invisible"
               >
                 <SidebarHeader className="h-12 flex-row items-center justify-between gap-2 pr-3 pl-4">
-                  <span className="truncate text-lg font-semibold">Power Chat</span>
+                  <span className="truncate text-xl font-bold">Power Chat</span>
                   <PanelTrigger />
                 </SidebarHeader>
                 <SidebarContent>
