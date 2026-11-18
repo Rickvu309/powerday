@@ -277,6 +277,18 @@ test("admin visits preserve the page title and restore the saved chat", async ({
   }
 })
 
+test("the active Chat space keeps the open conversation", async ({ page }) => {
+  await signIn(page, "admin@example.com")
+  await page.route("**/api/conversations/saved", (route) => route.fulfill({ json: savedConversation }))
+  await page.goto("/c/saved")
+  await expect(page.getByText("My saved answer")).toBeVisible()
+  const chat = page.getByRole("navigation", { name: "Spaces" }).getByRole("link", { name: "Chat", exact: true })
+  await expect(chat).toHaveAttribute("href", "/c/saved")
+  await chat.click()
+  await expect(page).toHaveURL(/\/c\/saved$/)
+  await expect(page.getByText("My saved answer")).toBeVisible()
+})
+
 test("cached admin keeps focus while saved history is delayed", async ({ page }) => {
   await signIn(page, "admin@example.com")
   await page.getByRole("link", { name: "Admin", exact: true }).click()

@@ -213,6 +213,21 @@ test("the desktop sidebar collapses without animating its layout", async ({ page
   expect(motion.filter((entry) => /^sidebar.* (width|left|right|height|padding)$/.test(entry))).toEqual([])
 })
 
+test("keyboard toggling the desktop sidebar keeps focus on a sidebar toggle", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await withChatFixtures(page)
+  await page.goto("/")
+  const sidebar = page.locator('[data-slot="sidebar"]')
+  const toggle = page.locator('[data-slot="sidebar-trigger"]')
+  await toggle.focus()
+  await page.keyboard.press("Enter")
+  await expect(sidebar).toHaveAttribute("data-state", "collapsed")
+  await expect(toggle).toBeFocused()
+  await page.keyboard.press("Enter")
+  await expect(sidebar).toHaveAttribute("data-state", "expanded")
+  await expect(toggle).toBeFocused()
+})
+
 test("popup motion is scoped and uses composite properties", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" })
   await withChatFixtures(page)

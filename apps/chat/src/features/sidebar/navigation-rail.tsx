@@ -62,7 +62,7 @@ export function NavigationRail() {
           label="Search chats"
           icon={SearchIcon}
           onClick={() => {
-            setOpen(true)
+            if (!isMobile) setOpen(true)
             requestAnimationFrame(() => document.getElementById(searchFieldId)?.focus())
           }}
         />
