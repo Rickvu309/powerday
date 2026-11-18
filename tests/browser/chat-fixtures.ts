@@ -57,7 +57,8 @@ export const replyStream = (text: string) =>
 export const settled = async (page: Page, screen: string) => {
   await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible()
   await expect(page.getByRole("button", { name: /Model:/ })).toBeVisible()
-  if (screen.includes("empty")) await expect(page.getByText("Explain a concept", { exact: true })).toBeEnabled()
+  if (screen.includes("empty"))
+    await expect(page.getByRole("heading", { name: "How can I help you today?" })).toBeVisible()
   else if (screen.includes("model-menu")) {
     await page.getByRole("button", { name: /Model:/ }).click()
     await expect(page.getByRole("menuitemradio", { name: /Mock Reasoning/ })).toBeVisible()

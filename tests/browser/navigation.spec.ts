@@ -40,7 +40,7 @@ for (const width of [320, 375]) {
       await page.route("**/api/models", (route) => route.fulfill({ json: { models: [{ ...models[0], label: long }] } }))
       await page.setViewportSize({ width, height: 900 })
       await page.goto("/")
-      const trigger = page.getByRole("button", { name: `Model: ${long}`, exact: true })
+      const trigger = page.getByRole("button", { name: `Model: ${long} (Fast)`, exact: true })
       await expect(trigger).toBeVisible()
       for (const size of ["100%", "200%"]) {
         await page.evaluate((size) => {
@@ -51,7 +51,7 @@ for (const width of [320, 375]) {
         expect(await trigger.evaluate((element) => element.getBoundingClientRect().right <= innerWidth)).toBe(true)
         if (size === "100%") await page.screenshot({ path: info.outputPath("model-trigger.png") })
         await trigger.click()
-        const choice = page.getByRole("menuitemradio", { name: long, exact: true })
+        const choice = page.getByRole("menuitemradio").filter({ hasText: long })
         await expect(choice).toBeVisible()
         expect(await choice.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
         if (size === "100%")

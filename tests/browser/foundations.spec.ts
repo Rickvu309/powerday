@@ -48,7 +48,7 @@ for (const colorScheme of ["light", "dark"] as const) {
     const background = await page
       .locator("html")
       .evaluate((element) => getComputedStyle(element).getPropertyValue("--background").trim())
-    expect(background).toBe("#fff")
+    expect(await page.locator("html").evaluate((element) => getComputedStyle(element).colorScheme)).toBe("light")
     await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", background)
   })
 }

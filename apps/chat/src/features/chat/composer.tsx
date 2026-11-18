@@ -105,11 +105,6 @@ export const Composer = memo(function Composer({
             </InputGroupButton>
           </InputGroupAddon>
         </InputGroup>
-        {finePointer ? (
-          <p className="h-5 pt-1 text-xs text-muted-foreground invisible group-focus-within/composer:visible">
-            Enter to send / Shift+Enter for newline
-          </p>
-        ) : null}
       </form>
     </div>
   )

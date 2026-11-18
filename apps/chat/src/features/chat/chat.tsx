@@ -6,7 +6,7 @@ import { openConversation, useOpenConversation } from "@/open-conversation"
 import { rememberConversationContentReady } from "../sidebar/conversation-cache"
 import { Composer } from "./composer"
 import { LiveChats, type LiveConversation } from "./live-chats"
-import { Greeting, Suggestions } from "./suggestions"
+import { Greeting } from "./greeting"
 import { useLimitReset } from "./over-limit"
 import { usageLimitOf } from "./reply-problem"
 import { ConversationProblem } from "./conversation-problem"
@@ -155,11 +155,6 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
         }
         onSend={send}
         onStop={conversation.stopDisplay}
-      />
-      <Suggestions
-        ready={model !== undefined}
-        onPick={send}
-        className="hidden md:group-has-data-chat-empty/chat:flex"
       />
     </div>
   )
