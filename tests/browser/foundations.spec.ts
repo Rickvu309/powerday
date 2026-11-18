@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test"
 import { withChatFixtures, settled } from "./chat-fixtures"
 
 for (const colorScheme of ["light", "dark"] as const) {
-  test(`syntax keywords and browser chrome follow ${colorScheme} tokens`, async ({ page }, info) => {
+  test(`syntax keywords and browser chrome stay light when the system is ${colorScheme}`, async ({ page }, info) => {
     await page.setViewportSize({ width: 375, height: 900 })
     await page.emulateMedia({ colorScheme })
     await withChatFixtures(page)
@@ -48,9 +48,8 @@ for (const colorScheme of ["light", "dark"] as const) {
     const background = await page
       .locator("html")
       .evaluate((element) => getComputedStyle(element).getPropertyValue("--background").trim())
-    await expect(
-      page.locator(`meta[name="theme-color"][media="(prefers-color-scheme: ${colorScheme})"]`),
-    ).toHaveAttribute("content", background)
+    expect(await page.locator("html").evaluate((element) => getComputedStyle(element).colorScheme)).toBe("light")
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", background)
   })
 }
 
@@ -98,22 +97,23 @@ for (const mode of ["pointer", "keyboard", "reduce"] as const) {
         mode === "keyboard" ? "keyboard" : "pointer",
       )
     await page.evaluate(() => {
-      const animations: Animation[] = []
-      const observer = new MutationObserver(() => {
-        for (const animation of document.getAnimations()) {
-          if (animations.includes(animation)) continue
-          animations.push(animation)
-          animation.playbackRate = 0.2
-        }
-      })
-      observer.observe(document.body, { childList: true, subtree: true, attributes: true })
-      Object.assign(window, { foundationAnimations: animations })
+      const motions: Array<{ kind: string; slot: string | null }> = []
+      const record = (event: TransitionEvent | AnimationEvent) => {
+        const kind = event instanceof TransitionEvent ? event.propertyName : "keyframes"
+        const slot = event.target instanceof Element ? event.target.getAttribute("data-slot") : null
+        if (motions.some((motion) => motion.kind === kind && motion.slot === slot)) return
+        motions.push({ kind, slot })
+      }
+      for (const type of ["transitionrun", "transitionstart", "animationstart"] as const) {
+        document.addEventListener(type, record, { capture: true })
+      }
+      Object.assign(window, { foundationAnimations: motions })
     })
     if (mode === "keyboard") {
       await model.focus()
-      await page.keyboard.press("ArrowDown")
+      await page.keyboard.press("Enter")
     } else await model.click()
-    const menu = page.getByRole("menu")
+    const menu = page.locator('[data-slot="popover-content"]')
     await expect(menu).toBeVisible()
     await expect(menu).toHaveCSS("animation-name", "none")
     await expect(menu).toHaveCSS("transition-duration", mode === "pointer" ? "0.15s" : "0s")
@@ -140,21 +140,18 @@ for (const mode of ["pointer", "keyboard", "reduce"] as const) {
     await page.keyboard.press("Control+b")
     await expect(drawer).toBeHidden()
     const animations = await page.evaluate(() => {
-      const animations = "foundationAnimations" in window ? window.foundationAnimations : []
-      if (!Array.isArray(animations)) throw new Error("Missing motion observer")
-      return animations.map((animation: Animation) => ({
-        kind: animation instanceof CSSTransition ? animation.transitionProperty : "keyframes",
-        slot: animation.effect instanceof KeyframeEffect ? animation.effect.target?.getAttribute("data-slot") : null,
-      }))
+      const motions = "foundationAnimations" in window ? window.foundationAnimations : []
+      if (!Array.isArray(motions)) throw new Error("Missing motion observer")
+      return motions as Array<{ kind: string; slot: string | null }>
     })
     if (mode !== "pointer") expect(animations).toEqual([])
     else {
-      expect(animations.some((animation) => animation.slot === "dropdown-menu-content")).toBe(true)
+      expect(animations.some((animation) => animation.slot === "popover-content")).toBe(true)
       expect(animations.some((animation) => animation.slot === "sheet-overlay")).toBe(true)
       expect(animations.some((animation) => animation.slot === "sidebar")).toBe(true)
       expect(
         animations
-          .filter((animation) => ["dropdown-menu-content", "sidebar", "sheet-overlay"].includes(animation.slot ?? ""))
+          .filter((animation) => ["popover-content", "sidebar", "sheet-overlay"].includes(animation.slot ?? ""))
           .every((animation) => ["opacity", "scale", "translate", "transform"].includes(animation.kind)),
       ).toBe(true)
     }

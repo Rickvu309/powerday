@@ -1,24 +1,66 @@
-import { lazy, Suspense, useContext, useEffect, useRef } from "react"
-import { AdminLink } from "@/features/admin/admin-link"
+import { lazy, Suspense, useContext, useEffect, useRef, type CSSProperties } from "react"
+import { MessageCircleDashedIcon } from "lucide-react"
+import { SpaceSwitch } from "@/features/chat/space-switch"
+import { ComingSoonToast, showComingSoon } from "@/features/toast/coming-soon"
+import { Button } from "@/components/ui/button"
 import { useAdminPage } from "@/features/admin/admin-navigation"
 import { ModelChoice } from "@/features/model-picker/model-choice"
 import { ConversationMain } from "@/features/sidebar/conversation-main"
 import { NavigationSidebar } from "@/features/sidebar/navigation-sidebar"
 import { SignInGate } from "@/features/auth/sign-in-gate"
-import { Account } from "@/features/auth/account"
 import { Chat } from "@/features/chat/chat"
-import { ModelPicker } from "@/features/model-picker/model-picker"
-import { ConversationList } from "@/features/sidebar/conversation-list"
+import { ConversationList, PanelSearchTrigger } from "@/features/sidebar/conversation-list"
+import { NavigationRail, sidebarHandoff } from "@/features/sidebar/navigation-rail"
 import {
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarInset,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
+
+const sidebarSize = { "--sidebar-width": "20.5rem", "--sidebar-width-icon": "3.25rem" } as CSSProperties
+
+function HandoffTrigger({ className }: { className?: string }) {
+  const { isMobile } = useSidebar()
+  return (
+    <SidebarTrigger
+      className={className}
+      onClick={() => {
+        sidebarHandoff.current = !isMobile
+      }}
+    />
+  )
+}
+
+function PanelTrigger() {
+  const { isMobile, state } = useSidebar()
+  return isMobile || state === "expanded" ? (
+    <HandoffTrigger className="size-8 text-muted-foreground [&_svg]:size-4" />
+  ) : null
+}
+
+function TemporaryChat() {
+  return (
+    <Button
+      variant="ghost"
+      size="icon-lg"
+      aria-label="Temporary chat"
+      className="ml-auto [&_svg]:size-5"
+      onClick={() => showComingSoon("Temporary chat")}
+    >
+      <MessageCircleDashedIcon />
+    </Button>
+  )
+}
+
+function MainTrigger() {
+  const { isMobile } = useSidebar()
+  return isMobile ? <HandoffTrigger /> : null
+}
 
 const Admin = lazy(() => import("@/features/admin/admin").then((module) => ({ default: module.Admin })))
 
@@ -64,18 +106,29 @@ export function App() {
         >
           Skip to conversation
         </a>
-        <SidebarProvider>
-          <NavigationSidebar collapsible="icon">
-            <SidebarHeader>
-              <span className="truncate px-2 py-1 font-semibold group-data-[collapsible=icon]:hidden">Power Chat</span>
-            </SidebarHeader>
-            <SidebarContent>
-              <ConversationList />
-            </SidebarContent>
-            <SidebarFooter>
-              <AdminLink />
-              <Account />
-            </SidebarFooter>
+        <SidebarProvider style={sidebarSize}>
+          <NavigationSidebar
+            collapsible="icon"
+            className="overflow-hidden group-data-[state=expanded]:border-sidebar-border/40"
+          >
+            <div className="flex size-full min-h-0">
+              <NavigationRail />
+              <div
+                data-panel
+                className="flex h-full min-w-0 flex-1 flex-col bg-background text-sidebar-foreground group-data-[collapsible=icon]:invisible"
+              >
+                <SidebarHeader className="h-12 flex-row items-center justify-between gap-2 pr-2 pl-4">
+                  <span className="truncate text-lg font-medium">Power Chat</span>
+                  <span className="flex items-center gap-1">
+                    <PanelSearchTrigger />
+                    <PanelTrigger />
+                  </span>
+                </SidebarHeader>
+                <SidebarContent>
+                  <ConversationList />
+                </SidebarContent>
+              </div>
+            </div>
             <SidebarRail />
           </NavigationSidebar>
           <SidebarInset
@@ -84,10 +137,12 @@ export function App() {
             aria-labelledby={admin ? "admin-title" : "conversation-title"}
             className="h-dvh min-w-0 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
           >
-            <header className="flex h-12 shrink-0 items-center gap-1 px-2">
-              <SidebarTrigger />
-              <ModelPicker />
+            <header className="relative flex shrink-0 items-center gap-1 px-2">
+              <MainTrigger />
+              <SpaceSwitch className="absolute top-[calc(50%+var(--safe-area-top)/2)] left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              <TemporaryChat />
             </header>
+            <ComingSoonToast />
             {admin ? (
               <div className="overflow-y-auto">
                 <Suspense

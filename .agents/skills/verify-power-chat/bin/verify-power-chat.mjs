@@ -506,6 +506,11 @@ async function annotate(file, named) {
             if (field.checkVisibility() && rect.width > 0)
               boxes.push({ x: rect.x - area.x, y: rect.y - area.y, width: rect.width, height: rect.height })
           }
+          for (const icon of document.querySelectorAll("svg, img")) {
+            const rect = icon.getBoundingClientRect()
+            if (icon.checkVisibility() && rect.width > 0 && rect.width <= 64 && rect.height <= 64)
+              boxes.push({ x: rect.x - area.x, y: rect.y - area.y, width: rect.width, height: rect.height })
+          }
           return boxes
         }, clip)
         const boxes = measured[at].boxes.map((box, which) => {

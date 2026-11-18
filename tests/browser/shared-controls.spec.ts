@@ -112,7 +112,9 @@ async function motionDuring(page: Page, act: () => Promise<void>) {
 
 for (const width of [375, 1280]) {
   for (const colorScheme of ["light", "dark"] as const) {
-    test(`text inputs keep a 3:1 border at ${width} in ${colorScheme}`, async ({ page }, info) => {
+    test(`form fields keep a 3:1 border and the composer and search stay borderless at ${width} in ${colorScheme}`, async ({
+      page,
+    }, info) => {
       await page.setViewportSize({ width, height: 900 })
       await page.emulateMedia({ colorScheme })
       await page.goto("/screens/01-sign-in")
@@ -121,11 +123,16 @@ for (const width of [375, 1280]) {
       await page.goto("/")
       const composer = page.locator('[data-slot="input-group"]')
       await page.getByRole("textbox", { name: "Message" }).focus()
-      await expectBoundary(composer, "Focused composer", info)
+      await expect(composer).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)")
+      await expect(composer).toHaveCSS("outline-style", "none")
       await page.getByRole("textbox", { name: "Message" }).blur()
-      await expectBoundary(composer, "Composer", info)
+      await expect(composer).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)")
       if (width === 375) await page.locator('[data-slot="sidebar-trigger"]').click()
-      await expectBoundary(page.getByRole("searchbox", { name: "Search chats" }), "Search", info)
+      else await page.locator('[data-slot="sidebar-header"]').getByRole("button", { name: "Search chats" }).click()
+      await expect(page.getByRole("searchbox", { name: "Search chats" })).toHaveCSS(
+        "border-top-color",
+        "rgba(0, 0, 0, 0)",
+      )
     })
 
     test(`focused controls show a 2px ring at ${width} in ${colorScheme}`, async ({ page }, info) => {
@@ -141,25 +148,31 @@ for (const width of [375, 1280]) {
       await page.goto("/")
       const message = page.getByRole("textbox", { name: "Message" })
       await message.focus()
-      await expectRing(page.locator('[data-slot="input-group"]'), "Composer", info)
+      await expect(page.locator('[data-slot="input-group"]')).toHaveCSS("outline-style", "none")
       await expect(message).toHaveCSS("outline-style", "none")
       await page.screenshot({ path: info.outputPath("composer.png") })
       const model = page.getByRole("button", { name: /^Model:/ })
       await focusByKeyboard(model)
       await expectRing(model, "Model picker", info)
-      await page.keyboard.press("ArrowDown")
-      await expect(page.getByRole("menu")).toBeVisible()
-      const item = page.locator('[role="menuitemradio"]:focus')
-      await expectRing(item, "Model choice", info, "-2px")
+      await page.keyboard.press("Enter")
+      await expect(page.getByRole("slider", { name: "Thinking effort" })).toBeFocused()
       await page.screenshot({ path: info.outputPath("menu.png") })
       await page.keyboard.press("Escape")
-      await expect(page.getByRole("menu")).toBeHidden()
-      if (width === 375) await page.locator('[data-slot="sidebar-trigger"]').click()
+      await expect(page.getByRole("slider", { name: "Thinking effort" })).toBeHidden()
+      const panelSearch = page.locator('[data-slot="sidebar-header"]').getByRole("button", { name: "Search chats" })
+      if (width === 375) {
+        await page.locator('[data-slot="sidebar-trigger"]').click()
+        await expect(page.getByRole("button", { name: "Home", exact: true })).toBeFocused()
+      } else await panelSearch.click()
       const search = page.getByRole("searchbox", { name: "Search chats" })
       await search.focus()
-      await expectRing(search, "Search", info)
+      await expect(search).toHaveCSS("outline-style", "none")
+      await expect(search).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)")
       const newChat = page.getByRole("button", { name: "New chat" })
-      await focusByKeyboard(newChat)
+      await search.press("Shift+Tab")
+      await expect(page.getByRole("button", { name: "Power Bot" })).toBeFocused()
+      await page.keyboard.press("Shift+Tab")
+      await expect(newChat).toBeFocused()
       await expectRing(newChat, "New chat", info)
       await page.screenshot({ path: info.outputPath("sidebar.png") })
     })
@@ -174,11 +187,11 @@ for (const width of [375, 1280]) {
       const sidebar = page.locator('[data-slot="sidebar-trigger"]')
       const motion = await motionDuring(page, async () => {
         await trigger.click()
-        await expect(page.getByRole("menu")).toBeVisible()
-        await expect(page.getByRole("menu")).toHaveCSS("opacity", "1")
-        await page.getByRole("menuitemradio", { name: /Mock Reasoning/ }).hover()
+        await expect(page.locator('[data-slot="popover-content"]')).toBeVisible()
+        await expect(page.locator('[data-slot="popover-content"]')).toHaveCSS("opacity", "1")
+        await page.getByRole("slider", { name: "Thinking effort" }).hover()
         await page.keyboard.press("Escape")
-        await expect(page.getByRole("menu")).toBeHidden()
+        await expect(page.locator('[data-slot="popover-content"]')).toBeHidden()
         await sidebar.click()
         if (width === 375) {
           await expect(page.getByRole("searchbox", { name: "Search chats" })).toBeVisible()
@@ -186,7 +199,7 @@ for (const width of [375, 1280]) {
           await expect(page.getByRole("searchbox", { name: "Search chats" })).toBeHidden()
         } else {
           await expect(page.locator('[data-slot="sidebar"]')).toHaveAttribute("data-state", "collapsed")
-          await sidebar.click()
+          await page.getByRole("button", { name: "Chats", exact: true }).click()
           await expect(page.locator('[data-slot="sidebar"]')).toHaveAttribute("data-state", "expanded")
         }
       })
@@ -201,12 +214,28 @@ test("the desktop sidebar collapses without animating its layout", async ({ page
   await page.goto("/")
   const sidebar = page.locator('[data-slot="sidebar"]')
   const motion = await motionDuring(page, async () => {
-    await page.locator('[data-slot="sidebar-trigger"]').click()
+    await page.locator('[data-slot="sidebar-header"]').getByRole("button", { name: "Toggle Sidebar" }).click()
     await expect(sidebar).toHaveAttribute("data-state", "collapsed")
-    await page.locator('[data-slot="sidebar-trigger"]').click()
+    await page.getByRole("button", { name: "Chats", exact: true }).click()
     await expect(sidebar).toHaveAttribute("data-state", "expanded")
   })
   expect(motion.filter((entry) => /^sidebar.* (width|left|right|height|padding)$/.test(entry))).toEqual([])
+})
+
+test("keyboard collapsing the desktop sidebar moves focus to the rail Chats button", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await withChatFixtures(page)
+  await page.goto("/")
+  const sidebar = page.locator('[data-slot="sidebar"]')
+  const chats = page.getByRole("button", { name: "Chats", exact: true })
+  const close = page.locator('[data-slot="sidebar-header"]').getByRole("button", { name: "Toggle Sidebar" })
+  await close.focus()
+  await page.keyboard.press("Enter")
+  await expect(sidebar).toHaveAttribute("data-state", "collapsed")
+  await expect(chats).toBeFocused()
+  await page.keyboard.press("Enter")
+  await expect(sidebar).toHaveAttribute("data-state", "expanded")
+  await expect(chats).toBeFocused()
 })
 
 test("popup motion is scoped and uses composite properties", async ({ page }) => {
@@ -214,7 +243,7 @@ test("popup motion is scoped and uses composite properties", async ({ page }) =>
   await withChatFixtures(page)
   await page.goto("/")
   await page.getByRole("button", { name: /^Model:/ }).click()
-  const menu = page.getByRole("menu")
+  const menu = page.locator('[data-slot="popover-content"]')
   await expect(menu).toHaveCSS("transition-property", "opacity, scale, translate")
   await expect(menu).toHaveCSS("transition-duration", "0.15s")
   await expect(menu).toHaveCSS("transition-timing-function", "cubic-bezier(0.23, 1, 0.32, 1)")

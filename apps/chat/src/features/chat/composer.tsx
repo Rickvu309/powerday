@@ -1,6 +1,8 @@
-import { ArrowUpIcon, SquareIcon } from "lucide-react"
+import { ArrowUpIcon, MicIcon, PlusIcon, SquareIcon } from "lucide-react"
+import { showComingSoon } from "@/features/toast/coming-soon"
 import { memo, useRef, useSyncExternalStore } from "react"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "@/components/ui/input-group"
+import { ModelPicker } from "@/features/model-picker/model-picker"
 import { preloadThread } from "./thread-loader"
 import type { LiveConversation } from "./live-chats"
 
@@ -23,7 +25,7 @@ export const Composer = memo(function Composer({
   const field = useRef<HTMLTextAreaElement>(null)
   const empty = text.trim() === ""
   return (
-    <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-[calc(16px+var(--safe-area-bottom))]">
+    <div className="mx-auto w-full max-w-[50.375rem] shrink-0 px-4 pb-[calc(16px+var(--safe-area-bottom))] md:group-has-data-chat-empty/chat:pb-0">
       <form
         className="group/composer w-full"
         onSubmit={(event) => {
@@ -32,7 +34,15 @@ export const Composer = memo(function Composer({
           if (onSend(text)) field.current?.focus()
         }}
       >
-        <InputGroup className="overflow-hidden rounded-3xl bg-card! shadow-sm has-disabled:opacity-100! has-focus-visible:border-muted-foreground/40! has-focus-visible:ring-0!">
+        <InputGroup className="flex-wrap items-end gap-x-1 rounded-[1.75rem] border-transparent! bg-card! p-1.5 shadow-xl shadow-foreground/10 has-disabled:opacity-100! has-focus-visible:ring-0! has-focus-visible:outline-none!">
+          <InputGroupButton
+            aria-label="Attach"
+            size="icon-sm"
+            className="size-9 rounded-full text-foreground max-md:order-1 pointer-coarse:size-11 [&_svg]:size-5"
+            onClick={() => showComingSoon("Attachments")}
+          >
+            <PlusIcon />
+          </InputGroupButton>
           <InputGroupTextarea
             ref={field}
             onPointerDown={() => {
@@ -43,11 +53,11 @@ export const Composer = memo(function Composer({
             }}
             name="message"
             aria-label="Message"
-            placeholder="Message Power Chat"
+            placeholder="Ask Power Chat"
             autoFocus={finePointer}
             enterKeyHint={finePointer ? "send" : "enter"}
             value={text}
-            className="max-h-48 min-h-14 px-4 pt-4 text-base md:text-base"
+            className="max-h-48 min-h-9 min-w-0 grow basis-0 px-3 py-1.5 text-base max-md:order-first max-md:basis-full md:basis-64 md:text-base"
             onChange={(event) => draft.edit(event.currentTarget.value)}
             onKeyDown={(event) => {
               if (
@@ -61,11 +71,23 @@ export const Composer = memo(function Composer({
               if (!empty && !busy && ready) event.currentTarget.form?.requestSubmit()
             }}
           />
-          <InputGroupAddon align="block-end" className="justify-end gap-1 px-3 pb-3">
+          <InputGroupAddon
+            align="inline-end"
+            className="ml-auto min-w-0 cursor-default gap-1 py-0 pr-0 has-[>button]:mr-0 max-md:order-2"
+          >
+            <ModelPicker />
+            <InputGroupButton
+              aria-label="Voice"
+              size="icon-sm"
+              className="size-9 rounded-full text-muted-foreground pointer-coarse:size-11 [&_svg]:size-5"
+              onClick={() => showComingSoon("Voice")}
+            >
+              <MicIcon />
+            </InputGroupButton>
             <InputGroupButton
               type={busy ? "button" : "submit"}
               aria-label={busy ? "Stop display" : "Send"}
-              className="rounded-full pointer-coarse:size-11 [&_svg]:size-4"
+              className="size-9 rounded-full bg-foreground text-background hover:bg-foreground/85 disabled:bg-foreground/85 disabled:opacity-100 pointer-coarse:size-11 [&_svg]:size-5"
               size="icon-sm"
               variant="default"
               disabled={!busy && (empty || !ready)}
@@ -83,11 +105,6 @@ export const Composer = memo(function Composer({
             </InputGroupButton>
           </InputGroupAddon>
         </InputGroup>
-        {finePointer ? (
-          <p className="h-5 pt-1 text-xs text-muted-foreground invisible group-focus-within/composer:visible">
-            Enter to send / Shift+Enter for newline
-          </p>
-        ) : null}
       </form>
     </div>
   )

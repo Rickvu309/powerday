@@ -125,46 +125,43 @@ for (const width of [1280, 390]) {
   })
 }
 
-for (const method of ["Enter", "suggestion"] as const) {
-  test(`held session freezes ${method} question and model through promotion`, async ({ page }) => {
-    await withChatFixtures(page)
-    let release = () => {}
-    const held = new Promise<void>((resolve) => {
-      release = resolve
-    })
-    let acquired = false
-    await page.route("**/assets/chat-session-*.js", async (route) => {
-      acquired = true
-      await held
-      await route.continue()
-    })
-    const posts: unknown[] = []
-    await page.route("**/api/chat", (route) => {
-      posts.push(route.request().postDataJSON())
-      return route.fulfill({ contentType: "text/event-stream", body: replyStream("Original answer") })
-    })
-    await page.goto("/")
-    const field = page.getByRole("textbox", { name: "Message" })
-    await expect(page.getByRole("button", { name: /Model: Mock Fast/ })).toBeVisible()
-    if (method === "Enter") {
-      await field.fill("Original question")
-      await field.press("Enter")
-    } else await page.getByText("Explain a concept", { exact: true }).click()
-    await expect.poll(() => acquired).toBe(true)
-    await expect(page).toHaveURL(/\/c\//)
-    await field.fill("Second draft")
-    await field.press("Enter")
-    await field.press("Enter")
-    await page.getByRole("button", { name: /Model:/ }).click()
-    await page.getByRole("menuitemradio", { name: /Mock Reasoning/ }).click()
-    expect(posts).toHaveLength(0)
-    release()
-    await expect(page.locator(".is-assistant")).toContainText("Original answer")
-    expect(posts).toHaveLength(1)
-    expect(posts[0]).toMatchObject({ model: "mock-fast" })
-    await expect(field).toHaveValue("Second draft")
+test("held session freezes an Enter question and model through promotion", async ({ page }) => {
+  await withChatFixtures(page)
+  let release = () => {}
+  const held = new Promise<void>((resolve) => {
+    release = resolve
   })
-}
+  let acquired = false
+  await page.route("**/assets/chat-session-*.js", async (route) => {
+    acquired = true
+    await held
+    await route.continue()
+  })
+  const posts: unknown[] = []
+  await page.route("**/api/chat", (route) => {
+    posts.push(route.request().postDataJSON())
+    return route.fulfill({ contentType: "text/event-stream", body: replyStream("Original answer") })
+  })
+  await page.goto("/")
+  const field = page.getByRole("textbox", { name: "Message" })
+  await expect(page.getByRole("button", { name: /Model: Mock Fast/ })).toBeVisible()
+  await field.fill("Original question")
+  await field.press("Enter")
+  await expect.poll(() => acquired).toBe(true)
+  await expect(page).toHaveURL(/\/c\//)
+  await field.fill("Second draft")
+  await field.press("Enter")
+  await field.press("Enter")
+  await page.getByRole("button", { name: /Model:/ }).click()
+  await page.getByRole("slider", { name: "Thinking effort" }).fill("1")
+  await page.keyboard.press("Escape")
+  expect(posts).toHaveLength(0)
+  release()
+  await expect(page.locator(".is-assistant")).toContainText("Original answer")
+  expect(posts).toHaveLength(1)
+  expect(posts[0]).toMatchObject({ model: "mock-fast" })
+  await expect(field).toHaveValue("Second draft")
+})
 
 test("departure and Back permanently cancel a held first send", async ({ page }) => {
   await withChatFixtures(page)
@@ -225,7 +222,8 @@ test("failed session load retains the original question through rapid explicit r
   await expect(page.getByRole("alert")).toContainText("hasn’t been sent")
   await field.fill("Newer draft")
   await page.getByRole("button", { name: /Model:/ }).click()
-  await page.getByRole("menuitemradio", { name: /Mock Reasoning/ }).click()
+  await page.getByRole("slider", { name: "Thinking effort" }).fill("1")
+  await page.keyboard.press("Escape")
   await page.getByRole("button", { name: "Try again", exact: true }).evaluate((button: HTMLButtonElement) => {
     button.click()
     button.click()

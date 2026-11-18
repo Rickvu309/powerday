@@ -111,13 +111,13 @@ test("a cold thread keeps the sent prompt visible and composer stationary", asyn
   const field = page.getByRole("textbox", { name: "Message" })
   await expect(page.getByRole("button", { name: /Model:/ })).toBeVisible()
   await field.fill("Visible through cold loading")
-  const before = await field.boundingBox()
   await field.press("Enter")
   await expect(page.getByText("Loading reply…", { exact: true })).toBeVisible()
   await expect(page.getByText("Visible through cold loading", { exact: true })).toBeVisible()
-  expect((await field.boundingBox())?.y).toBe(before?.y)
+  const before = await field.boundingBox()
   release()
   await expect(page.locator(".is-assistant")).toContainText("Finished")
+  expect((await field.boundingBox())?.y).toBe(before?.y)
 })
 
 test("checking a paused reply reads history without another prompt", async ({ page }) => {

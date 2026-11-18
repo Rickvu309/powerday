@@ -40,7 +40,7 @@ for (const width of [320, 375]) {
       await page.route("**/api/models", (route) => route.fulfill({ json: { models: [{ ...models[0], label: long }] } }))
       await page.setViewportSize({ width, height: 900 })
       await page.goto("/")
-      const trigger = page.getByRole("button", { name: `Model: ${long}`, exact: true })
+      const trigger = page.getByRole("button", { name: `Model: ${long} (Instant)`, exact: true })
       await expect(trigger).toBeVisible()
       for (const size of ["100%", "200%"]) {
         await page.evaluate((size) => {
@@ -51,9 +51,9 @@ for (const width of [320, 375]) {
         expect(await trigger.evaluate((element) => element.getBoundingClientRect().right <= innerWidth)).toBe(true)
         if (size === "100%") await page.screenshot({ path: info.outputPath("model-trigger.png") })
         await trigger.click()
-        const choice = page.getByRole("menuitemradio", { name: long, exact: true })
-        await expect(choice).toBeVisible()
-        expect(await choice.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+        const popover = page.locator('[data-slot="popover-content"]')
+        await expect(popover).toBeVisible()
+        expect(await popover.evaluate((element) => element.getBoundingClientRect().right <= innerWidth)).toBe(true)
         if (size === "100%")
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
         if (size === "100%") await page.screenshot({ path: info.outputPath("model-menu.png") })
@@ -67,6 +67,7 @@ test("search Tab reaches the first result and the failure retry", async ({ page 
   await navigationFixtures(page)
   await page.goto("/")
   const search = page.getByRole("searchbox", { name: "Search chats" })
+  await page.locator('[data-slot="sidebar-header"]').getByRole("button", { name: "Search chats" }).click()
   await search.fill("research")
   await expect(page.getByRole("status")).toHaveText("2 chats found.")
   await search.press("Tab")
@@ -115,11 +116,55 @@ test("touch Options exposes the full title before actions", async ({ browser, ba
   await context.close()
 })
 
+test("features we do not have yet say they are coming soon", async ({ page }) => {
+  await navigationFixtures(page)
+  await page.goto("/")
+  await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible()
+  const toast = page.locator('[aria-live="polite"][aria-atomic="true"]')
+  for (const [name, feature] of [
+    ["Work", "Work"],
+    ["Attach", "Attachments"],
+    ["Voice", "Voice"],
+    ["Library", "Library"],
+    ["Apps", "Apps"],
+    ["Temporary chat", "Temporary chat"],
+  ]) {
+    await page.getByRole("button", { name, exact: true }).click()
+    await expect(toast).toHaveText(`${feature} is coming soon`)
+  }
+  await expect(page).toHaveURL(/\/$/)
+  await expect(toast).toHaveText("", { timeout: 5000 })
+})
+
+test("a coming soon item in the phone drawer closes it so the toast shows", async ({ page }) => {
+  await navigationFixtures(page)
+  await page.setViewportSize({ width: 375, height: 900 })
+  await page.goto("/")
+  await page.getByRole("button", { name: "Toggle Sidebar", exact: true }).click()
+  await page.getByRole("dialog").getByRole("button", { name: "Library", exact: true }).click()
+  await expect(page.getByRole("dialog")).toHaveCount(0)
+  const toast = page.locator('[aria-live="polite"][aria-atomic="true"]')
+  await expect(toast).toHaveText("Library is coming soon")
+  await expect(toast).toBeVisible()
+})
+
+test("Instant says coming soon when every model reasons", async ({ page }) => {
+  await navigationFixtures(page)
+  await page.route("**/api/models", (route) => route.fulfill({ json: { models: [models[1]] } }))
+  await page.goto("/")
+  await page.getByRole("button", { name: /^Model:/ }).click()
+  const slider = page.getByRole("slider", { name: "Thinking effort" })
+  await expect(slider).toHaveAttribute("aria-valuetext", "Medium")
+  await slider.fill("0")
+  await expect(page.locator('[aria-live="polite"][aria-atomic="true"]')).toHaveText("Instant is coming soon")
+  await expect(slider).toHaveAttribute("aria-valuetext", "Medium")
+})
+
 test("skip link is first and focuses the conversation", async ({ page }) => {
   await navigationFixtures(page)
   await page.goto("/")
   await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible()
-  await page.getByRole("button", { name: "New chat", exact: true }).focus()
+  await page.getByRole("button", { name: "Home", exact: true }).focus()
   await page.keyboard.press("Shift+Tab")
   const skip = page.getByRole("link", { name: "Skip to conversation" })
   await expect(skip).toBeFocused()
