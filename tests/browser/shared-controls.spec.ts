@@ -154,12 +154,16 @@ for (const width of [375, 1280]) {
       await page.screenshot({ path: info.outputPath("menu.png") })
       await page.keyboard.press("Escape")
       await expect(page.getByRole("menu")).toBeHidden()
-      if (width === 375) await page.locator('[data-slot="sidebar-trigger"]').click()
+      if (width === 375) {
+        await page.locator('[data-slot="sidebar-trigger"]').click()
+        await expect(page.getByRole("button", { name: "Home", exact: true })).toBeFocused()
+      }
       const search = page.getByRole("searchbox", { name: "Search chats" })
       await search.focus()
       await expectRing(search, "Search", info)
       const newChat = page.getByRole("button", { name: "New chat" })
-      await focusByKeyboard(newChat)
+      await search.press("Shift+Tab")
+      await expect(newChat).toBeFocused()
       await expectRing(newChat, "New chat", info)
       await page.screenshot({ path: info.outputPath("sidebar.png") })
     })

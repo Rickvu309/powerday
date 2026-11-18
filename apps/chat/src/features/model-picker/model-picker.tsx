@@ -26,7 +26,7 @@ const capabilitiesOf = (model: ListedModel) =>
 
 export function ModelPicker() {
   const { models, choose, reload } = useModels()
-  if (models.state === "loading") return <Skeleton aria-label="Loading models" className="mx-2 h-5 w-24" />
+  if (models.state === "loading") return <Skeleton aria-label="Loading models" className="mx-2 h-5 w-20" />
   if (models.state === "failed") {
     return (
       <div className="flex flex-wrap items-center gap-2 px-2.5 text-sm text-muted-foreground">
@@ -53,7 +53,7 @@ export function ModelPicker() {
         render={
           <Button
             variant="ghost"
-            className="min-w-0 max-w-[calc(100vw-3.75rem)] shrink gap-1 px-2.5 text-base font-medium"
+            className="h-9 max-w-56 min-w-0 shrink gap-1 rounded-full px-3 text-base font-normal text-muted-foreground hover:text-foreground aria-expanded:text-foreground"
             aria-label={`Model: ${chosen.label}`}
           />
         }

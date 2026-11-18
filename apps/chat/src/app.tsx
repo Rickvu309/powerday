@@ -1,24 +1,35 @@
-import { lazy, Suspense, useContext, useEffect, useRef } from "react"
-import { AdminLink } from "@/features/admin/admin-link"
+import { lazy, Suspense, useContext, useEffect, useRef, type CSSProperties } from "react"
+import { AdminSwitch } from "@/features/admin/admin-switch"
 import { useAdminPage } from "@/features/admin/admin-navigation"
 import { ModelChoice } from "@/features/model-picker/model-choice"
 import { ConversationMain } from "@/features/sidebar/conversation-main"
 import { NavigationSidebar } from "@/features/sidebar/navigation-sidebar"
 import { SignInGate } from "@/features/auth/sign-in-gate"
-import { Account } from "@/features/auth/account"
 import { Chat } from "@/features/chat/chat"
-import { ModelPicker } from "@/features/model-picker/model-picker"
 import { ConversationList } from "@/features/sidebar/conversation-list"
+import { NavigationRail } from "@/features/sidebar/navigation-rail"
 import {
   SidebarContent,
-  SidebarFooter,
   SidebarHeader,
   SidebarInset,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
+
+const sidebarSize = { "--sidebar-width": "20.5rem", "--sidebar-width-icon": "3.25rem" } as CSSProperties
+
+function PanelTrigger() {
+  const { isMobile, state } = useSidebar()
+  return isMobile || state === "expanded" ? <SidebarTrigger className="text-muted-foreground" /> : null
+}
+
+function MainTrigger() {
+  const { isMobile, state } = useSidebar()
+  return isMobile || state === "collapsed" ? <SidebarTrigger /> : null
+}
 
 const Admin = lazy(() => import("@/features/admin/admin").then((module) => ({ default: module.Admin })))
 
@@ -64,18 +75,23 @@ export function App() {
         >
           Skip to conversation
         </a>
-        <SidebarProvider>
-          <NavigationSidebar collapsible="icon">
-            <SidebarHeader>
-              <span className="truncate px-2 py-1 font-semibold group-data-[collapsible=icon]:hidden">Power Chat</span>
-            </SidebarHeader>
-            <SidebarContent>
-              <ConversationList />
-            </SidebarContent>
-            <SidebarFooter>
-              <AdminLink />
-              <Account />
-            </SidebarFooter>
+        <SidebarProvider style={sidebarSize}>
+          <NavigationSidebar collapsible="icon" className="overflow-hidden">
+            <div className="flex size-full min-h-0">
+              <NavigationRail />
+              <div
+                data-panel
+                className="flex h-full min-w-0 flex-1 flex-col bg-background text-sidebar-foreground group-data-[collapsible=icon]:invisible"
+              >
+                <SidebarHeader className="h-14 flex-row items-center justify-between gap-2 pr-3 pl-4">
+                  <span className="truncate text-lg font-semibold">Power Chat</span>
+                  <PanelTrigger />
+                </SidebarHeader>
+                <SidebarContent>
+                  <ConversationList />
+                </SidebarContent>
+              </div>
+            </div>
             <SidebarRail />
           </NavigationSidebar>
           <SidebarInset
@@ -84,9 +100,9 @@ export function App() {
             aria-labelledby={admin ? "admin-title" : "conversation-title"}
             className="h-dvh min-w-0 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
           >
-            <header className="flex h-12 shrink-0 items-center gap-1 px-2">
-              <SidebarTrigger />
-              <ModelPicker />
+            <header className="relative flex h-14 shrink-0 items-center gap-1 px-2">
+              <MainTrigger />
+              <AdminSwitch className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </header>
             {admin ? (
               <div className="overflow-y-auto">

@@ -18,6 +18,8 @@ import { groupByAge } from "./age-groups"
 import { useConversationCache, useListing } from "./conversation-cache"
 import { ConversationItem, ConversationLink, type Go } from "./conversation-item"
 
+export const searchFieldId = "chat-search"
+
 function Note({ role, children }: { role?: "status"; children: ReactNode }) {
   return (
     <p tabIndex={role === "status" ? 0 : undefined} role={role} className="px-2 text-sm text-muted-foreground">
@@ -217,9 +219,8 @@ function Results({ query, go }: { query: string; go: Go }) {
 }
 
 export function ConversationList({ initialQuery = "" }: { initialQuery?: string }) {
-  const { isMobile, setOpenMobile, state, setOpen } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
   const [query, setQuery] = useState(initialQuery)
-  const search = useRef<HTMLInputElement>(null)
   const go: Go = useCallback(
     (id) => {
       openConversation(id, { focus: true })
@@ -234,28 +235,20 @@ export function ConversationList({ initialQuery = "" }: { initialQuery?: string 
       <SidebarGroup>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="New chat" onClick={() => go(null)}>
-              <SquarePenIcon />
+            <SidebarMenuButton onClick={() => go(null)}>
+              <SquarePenIcon className="text-primary" />
               <span>New chat</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          <SidebarMenuItem className="hidden group-data-[collapsible=icon]:block">
-            <SidebarMenuButton
-              tooltip="Search chats"
-              onClick={() => {
-                setOpen(true)
-                requestAnimationFrame(() => search.current?.focus())
-              }}
-            >
-              <SearchIcon />
-              <span>Search chats</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
         </SidebarMenu>
-        {state === "expanded" || isMobile ? (
+        <div className="relative mt-1">
+          <SearchIcon
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+          />
           <SidebarInput
-            ref={search}
-            className="mt-2"
+            id={searchFieldId}
+            className="h-8 bg-card pl-8"
             type="search"
             aria-label="Search chats"
             placeholder="Search chats"
@@ -265,7 +258,7 @@ export function ConversationList({ initialQuery = "" }: { initialQuery?: string 
               if (event.key === "Escape") setQuery("")
             }}
           />
-        ) : null}
+        </div>
       </SidebarGroup>
       {trimmed ? <Results query={trimmed} go={go} /> : <Recents go={go} />}
     </>

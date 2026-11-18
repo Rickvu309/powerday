@@ -119,7 +119,7 @@ test("skip link is first and focuses the conversation", async ({ page }) => {
   await navigationFixtures(page)
   await page.goto("/")
   await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible()
-  await page.getByRole("button", { name: "New chat", exact: true }).focus()
+  await page.getByRole("button", { name: "Home", exact: true }).focus()
   await page.keyboard.press("Shift+Tab")
   const skip = page.getByRole("link", { name: "Skip to conversation" })
   await expect(skip).toBeFocused()

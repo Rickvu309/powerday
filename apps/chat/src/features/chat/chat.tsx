@@ -6,7 +6,7 @@ import { openConversation, useOpenConversation } from "@/open-conversation"
 import { rememberConversationContentReady } from "../sidebar/conversation-cache"
 import { Composer } from "./composer"
 import { LiveChats, type LiveConversation } from "./live-chats"
-import { Suggestions } from "./suggestions"
+import { Greeting, Suggestions } from "./suggestions"
 import { useLimitReset } from "./over-limit"
 import { usageLimitOf } from "./reply-problem"
 import { ConversationProblem } from "./conversation-problem"
@@ -98,7 +98,7 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
   )
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="group/chat flex min-h-0 flex-1 flex-col has-data-chat-empty:justify-center has-data-chat-empty:pb-[6vh]">
       {history.state === "loading" ? (
         <div role="status" className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
           Loading conversation…
@@ -131,7 +131,7 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
         </div>
       ) : view.Content ? (
         <view.Content
-          empty={<Suggestions ready={model !== undefined} onPick={send} />}
+          empty={<Greeting />}
           onRefresh={() => {
             void conversation.load().catch((error: unknown) => setHistory({ state: "error", error }))
           }}
@@ -141,7 +141,7 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
           onSignIn={signIn}
         />
       ) : (
-        <Suggestions ready={model !== undefined} onPick={send} />
+        <Greeting />
       )}
       {unkept && <UnkeptDraft draft={unkept.draft} onSignIn={() => location.assign(unkept.path)} />}
       <Composer
@@ -156,6 +156,7 @@ function ChatSession({ open, conversation }: { open: ConversationId | null; conv
         onSend={send}
         onStop={conversation.stopDisplay}
       />
+      <Suggestions ready={model !== undefined} onPick={send} className="hidden group-has-data-chat-empty/chat:flex" />
     </div>
   )
 }

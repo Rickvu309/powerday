@@ -1,4 +1,5 @@
 import { CodeIcon, LightbulbIcon, MapIcon, PenLineIcon } from "lucide-react"
+import { cn } from "cn"
 import { Button } from "@/components/ui/button"
 
 const suggestions = [
@@ -20,25 +21,38 @@ const suggestions = [
   },
 ]
 
-export function Suggestions({ ready, onPick }: { ready: boolean; onPick: (prompt: string) => void }) {
+export function Greeting() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-8 px-4">
-      <h1 className="text-center text-3xl font-medium text-balance">How can I help you today?</h1>
-      <ul className="flex max-w-2xl flex-wrap justify-center gap-2">
-        {suggestions.map(({ label, icon: Icon, prompt }) => (
-          <li key={label}>
-            <Button
-              variant="outline"
-              className="h-9 rounded-full px-3.5 text-muted-foreground hover:text-foreground"
-              disabled={!ready}
-              onClick={() => onPick(prompt)}
-            >
-              <Icon />
-              {label}
-            </Button>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <h1 data-chat-empty className="px-4 pb-6 text-center text-2xl leading-tight font-normal text-balance">
+      How can I help you today?
+    </h1>
+  )
+}
+
+export function Suggestions({
+  ready,
+  onPick,
+  className,
+}: {
+  ready: boolean
+  onPick: (prompt: string) => void
+  className?: string
+}) {
+  return (
+    <ul className={cn("mx-auto w-full max-w-3xl flex-wrap gap-1 px-5 pt-3", className)}>
+      {suggestions.map(({ label, icon: Icon, prompt }) => (
+        <li key={label} className="max-w-full">
+          <Button
+            variant="ghost"
+            className="h-auto min-h-9 max-w-full rounded-full px-3 text-left whitespace-normal text-muted-foreground hover:text-foreground [&_svg]:text-primary"
+            disabled={!ready}
+            onClick={() => onPick(prompt)}
+          >
+            <Icon />
+            {label}
+          </Button>
+        </li>
+      ))}
+    </ul>
   )
 }
