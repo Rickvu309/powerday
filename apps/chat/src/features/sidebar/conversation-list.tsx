@@ -2,6 +2,7 @@ import type { Found } from "@powerday/chat-core"
 import { SearchIcon, SquarePenIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -40,6 +41,31 @@ export const openSearch = () => {
 export const closeSearch = () => {
   searchOpenState = false
   searchOpenListeners.forEach((notify) => notify())
+}
+
+export function PanelSearchTrigger() {
+  const { isMobile } = useSidebar()
+  const searchOpen = useSyncExternalStore(subscribeSearchOpen, readSearchOpen, () => false)
+  if (isMobile) return null
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Search chats"
+            className="size-8 text-muted-foreground [&_svg]:size-4"
+            onClick={() => (searchOpen ? closeSearch() : openSearch())}
+          />
+        }
+      >
+        <SearchIcon />
+      </TooltipTrigger>
+      <TooltipContent side="bottom">Search chats</TooltipContent>
+    </Tooltip>
+  )
 }
 
 function Note({ role, children }: { role?: "status"; children: ReactNode }) {
@@ -265,25 +291,13 @@ export function ConversationList({ initialQuery = "" }: { initialQuery?: string 
   return (
     <>
       <SidebarGroup>
-        <SidebarMenu className="flex-row items-center gap-1">
-          <SidebarMenuItem className="min-w-0 flex-1">
+        <SidebarMenu>
+          <SidebarMenuItem>
             <SidebarMenuButton onClick={() => go(null)}>
               <SquarePenIcon className="text-primary" />
               <span>New chat</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
-          {!isMobile && (
-            <SidebarMenuItem className="shrink-0">
-              <SidebarMenuButton
-                tooltip="Search chats"
-                aria-label="Search chats"
-                className="size-8"
-                onClick={() => (searchOpen ? collapse() : openSearch())}
-              >
-                <SearchIcon />
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
         </SidebarMenu>
         {fieldOpen && (
           <div className="relative mt-1">

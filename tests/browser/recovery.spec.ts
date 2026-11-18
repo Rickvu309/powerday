@@ -34,7 +34,7 @@ test("failed search retries the current query and announces recovered results", 
         })
   })
   await page.goto("/")
-  await page.locator('[data-slot="sidebar-content"]').getByRole("button", { name: "Search chats" }).click()
+  await page.locator('[data-slot="sidebar-header"]').getByRole("button", { name: "Search chats" }).click()
   await page.getByRole("searchbox", { name: "Search chats" }).fill("Saved")
   const status = page.getByRole("status").filter({ hasText: "Couldn’t search your chats." })
   await expect(status).toHaveCount(1)

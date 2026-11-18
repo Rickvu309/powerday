@@ -67,7 +67,7 @@ test("search Tab reaches the first result and the failure retry", async ({ page 
   await navigationFixtures(page)
   await page.goto("/")
   const search = page.getByRole("searchbox", { name: "Search chats" })
-  await page.locator('[data-slot="sidebar-content"]').getByRole("button", { name: "Search chats" }).click()
+  await page.locator('[data-slot="sidebar-header"]').getByRole("button", { name: "Search chats" }).click()
   await search.fill("research")
   await expect(page.getByRole("status")).toHaveText("2 chats found.")
   await search.press("Tab")

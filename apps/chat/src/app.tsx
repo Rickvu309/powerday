@@ -9,7 +9,7 @@ import { ConversationMain } from "@/features/sidebar/conversation-main"
 import { NavigationSidebar } from "@/features/sidebar/navigation-sidebar"
 import { SignInGate } from "@/features/auth/sign-in-gate"
 import { Chat } from "@/features/chat/chat"
-import { ConversationList } from "@/features/sidebar/conversation-list"
+import { ConversationList, PanelSearchTrigger } from "@/features/sidebar/conversation-list"
 import { NavigationRail } from "@/features/sidebar/navigation-rail"
 import {
   SidebarContent,
@@ -47,7 +47,9 @@ function HandoffTrigger({ className }: { className?: string }) {
 
 function PanelTrigger() {
   const { isMobile, state } = useSidebar()
-  return isMobile || state === "expanded" ? <HandoffTrigger className="text-muted-foreground" /> : null
+  return isMobile || state === "expanded" ? (
+    <HandoffTrigger className="size-8 text-muted-foreground [&_svg]:size-4" />
+  ) : null
 }
 
 function TemporaryChat() {
@@ -123,7 +125,10 @@ export function App() {
               >
                 <SidebarHeader className="h-14 flex-row items-center justify-between gap-2 pr-3 pl-4">
                   <span className="truncate text-xl font-bold">Power Chat</span>
-                  <PanelTrigger />
+                  <span className="flex items-center gap-1">
+                    <PanelSearchTrigger />
+                    <PanelTrigger />
+                  </span>
                 </SidebarHeader>
                 <SidebarContent>
                   <ConversationList />
