@@ -107,15 +107,18 @@ export function App() {
           Skip to conversation
         </a>
         <SidebarProvider style={sidebarSize}>
-          <NavigationSidebar collapsible="icon" className="overflow-hidden">
+          <NavigationSidebar
+            collapsible="icon"
+            className="overflow-hidden group-data-[state=expanded]:border-sidebar-border/40"
+          >
             <div className="flex size-full min-h-0">
               <NavigationRail />
               <div
                 data-panel
                 className="flex h-full min-w-0 flex-1 flex-col bg-background text-sidebar-foreground group-data-[collapsible=icon]:invisible"
               >
-                <SidebarHeader className="h-14 flex-row items-center justify-between gap-2 pr-3 pl-4">
-                  <span className="truncate text-xl font-bold">Power Chat</span>
+                <SidebarHeader className="h-12 flex-row items-center justify-between gap-2 pr-2 pl-4">
+                  <span className="truncate text-lg font-medium">Power Chat</span>
                   <span className="flex items-center gap-1">
                     <PanelSearchTrigger />
                     <PanelTrigger />

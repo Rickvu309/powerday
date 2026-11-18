@@ -5,7 +5,7 @@ import { showComingSoon } from "@/features/toast/coming-soon"
 import { subscribeOpenConversation } from "@/open-conversation"
 
 const space =
-  "flex h-8 min-w-[6.75rem] items-center justify-center rounded-full px-4 text-sm font-medium text-muted-foreground transition-[color,background-color,box-shadow] duration-(--motion-fast) hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:bg-card aria-[current=page]:text-foreground aria-[current=page]:shadow-sm aria-[current=page]:font-semibold"
+  "flex h-8 min-w-[6.75rem] items-center justify-center rounded-full px-4 text-sm font-medium text-muted-foreground transition-[color,background-color,box-shadow] duration-(--motion-fast) hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:bg-card aria-[current=page]:text-foreground aria-[current=page]:shadow-sm"
 
 export function SpaceSwitch({ className }: { className?: string }) {
   const path = useSyncExternalStore(

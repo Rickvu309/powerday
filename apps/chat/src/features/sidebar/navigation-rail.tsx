@@ -1,4 +1,14 @@
-import { HistoryIcon, HouseIcon, ImagesIcon, LayoutGridIcon, ShieldIcon, type LucideIcon } from "lucide-react"
+import {
+  CircleAlertIcon,
+  EllipsisIcon,
+  HistoryIcon,
+  HouseIcon,
+  ImagesIcon,
+  LayoutGridIcon,
+  LuggageIcon,
+  ShieldIcon,
+  type LucideIcon,
+} from "lucide-react"
 import { useEffect, useRef, useState, type MouseEvent, type Ref } from "react"
 import { Account } from "@/features/auth/account"
 import { enterAdmin, useAdminPage } from "@/features/admin/admin-navigation"
@@ -12,7 +22,7 @@ import { openConversation, useOpenConversation } from "@/open-conversation"
 export const sidebarHandoff = { current: false }
 
 const railItem =
-  "rounded-xl text-sidebar-foreground/80 hover:bg-sidebar-accent aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-primary aria-expanded:bg-sidebar-accent aria-expanded:text-sidebar-foreground [&_svg]:size-5"
+  "rounded-xl text-sidebar-foreground/80 hover:bg-sidebar-accent aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-primary aria-expanded:bg-transparent hover:aria-expanded:bg-sidebar-accent [&_svg]:size-5"
 
 function RailButton({
   label,
@@ -88,6 +98,10 @@ export function NavigationRail() {
   const open = useOpenConversation()
   const canAdmin = useAdminAccess()
   const chatsRef = useRef<HTMLButtonElement>(null)
+  const soon = (feature: string) => {
+    if (isMobile) setOpenMobile(false)
+    showComingSoon(feature)
+  }
   useEffect(() => {
     if (!sidebarHandoff.current) return
     sidebarHandoff.current = false
@@ -108,9 +122,9 @@ export function NavigationRail() {
   return (
     <div
       data-rail
-      className="flex h-full w-(--sidebar-width-icon) shrink-0 flex-col items-center justify-between border-r border-sidebar-border bg-sidebar py-3 text-sidebar-foreground"
+      className="flex h-full w-(--sidebar-width-icon) shrink-0 flex-col items-center justify-between border-r border-sidebar-border bg-sidebar py-2 text-sidebar-foreground"
     >
-      <nav aria-label="Rail" className="flex flex-col items-center gap-1.5">
+      <nav aria-label="Rail" className="flex flex-col items-center gap-3">
         <RailButton
           label="Home"
           icon={HouseIcon}
@@ -120,6 +134,8 @@ export function NavigationRail() {
             if (isMobile) setOpenMobile(false)
           }}
         />
+        <RailButton label="Office" icon={LuggageIcon} onClick={() => soon("Office")} />
+        <RailButton label="Library" icon={ImagesIcon} onClick={() => soon("Library")} />
         {isMobile ? null : (
           <RailButton
             label="Chats"
@@ -129,22 +145,6 @@ export function NavigationRail() {
             onClick={() => toggleSidebar()}
           />
         )}
-        <RailButton
-          label="Library"
-          icon={ImagesIcon}
-          onClick={() => {
-            if (isMobile) setOpenMobile(false)
-            showComingSoon("Library")
-          }}
-        />
-        <RailButton
-          label="Apps"
-          icon={LayoutGridIcon}
-          onClick={() => {
-            if (isMobile) setOpenMobile(false)
-            showComingSoon("Apps")
-          }}
-        />
         {canAdmin ? (
           <RailButton
             label="Admin"
@@ -157,8 +157,14 @@ export function NavigationRail() {
             }}
           />
         ) : null}
+        <RailButton label="More" icon={EllipsisIcon} onClick={() => soon("More")} />
+        <div aria-hidden className="h-px w-6 bg-sidebar-border" />
+        <RailButton label="Apps" icon={LayoutGridIcon} onClick={() => soon("Apps")} />
       </nav>
-      <Account />
+      <div className="flex flex-col items-center gap-3">
+        <RailButton label="Feedback" icon={CircleAlertIcon} onClick={() => soon("Feedback")} />
+        <Account />
+      </div>
     </div>
   )
 }

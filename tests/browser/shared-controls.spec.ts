@@ -170,6 +170,8 @@ for (const width of [375, 1280]) {
       await expect(search).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)")
       const newChat = page.getByRole("button", { name: "New chat" })
       await search.press("Shift+Tab")
+      await expect(page.getByRole("button", { name: "Power Bot" })).toBeFocused()
+      await page.keyboard.press("Shift+Tab")
       await expect(newChat).toBeFocused()
       await expectRing(newChat, "New chat", info)
       await page.screenshot({ path: info.outputPath("sidebar.png") })

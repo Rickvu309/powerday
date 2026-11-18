@@ -11,7 +11,7 @@ export const signInMail = (to: string, url: string, code: string): Mail & { read
   const digits = escape(code)
   const expiry = `Your sign-in expires in ${String(linkMinutes)} minutes.`
   const ignore = "If you didn't ask to sign in, you can ignore this email."
-  const font = "Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif"
+  const font = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif"
   return {
     to,
     subject: `${code} is your Power Chat sign-in code`,

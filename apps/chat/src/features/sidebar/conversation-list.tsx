@@ -1,7 +1,8 @@
 import type { Found } from "@powerday/chat-core"
-import { SearchIcon, SquarePenIcon } from "lucide-react"
+import { CircleDotIcon, SearchIcon, SquarePenIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
+import { showComingSoon } from "@/features/toast/coming-soon"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   SidebarGroup,
@@ -90,7 +91,7 @@ function Retry({ label, onClick }: { label: string; onClick: () => void }) {
 function Section({ label, children }: { label: string; children?: ReactNode }) {
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      <SidebarGroupLabel className="text-sm font-normal text-muted-foreground">{label}</SidebarGroupLabel>
       <SidebarGroupContent>{children}</SidebarGroupContent>
     </SidebarGroup>
   )
@@ -298,6 +299,12 @@ export function ConversationList({ initialQuery = "" }: { initialQuery?: string 
               <span>New chat</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={() => showComingSoon("Power Bot")}>
+              <CircleDotIcon className="text-muted-foreground" />
+              <span>Power Bot</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
         {fieldOpen && (
           <div className="relative mt-1">
@@ -321,6 +328,11 @@ export function ConversationList({ initialQuery = "" }: { initialQuery?: string 
           </div>
         )}
       </SidebarGroup>
+      {trimmed ? null : (
+        <Section label="Projects">
+          <Note>No projects</Note>
+        </Section>
+      )}
       {trimmed ? <Results query={trimmed} go={go} /> : <Recents go={go} />}
     </>
   )

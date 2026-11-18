@@ -53,7 +53,7 @@ export const Composer = memo(function Composer({
             }}
             name="message"
             aria-label="Message"
-            placeholder="Message Power Chat"
+            placeholder="Ask Power Chat"
             autoFocus={finePointer}
             enterKeyHint={finePointer ? "send" : "enter"}
             value={text}
