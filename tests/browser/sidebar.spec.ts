@@ -39,6 +39,25 @@ test("a chat is renamed and deleted from its menu", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Đà Lạt trip" })).toHaveCount(0)
 })
 
+test("search has one entry point in every layout", async ({ page }) => {
+  await page.goto("/screens/22-sidebar-many")
+  await expect(page.locator('button[aria-label="Search chats"]:visible')).toHaveCount(1)
+
+  await page.locator('[data-slot="sidebar-header"]').getByRole("button", { name: "Toggle Sidebar" }).click()
+  await expect(page.locator('[data-slot="sidebar"]')).toHaveAttribute("data-state", "collapsed")
+  await expect(page.locator('button[aria-label="Search chats"]:visible')).toHaveCount(1)
+  await page.getByRole("button", { name: "Search chats" }).click()
+  await expect(page.locator('[data-slot="sidebar"]')).toHaveAttribute("data-state", "expanded")
+  await expect(page.getByRole("searchbox", { name: "Search chats" })).toBeVisible()
+  await expect(page.getByRole("searchbox", { name: "Search chats" })).toBeFocused()
+
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.goto("/screens/22-sidebar-many")
+  await page.getByRole("button", { name: "Toggle Sidebar" }).click()
+  await expect(page.locator('button[aria-label="Search chats"]:visible')).toHaveCount(0)
+  await expect(page.getByRole("searchbox", { name: "Search chats" })).toBeVisible()
+})
+
 test("search shows matching chats and clears with Escape", async ({ page }) => {
   await page.goto("/screens/22-sidebar-many")
   const search = page.getByRole("searchbox", { name: "Search chats" })

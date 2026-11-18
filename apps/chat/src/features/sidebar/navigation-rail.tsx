@@ -76,7 +76,7 @@ function useAdminAccess() {
 }
 
 export function NavigationRail() {
-  const { isMobile, openMobile, setOpen, setOpenMobile } = useSidebar()
+  const { isMobile, openMobile, state, setOpen, setOpenMobile } = useSidebar()
   const admin = useAdminPage()
   const open = useOpenConversation()
   const canAdmin = useAdminAccess()
@@ -107,14 +107,16 @@ export function NavigationRail() {
             if (isMobile) setOpenMobile(false)
           }}
         />
-        <RailButton
-          label="Search chats"
-          icon={SearchIcon}
-          onClick={() => {
-            if (!isMobile) setOpen(true)
-            openSearch()
-          }}
-        />
+        {!isMobile && state === "collapsed" ? (
+          <RailButton
+            label="Search chats"
+            icon={SearchIcon}
+            onClick={() => {
+              if (!isMobile) setOpen(true)
+              openSearch()
+            }}
+          />
+        ) : null}
         <RailButton
           label="Library"
           icon={ImagesIcon}
