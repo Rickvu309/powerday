@@ -9,17 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import type { ReactNode } from "react"
-import {
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
-} from "@/components/ui/sidebar"
+import type * as SidebarParts from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { showComingSoon } from "@/features/toast/coming-soon"
 import { officeMark } from "./office-art"
@@ -40,19 +30,49 @@ const kindIcon: Record<OfficeKind, LucideIcon> = {
   image: ImagesIcon,
 }
 
-export function OfficeSidebar({ trigger }: { trigger: ReactNode }) {
-  const { isMobile, setOpenMobile } = useSidebar()
+export type OfficeSidebarParts = Pick<
+  typeof SidebarParts,
+  | "SidebarContent"
+  | "SidebarFooter"
+  | "SidebarGroup"
+  | "SidebarGroupLabel"
+  | "SidebarHeader"
+  | "SidebarMenu"
+  | "SidebarMenuButton"
+  | "SidebarMenuItem"
+>
+
+export function OfficeSidebar({
+  trigger,
+  parts,
+  close,
+}: {
+  trigger: ReactNode
+  parts: OfficeSidebarParts
+  close: () => void
+}) {
+  const {
+    SidebarContent,
+    SidebarFooter,
+    SidebarGroup,
+    SidebarGroupLabel,
+    SidebarHeader,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+  } = parts
   const kind = useOfficeKind()
-  const close = () => {
-    if (isMobile) setOpenMobile(false)
+  const browse = (next: OfficeKind | null) => {
+    setOfficeKind(next)
+    close()
   }
   const recents = [...officeItems]
     .filter((item) => item.origin === "yours")
     .sort((first, second) => second.updated - first.updated)
   return (
     <>
-      <SidebarHeader className="h-12 flex-row items-center justify-between gap-2 pr-3 pl-4">
-        <span className="truncate text-lg font-semibold">Office</span>
+      <SidebarHeader className="h-12 flex-row items-center justify-between gap-2 pr-2 pl-4">
+        <span className="truncate text-lg font-medium">Office</span>
         {trigger}
       </SidebarHeader>
       <SidebarContent>
@@ -72,14 +92,7 @@ export function OfficeSidebar({ trigger }: { trigger: ReactNode }) {
           </SidebarMenu>
           <SidebarMenu className="group-data-[collapsible=icon]:hidden">
             <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={kind === null}
-                aria-pressed={kind === null}
-                onClick={() => {
-                  setOfficeKind(null)
-                  close()
-                }}
-              >
+              <SidebarMenuButton isActive={kind === null} aria-pressed={kind === null} onClick={() => browse(null)}>
                 <LayoutGridIcon />
                 <span>All</span>
               </SidebarMenuButton>
@@ -88,14 +101,7 @@ export function OfficeSidebar({ trigger }: { trigger: ReactNode }) {
               const Icon = kindIcon[each]
               return (
                 <SidebarMenuItem key={each}>
-                  <SidebarMenuButton
-                    isActive={kind === each}
-                    aria-pressed={kind === each}
-                    onClick={() => {
-                      setOfficeKind(each)
-                      close()
-                    }}
-                  >
+                  <SidebarMenuButton isActive={kind === each} aria-pressed={kind === each} onClick={() => browse(each)}>
                     <Icon />
                     <span>{kindLabel[each]}</span>
                   </SidebarMenuButton>

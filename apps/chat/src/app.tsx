@@ -13,8 +13,14 @@ import { ConversationList, PanelSearchTrigger } from "@/features/sidebar/convers
 import { NavigationRail, sidebarHandoff } from "@/features/sidebar/navigation-rail"
 import {
   SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
@@ -67,6 +73,38 @@ const Office = lazy(() => import("@/features/office/office").then((module) => ({
 const OfficeSidebar = lazy(() =>
   import("@/features/office/office-sidebar").then((module) => ({ default: module.OfficeSidebar })),
 )
+
+const officeSidebarParts = {
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+}
+
+function OfficePanel() {
+  const { isMobile, setOpenMobile } = useSidebar()
+  return (
+    <Suspense
+      fallback={
+        <p role="status" aria-busy="true" className="px-4 py-2 text-sm text-muted-foreground">
+          Loading office…
+        </p>
+      }
+    >
+      <OfficeSidebar
+        trigger={<PanelTrigger />}
+        parts={officeSidebarParts}
+        close={() => {
+          if (isMobile) setOpenMobile(false)
+        }}
+      />
+    </Suspense>
+  )
+}
 
 const spaceHeading: Record<Space, string> = {
   chat: "conversation-title",
@@ -133,15 +171,7 @@ export function App() {
                 className="flex h-full min-w-0 flex-1 flex-col bg-background text-sidebar-foreground group-data-[collapsible=icon]:invisible"
               >
                 {office ? (
-                  <Suspense
-                    fallback={
-                      <p role="status" aria-busy="true" className="px-4 py-2 text-sm text-muted-foreground">
-                        Loading office…
-                      </p>
-                    }
-                  >
-                    <OfficeSidebar trigger={<PanelTrigger />} />
-                  </Suspense>
+                  <OfficePanel />
                 ) : (
                   <>
                     <SidebarHeader className="h-12 flex-row items-center justify-between gap-2 pr-2 pl-4">
@@ -168,7 +198,9 @@ export function App() {
           >
             <header className="relative flex shrink-0 items-center gap-1 px-2">
               <MainTrigger />
-              <SpaceSwitch className="absolute top-[calc(50%+var(--safe-area-top)/2)] left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              {office ? null : (
+                <SpaceSwitch className="absolute top-[calc(50%+var(--safe-area-top)/2)] left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              )}
               {space === "chat" ? <TemporaryChat /> : null}
             </header>
             <ComingSoonToast />

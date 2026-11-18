@@ -1,13 +1,16 @@
 import { expect, test } from "@playwright/test"
 import { models, savedConversation, withChatFixtures } from "./chat-fixtures"
 
-test("the office space shows its workspace from the switch", async ({ page }) => {
+test("the Office rail item opens the office page with its panel and no chat", async ({ page }) => {
   await withChatFixtures(page)
   await page.goto("/")
+  const panel = page.locator("[data-panel]")
   await page.getByRole("link", { name: "Office", exact: true }).click()
   await expect(page).toHaveURL(/\/office$/)
   await expect(page.getByRole("heading", { name: "All", exact: true })).toBeFocused()
-  await expect(page.locator("[data-panel]")).toContainText("Office")
+  await expect(page.getByRole("navigation", { name: "Spaces" })).toHaveCount(0)
+  await expect(page.getByRole("textbox", { name: "Message" })).toBeHidden()
+  await expect(panel.getByRole("button", { name: "Pages", exact: true })).toBeVisible()
   await expect(page.getByRole("heading", { name: "Create together in Office" })).toBeVisible()
   await expect(page.getByRole("region", { name: "Templates" }).getByRole("button")).toHaveCount(5)
 })
@@ -79,26 +82,29 @@ test("unwired office affordances say they are coming soon", async ({ page }) => 
   await expect(toast).toHaveText("List view is coming soon")
 })
 
-test("office visits return to the open conversation and to a fresh chat", async ({ page }) => {
+test("Chats returns from the office to the open conversation and Home to a fresh chat", async ({ page }) => {
   await withChatFixtures(page)
   await page.route("**/api/conversations/saved", (route) => route.fulfill({ json: savedConversation }))
   await page.goto("/c/saved")
   await expect(page.getByText("My saved answer", { exact: true })).toBeVisible()
-  const spaces = page.getByRole("navigation", { name: "Spaces" })
-  await spaces.getByRole("link", { name: "Office", exact: true }).click()
+  const panel = page.locator("[data-panel]")
+  await page.getByRole("link", { name: "Office", exact: true }).click()
   await expect(page).toHaveURL(/\/office$/)
-  await spaces.getByRole("link", { name: "Chat", exact: true }).click()
+  await panel.getByRole("button", { name: "Pages", exact: true }).click()
+  await expect(page.getByRole("region", { name: "Templates" }).getByRole("button")).toHaveCount(4)
+  await page.getByRole("button", { name: "Chats", exact: true }).click()
   await expect(page).toHaveURL(/\/c\/saved$/)
+  await expect(panel).toContainText("Power Chat")
   await expect(page.getByText("My saved answer", { exact: true })).toBeVisible()
+  await page.getByRole("link", { name: "Office", exact: true }).click()
+  await expect(page).toHaveURL(/\/office$/)
   await page.getByRole("button", { name: "Home", exact: true }).click()
   await expect(page).toHaveURL(/\/$/)
-  await spaces.getByRole("link", { name: "Office", exact: true }).click()
-  await spaces.getByRole("link", { name: "Chat", exact: true }).click()
-  await expect(page).toHaveURL(/\/$/)
+  await expect(panel).toContainText("Power Chat")
   await expect(page.getByRole("heading", { name: "How can I help you today?" })).toBeVisible()
 })
 
-test("an admin detour through the office reloads the catalog on return", async ({ page }) => {
+test("an admin detour from the office reloads the catalog on return", async ({ page }) => {
   let modelsReads = 0
   await withChatFixtures(page)
   await page.route("**/api/models", (route) => {
@@ -115,6 +121,7 @@ test("an admin detour through the office reloads the catalog on return", async (
   await expect(page).toHaveURL(/\/office$/)
   await page.getByRole("link", { name: "Admin", exact: true }).click()
   await expect(page).toHaveURL(/\/admin$/)
+  await expect(page.locator("[data-panel]")).toContainText("Power Chat")
   await page.getByRole("link", { name: "Chat", exact: true }).click()
   await expect(page).toHaveURL(/\/c\/saved$/)
   await expect(page.getByRole("textbox", { name: "Message", exact: true })).toBeFocused()
@@ -133,4 +140,22 @@ test("the phone drawer carries the office sidebar and a kind tap closes it", asy
   await pages.click()
   await expect(drawer).toHaveCount(0)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
+test("on a phone the Office rail item opens the page and the drawer carries the office panel", async ({ page }) => {
+  await withChatFixtures(page)
+  await page.setViewportSize({ width: 375, height: 900 })
+  await page.goto("/")
+  const toggle = page.getByRole("button", { name: "Toggle Sidebar", exact: true })
+  await toggle.click()
+  const drawer = page.getByRole("dialog")
+  await drawer.getByRole("link", { name: "Office", exact: true }).click()
+  await expect(drawer).toHaveCount(0)
+  await expect(page).toHaveURL(/\/office$/)
+  await toggle.click()
+  const slides = drawer.getByRole("button", { name: "Slides", exact: true })
+  await expect(slides).toBeVisible()
+  await slides.click()
+  await expect(drawer).toHaveCount(0)
+  await expect(page.getByRole("region", { name: "Templates" }).getByRole("button")).toHaveCount(1)
 })
