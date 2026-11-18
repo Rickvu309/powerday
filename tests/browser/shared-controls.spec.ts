@@ -197,7 +197,7 @@ for (const width of [375, 1280]) {
           await expect(page.getByRole("searchbox", { name: "Search chats" })).toBeHidden()
         } else {
           await expect(page.locator('[data-slot="sidebar"]')).toHaveAttribute("data-state", "collapsed")
-          await sidebar.click()
+          await page.getByRole("button", { name: "Chats", exact: true }).click()
           await expect(page.locator('[data-slot="sidebar"]')).toHaveAttribute("data-state", "expanded")
         }
       })
@@ -212,27 +212,28 @@ test("the desktop sidebar collapses without animating its layout", async ({ page
   await page.goto("/")
   const sidebar = page.locator('[data-slot="sidebar"]')
   const motion = await motionDuring(page, async () => {
-    await page.locator('[data-slot="sidebar-trigger"]').click()
+    await page.locator('[data-slot="sidebar-header"]').getByRole("button", { name: "Toggle Sidebar" }).click()
     await expect(sidebar).toHaveAttribute("data-state", "collapsed")
-    await page.locator('[data-slot="sidebar-trigger"]').click()
+    await page.getByRole("button", { name: "Chats", exact: true }).click()
     await expect(sidebar).toHaveAttribute("data-state", "expanded")
   })
   expect(motion.filter((entry) => /^sidebar.* (width|left|right|height|padding)$/.test(entry))).toEqual([])
 })
 
-test("keyboard toggling the desktop sidebar keeps focus on a sidebar toggle", async ({ page }) => {
+test("keyboard collapsing the desktop sidebar moves focus to the rail Chats button", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await withChatFixtures(page)
   await page.goto("/")
   const sidebar = page.locator('[data-slot="sidebar"]')
-  const toggle = page.locator('[data-slot="sidebar-trigger"]')
-  await toggle.focus()
+  const chats = page.getByRole("button", { name: "Chats", exact: true })
+  const close = page.locator('[data-slot="sidebar-header"]').getByRole("button", { name: "Toggle Sidebar" })
+  await close.focus()
   await page.keyboard.press("Enter")
   await expect(sidebar).toHaveAttribute("data-state", "collapsed")
-  await expect(toggle).toBeFocused()
+  await expect(chats).toBeFocused()
   await page.keyboard.press("Enter")
   await expect(sidebar).toHaveAttribute("data-state", "expanded")
-  await expect(toggle).toBeFocused()
+  await expect(chats).toBeFocused()
 })
 
 test("popup motion is scoped and uses composite properties", async ({ page }) => {

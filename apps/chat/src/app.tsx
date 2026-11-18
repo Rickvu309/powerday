@@ -10,7 +10,7 @@ import { NavigationSidebar } from "@/features/sidebar/navigation-sidebar"
 import { SignInGate } from "@/features/auth/sign-in-gate"
 import { Chat } from "@/features/chat/chat"
 import { ConversationList, PanelSearchTrigger } from "@/features/sidebar/conversation-list"
-import { NavigationRail } from "@/features/sidebar/navigation-rail"
+import { NavigationRail, sidebarHandoff } from "@/features/sidebar/navigation-rail"
 import {
   SidebarContent,
   SidebarHeader,
@@ -24,22 +24,13 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 
 const sidebarSize = { "--sidebar-width": "20.5rem", "--sidebar-width-icon": "3.25rem" } as CSSProperties
 
-let triggerHandoff = false
-
 function HandoffTrigger({ className }: { className?: string }) {
   const { isMobile } = useSidebar()
-  const trigger = useRef<HTMLButtonElement>(null)
-  useEffect(() => {
-    if (!triggerHandoff) return
-    triggerHandoff = false
-    trigger.current?.focus()
-  }, [])
   return (
     <SidebarTrigger
-      ref={trigger}
       className={className}
       onClick={() => {
-        triggerHandoff = !isMobile
+        sidebarHandoff.current = !isMobile
       }}
     />
   )
@@ -67,8 +58,8 @@ function TemporaryChat() {
 }
 
 function MainTrigger() {
-  const { isMobile, state } = useSidebar()
-  return isMobile || state === "collapsed" ? <HandoffTrigger /> : null
+  const { isMobile } = useSidebar()
+  return isMobile ? <HandoffTrigger /> : null
 }
 
 const Admin = lazy(() => import("@/features/admin/admin").then((module) => ({ default: module.Admin })))

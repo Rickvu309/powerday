@@ -1,5 +1,5 @@
-import { HouseIcon, ImagesIcon, LayoutGridIcon, SearchIcon, ShieldIcon, type LucideIcon } from "lucide-react"
-import { useEffect, useState, type MouseEvent } from "react"
+import { HistoryIcon, HouseIcon, ImagesIcon, LayoutGridIcon, ShieldIcon, type LucideIcon } from "lucide-react"
+import { useEffect, useRef, useState, type MouseEvent, type Ref } from "react"
 import { Account } from "@/features/auth/account"
 import { enterAdmin, useAdminPage } from "@/features/admin/admin-navigation"
 import { showComingSoon } from "@/features/toast/coming-soon"
@@ -8,23 +8,28 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { openConversation, useOpenConversation } from "@/open-conversation"
-import { openSearch } from "./conversation-list"
+
+export const sidebarHandoff = { current: false }
 
 const railItem =
-  "rounded-xl text-sidebar-foreground/80 hover:bg-sidebar-accent aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-primary [&_svg]:size-5"
+  "rounded-xl text-sidebar-foreground/80 hover:bg-sidebar-accent aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-primary aria-expanded:bg-sidebar-accent aria-expanded:text-sidebar-foreground [&_svg]:size-5"
 
 function RailButton({
   label,
   icon: Icon,
   active = false,
+  expanded,
   href,
   onClick,
+  buttonRef,
 }: {
   label: string
   icon: LucideIcon
   active?: boolean
+  expanded?: boolean
   href?: string
   onClick: (event: MouseEvent) => void
+  buttonRef?: Ref<HTMLButtonElement>
 }) {
   return (
     <Tooltip>
@@ -32,10 +37,12 @@ function RailButton({
         render={
           href === undefined ? (
             <Button
+              ref={buttonRef}
               variant="ghost"
               size="icon-lg"
               aria-label={label}
               aria-current={active ? "page" : undefined}
+              aria-expanded={expanded}
               className={railItem}
               onClick={onClick}
             />
@@ -76,10 +83,16 @@ function useAdminAccess() {
 }
 
 export function NavigationRail() {
-  const { isMobile, openMobile, state, setOpen, setOpenMobile } = useSidebar()
+  const { isMobile, openMobile, state, setOpenMobile, toggleSidebar } = useSidebar()
   const admin = useAdminPage()
   const open = useOpenConversation()
   const canAdmin = useAdminAccess()
+  const chatsRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!sidebarHandoff.current) return
+    sidebarHandoff.current = false
+    chatsRef.current?.focus()
+  }, [state])
   useEffect(() => {
     if (!admin || !isMobile || openMobile) return
     const focus = () => {
@@ -107,16 +120,15 @@ export function NavigationRail() {
             if (isMobile) setOpenMobile(false)
           }}
         />
-        {!isMobile && state === "collapsed" ? (
+        {isMobile ? null : (
           <RailButton
-            label="Search chats"
-            icon={SearchIcon}
-            onClick={() => {
-              if (!isMobile) setOpen(true)
-              openSearch()
-            }}
+            label="Chats"
+            icon={HistoryIcon}
+            expanded={state === "expanded"}
+            buttonRef={chatsRef}
+            onClick={() => toggleSidebar()}
           />
-        ) : null}
+        )}
         <RailButton
           label="Library"
           icon={ImagesIcon}
