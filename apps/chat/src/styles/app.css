@@ -64,8 +64,7 @@
 
 @layer base {
   [data-slot="input"]:not([aria-invalid="true"]),
-  [data-slot="sidebar-input"]:not([aria-invalid="true"]),
-  [data-slot="input-group"]:not(:has([aria-invalid="true"])) {
+  [data-slot="sidebar-input"]:not([aria-invalid="true"], #chat-search) {
     border: 1px solid var(--control-border) !important;
   }
 

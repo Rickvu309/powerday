@@ -1,17 +1,13 @@
 import { ChevronDownIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
 import { showComingSoon } from "@/features/toast/coming-soon"
 import { useModels } from "./model-choice"
+
+const stops = ["Fast", "Think", "Ultra"] as const
+
+const filled = (index: number) => `calc(0.875rem + (100% - 1.75rem) * ${String(index / (stops.length - 1))})`
 
 export function ModelPicker() {
   const { models, choose, reload } = useModels()
@@ -38,59 +34,60 @@ export function ModelPicker() {
   const { chosen } = models
   const fast = models.models.find((model) => !model.capabilities.reasoning) ?? models.models[0]
   const think = models.models.find((model) => model.capabilities.reasoning)
-  const mode = chosen.capabilities.reasoning ? "Think" : "Fast"
-  const modes = [
-    { name: "Fast", hint: "Quick answers", model: fast },
-    { name: "Think", hint: "Reasons before answering", model: think },
-  ]
+  const level = chosen.capabilities.reasoning ? 1 : 0
+  const name = stops[level]
+  const pick = (next: number) => {
+    if (next === 2) return showComingSoon("Ultra")
+    const model = next === 1 ? think : fast
+    if (model === undefined) return showComingSoon(stops[next] ?? "Think")
+    choose(model.id)
+  }
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
+    <Popover>
+      <PopoverTrigger
         render={
           <Button
             variant="ghost"
-            className="h-9 max-w-56 min-w-0 shrink gap-1 rounded-full px-3 text-base font-normal text-muted-foreground hover:text-foreground aria-expanded:text-foreground"
-            aria-label={`Model: ${chosen.label} (${mode})`}
+            className="h-9 max-w-56 min-w-0 shrink gap-1 rounded-full px-3 text-base font-normal text-muted-foreground hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
+            aria-label={`Model: ${chosen.label} (${name})`}
           />
         }
       >
-        <span className="min-w-0 truncate">{mode}</span>
+        <span className="min-w-0 truncate">{name}</span>
         <ChevronDownIcon className="shrink-0 text-muted-foreground" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-72 max-w-[calc(100vw-2rem)]">
-        <DropdownMenuRadioGroup
-          value={chosen.id}
-          onValueChange={(value) => {
-            const picked = models.models.find((model) => model.id === value)
-            if (picked !== undefined) choose(picked.id)
-          }}
-        >
-          <DropdownMenuLabel>Model</DropdownMenuLabel>
-          {modes.map(({ name, hint, model }) =>
-            model === undefined ? (
-              <DropdownMenuItem key={name} className="py-2" onClick={() => showComingSoon(name)}>
-                <Mode name={name} detail={`${hint}, coming soon`} />
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuRadioItem key={name} value={model.id} closeOnClick className="py-2">
-                <Mode name={name} detail={`${hint} with ${model.label}`} />
-              </DropdownMenuRadioItem>
-            ),
-          )}
-          <DropdownMenuItem className="py-2" onClick={() => showComingSoon("Ultra")}>
-            <Mode name="Ultra" detail="Our strongest model, coming soon" />
-          </DropdownMenuItem>
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
-function Mode({ name, detail }: { name: string; detail: string }) {
-  return (
-    <span className="flex min-w-0 flex-col gap-0.5">
-      <span>{name}</span>
-      <span className="text-xs whitespace-normal text-muted-foreground [overflow-wrap:anywhere]">{detail}</span>
-    </span>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-60 gap-1 rounded-3xl p-4 shadow-lg">
+        <p className="text-center text-base font-medium">{name}</p>
+        <p className="truncate text-center text-xs text-muted-foreground">{chosen.label}</p>
+        <div className="relative mt-3 h-7">
+          <div
+            aria-hidden
+            className="absolute inset-0 rounded-full"
+            style={{
+              background: `linear-gradient(to right, var(--foreground) ${filled(level)}, var(--muted) 0)`,
+            }}
+          />
+          {stops.map((stop, index) => (
+            <span
+              key={stop}
+              aria-hidden
+              className={`absolute top-1/2 size-1 -translate-x-1/2 -translate-y-1/2 rounded-full ${index < level ? "bg-background/60" : "bg-muted-foreground/50"}`}
+              style={{ left: filled(index) }}
+            />
+          ))}
+          <input
+            type="range"
+            min={0}
+            max={2}
+            step={1}
+            value={level}
+            aria-label="Thinking effort"
+            aria-valuetext={`${name}, ${chosen.label}`}
+            onChange={(event) => pick(Number(event.currentTarget.value))}
+            className="relative block h-7 w-full cursor-pointer appearance-none bg-transparent focus-visible:outline-none! [&::-moz-range-thumb]:size-7 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-border [&::-moz-range-thumb]:bg-card [&::-webkit-slider-thumb]:size-7 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-border [&::-webkit-slider-thumb]:bg-card [&::-webkit-slider-thumb]:shadow-sm [&:focus-visible::-webkit-slider-thumb]:ring-2 [&:focus-visible::-webkit-slider-thumb]:ring-foreground"
+          />
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }

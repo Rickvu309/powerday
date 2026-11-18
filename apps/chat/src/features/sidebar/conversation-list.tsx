@@ -248,7 +248,7 @@ export function ConversationList({ initialQuery = "" }: { initialQuery?: string 
           />
           <SidebarInput
             id={searchFieldId}
-            className="h-8 bg-card pl-8"
+            className="h-8 border-transparent bg-muted pl-8 focus-visible:bg-accent focus-visible:outline-none! focus-visible:ring-0"
             type="search"
             aria-label="Search chats"
             placeholder="Search chats"

@@ -112,7 +112,9 @@ async function motionDuring(page: Page, act: () => Promise<void>) {
 
 for (const width of [375, 1280]) {
   for (const colorScheme of ["light", "dark"] as const) {
-    test(`text inputs keep a 3:1 border at ${width} in ${colorScheme}`, async ({ page }, info) => {
+    test(`form fields keep a 3:1 border and the composer and search stay borderless at ${width} in ${colorScheme}`, async ({
+      page,
+    }, info) => {
       await page.setViewportSize({ width, height: 900 })
       await page.emulateMedia({ colorScheme })
       await page.goto("/screens/01-sign-in")
@@ -121,11 +123,15 @@ for (const width of [375, 1280]) {
       await page.goto("/")
       const composer = page.locator('[data-slot="input-group"]')
       await page.getByRole("textbox", { name: "Message" }).focus()
-      await expectBoundary(composer, "Focused composer", info)
+      await expect(composer).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)")
+      await expect(composer).toHaveCSS("outline-style", "none")
       await page.getByRole("textbox", { name: "Message" }).blur()
-      await expectBoundary(composer, "Composer", info)
+      await expect(composer).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)")
       if (width === 375) await page.locator('[data-slot="sidebar-trigger"]').click()
-      await expectBoundary(page.getByRole("searchbox", { name: "Search chats" }), "Search", info)
+      await expect(page.getByRole("searchbox", { name: "Search chats" })).toHaveCSS(
+        "border-top-color",
+        "rgba(0, 0, 0, 0)",
+      )
     })
 
     test(`focused controls show a 2px ring at ${width} in ${colorScheme}`, async ({ page }, info) => {
@@ -142,11 +148,6 @@ for (const width of [375, 1280]) {
       const message = page.getByRole("textbox", { name: "Message" })
       await message.focus()
       await expect(page.locator('[data-slot="input-group"]')).toHaveCSS("outline-style", "none")
-      await expect(page.locator('[data-slot="input-group"]')).toHaveCSS(
-        "box-shadow",
-        /rgb\(31, 31, 31\) 0px 0px 0px 1px/,
-      )
-      await expectBoundary(page.locator('[data-slot="input-group"]'), "Focused composer", info)
       await expect(message).toHaveCSS("outline-style", "none")
       await page.screenshot({ path: info.outputPath("composer.png") })
       const model = page.getByRole("button", { name: /^Model:/ })
@@ -165,7 +166,7 @@ for (const width of [375, 1280]) {
       }
       const search = page.getByRole("searchbox", { name: "Search chats" })
       await search.focus()
-      await expectRing(search, "Search", info)
+      await expect(search).toHaveCSS("outline-style", "none")
       const newChat = page.getByRole("button", { name: "New chat" })
       await search.press("Shift+Tab")
       await expect(newChat).toBeFocused()
