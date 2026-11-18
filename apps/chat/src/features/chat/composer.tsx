@@ -87,7 +87,7 @@ export const Composer = memo(function Composer({
             <InputGroupButton
               type={busy ? "button" : "submit"}
               aria-label={busy ? "Stop display" : "Send"}
-              className="size-9 rounded-full bg-foreground text-background hover:bg-foreground/85 disabled:bg-foreground/70 disabled:opacity-100 pointer-coarse:size-11 [&_svg]:size-5"
+              className="size-9 rounded-full bg-foreground text-background hover:bg-foreground/85 disabled:bg-foreground/85 disabled:opacity-100 pointer-coarse:size-11 [&_svg]:size-5"
               size="icon-sm"
               variant="default"
               disabled={!busy && (empty || !ready)}
