@@ -100,7 +100,7 @@ $V annotate callouts.json --before <run> --after <run> --out <dir>
 
 - `at` is a selector, a list of selectors (the first visible match wins, so one callout can name the old place on Before and the new one on After), or a box in CSS px. `target` is `element` (default, for frames and geometry) or `text`.
 - `crop` takes a selector or a box. Both sides use the union of their crop boxes, padded 24 px, so a moved element stays in frame. `say`, `click` and `scheme` work as in the view options.
-- Each side places its own numbered circles on the side of the target with the most room, off every target, other circle and line of text. The arrow stops 3 px outside the target.
+- Each side places its own numbered circles on the side of the target with the most room, off every target, other circle, line of text and icon. The arrow stops 3 px outside the target.
 - A note stays under 90 characters and names the measured change, such as "Composer is one centered pill, 768 px wide".
 
 It writes `annotated-N.png` and `before-after.md`, and lists warnings: a callout not found on a side, a target outside the crop, a page error. "Not found on Before" is right only for something new.
