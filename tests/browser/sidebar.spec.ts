@@ -42,6 +42,7 @@ test("a chat is renamed and deleted from its menu", async ({ page }) => {
 test("search shows matching chats and clears with Escape", async ({ page }) => {
   await page.goto("/screens/22-sidebar-many")
   const search = page.getByRole("searchbox", { name: "Search chats" })
+  await page.locator('[data-slot="sidebar-content"]').getByRole("button", { name: "Search chats" }).click()
   await search.fill("phở")
   await expect(page.getByText("Results", { exact: true })).toBeVisible()
   await expect(page.locator("a[href^='/c/']").first()).toContainText("Write a phở recipe for six people")
@@ -105,6 +106,7 @@ test("the desktop sidebar collapses and new chat clears the URL", async ({ page 
   await page.getByRole("button", { name: "Toggle Sidebar" }).click()
   await expect(page.locator("[data-state=collapsed][data-collapsible=icon]")).toBeVisible()
   await page.getByRole("button", { name: "Toggle Sidebar" }).click()
+  await page.locator('[data-slot="sidebar-content"]').getByRole("button", { name: "Search chats" }).click()
   await expect(page.getByRole("searchbox", { name: "Search chats" })).toBeVisible()
 })
 
@@ -124,6 +126,8 @@ for (const width of [1280, 375]) {
         }
         if (state === "empty") await expect(page.getByText("Your chats will show here.")).toBeVisible()
         else await expect(page.locator("a[href^='/c/']").first()).toBeVisible()
+        if (width === 1280 && state !== "search")
+          await page.locator('[data-slot="sidebar-content"]').getByRole("button", { name: "Search chats" }).click()
         await expect(page.getByRole("searchbox", { name: "Search chats" })).toBeVisible()
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
         await page.screenshot({ animations: "disabled", path: info.outputPath(`${state}-${width}-${colorScheme}.png`) })

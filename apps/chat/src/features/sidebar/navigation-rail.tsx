@@ -8,7 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { openConversation, useOpenConversation } from "@/open-conversation"
-import { searchFieldId } from "./conversation-list"
+import { openSearch } from "./conversation-list"
 
 const railItem =
   "rounded-xl text-sidebar-foreground/80 hover:bg-sidebar-accent aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-primary [&_svg]:size-5"
@@ -95,9 +95,9 @@ export function NavigationRail() {
   return (
     <div
       data-rail
-      className="flex h-full w-(--sidebar-width-icon) shrink-0 flex-col items-center justify-between border-r border-sidebar-border bg-sidebar py-2 text-sidebar-foreground"
+      className="flex h-full w-(--sidebar-width-icon) shrink-0 flex-col items-center justify-between border-r border-sidebar-border bg-sidebar py-3 text-sidebar-foreground"
     >
-      <nav aria-label="Rail" className="flex flex-col items-center gap-1">
+      <nav aria-label="Rail" className="flex flex-col items-center gap-1.5">
         <RailButton
           label="Home"
           icon={HouseIcon}
@@ -112,7 +112,7 @@ export function NavigationRail() {
           icon={SearchIcon}
           onClick={() => {
             if (!isMobile) setOpen(true)
-            requestAnimationFrame(() => document.getElementById(searchFieldId)?.focus())
+            openSearch()
           }}
         />
         <RailButton

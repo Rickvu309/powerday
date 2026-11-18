@@ -1,6 +1,6 @@
 import type { Found } from "@powerday/chat-core"
 import { SearchIcon, SquarePenIcon } from "lucide-react"
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import {
   SidebarGroup,
@@ -19,6 +19,28 @@ import { useConversationCache, useListing } from "./conversation-cache"
 import { ConversationItem, ConversationLink, type Go } from "./conversation-item"
 
 export const searchFieldId = "chat-search"
+
+let searchOpenState = false
+const searchOpenListeners = new Set<() => void>()
+
+export const subscribeSearchOpen = (notify: () => void) => {
+  searchOpenListeners.add(notify)
+  return () => {
+    searchOpenListeners.delete(notify)
+  }
+}
+
+export const readSearchOpen = () => searchOpenState
+
+export const openSearch = () => {
+  searchOpenState = true
+  searchOpenListeners.forEach((notify) => notify())
+}
+
+export const closeSearch = () => {
+  searchOpenState = false
+  searchOpenListeners.forEach((notify) => notify())
+}
 
 function Note({ role, children }: { role?: "status"; children: ReactNode }) {
   return (
@@ -221,44 +243,69 @@ function Results({ query, go }: { query: string; go: Go }) {
 export function ConversationList({ initialQuery = "" }: { initialQuery?: string }) {
   const { isMobile, setOpenMobile } = useSidebar()
   const [query, setQuery] = useState(initialQuery)
+  const searchOpen = useSyncExternalStore(subscribeSearchOpen, readSearchOpen, () => false)
+  useEffect(() => {
+    if (initialQuery !== "") openSearch()
+  }, [initialQuery])
+  const collapse = useCallback(() => {
+    closeSearch()
+    setQuery("")
+  }, [])
   const go: Go = useCallback(
     (id) => {
       openConversation(id, { focus: true })
+      if (!isMobile) collapse()
       if (isMobile) setOpenMobile(false)
     },
-    [isMobile, setOpenMobile],
+    [isMobile, setOpenMobile, collapse],
   )
   const trimmed = query.trim()
+  const fieldOpen = searchOpen || isMobile
 
   return (
     <>
       <SidebarGroup>
-        <SidebarMenu>
-          <SidebarMenuItem>
+        <SidebarMenu className="flex-row items-center gap-1">
+          <SidebarMenuItem className="min-w-0 flex-1">
             <SidebarMenuButton onClick={() => go(null)}>
               <SquarePenIcon className="text-primary" />
               <span>New chat</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {!isMobile && (
+            <SidebarMenuItem className="shrink-0">
+              <SidebarMenuButton
+                tooltip="Search chats"
+                aria-label="Search chats"
+                className="size-8"
+                onClick={() => (searchOpen ? collapse() : openSearch())}
+              >
+                <SearchIcon />
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
-        <div className="relative mt-1">
-          <SearchIcon
-            aria-hidden
-            className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <SidebarInput
-            id={searchFieldId}
-            className="h-8 border-transparent! bg-muted pl-8 focus-visible:bg-accent focus-visible:outline-none! focus-visible:ring-0"
-            type="search"
-            aria-label="Search chats"
-            placeholder="Search chats"
-            value={query}
-            onChange={(event) => setQuery(event.currentTarget.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") setQuery("")
-            }}
-          />
-        </div>
+        {fieldOpen && (
+          <div className="relative mt-1">
+            <SearchIcon
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <SidebarInput
+              id={searchFieldId}
+              autoFocus={!isMobile}
+              className="h-8 border-transparent! bg-muted pl-8 focus-visible:bg-accent focus-visible:outline-none! focus-visible:ring-0"
+              type="search"
+              aria-label="Search chats"
+              placeholder="Search chats"
+              value={query}
+              onChange={(event) => setQuery(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setQuery("")
+              }}
+            />
+          </div>
+        )}
       </SidebarGroup>
       {trimmed ? <Results query={trimmed} go={go} /> : <Recents go={go} />}
     </>

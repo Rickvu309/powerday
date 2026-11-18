@@ -128,6 +128,7 @@ for (const width of [375, 1280]) {
       await page.getByRole("textbox", { name: "Message" }).blur()
       await expect(composer).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)")
       if (width === 375) await page.locator('[data-slot="sidebar-trigger"]').click()
+      else await page.locator('[data-slot="sidebar-content"]').getByRole("button", { name: "Search chats" }).click()
       await expect(page.getByRole("searchbox", { name: "Search chats" })).toHaveCSS(
         "border-top-color",
         "rgba(0, 0, 0, 0)",
@@ -158,16 +159,23 @@ for (const width of [375, 1280]) {
       await page.screenshot({ path: info.outputPath("menu.png") })
       await page.keyboard.press("Escape")
       await expect(page.getByRole("slider", { name: "Thinking effort" })).toBeHidden()
+      const panelSearch = page.locator('[data-slot="sidebar-content"]').getByRole("button", { name: "Search chats" })
       if (width === 375) {
         await page.locator('[data-slot="sidebar-trigger"]').click()
         await expect(page.getByRole("button", { name: "Home", exact: true })).toBeFocused()
-      }
+      } else await panelSearch.click()
       const search = page.getByRole("searchbox", { name: "Search chats" })
       await search.focus()
       await expect(search).toHaveCSS("outline-style", "none")
       await expect(search).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)")
       const newChat = page.getByRole("button", { name: "New chat" })
-      await search.press("Shift+Tab")
+      if (width === 375) {
+        await search.press("Shift+Tab")
+      } else {
+        await search.press("Shift+Tab")
+        await expect(panelSearch).toBeFocused()
+        await page.keyboard.press("Shift+Tab")
+      }
       await expect(newChat).toBeFocused()
       await expectRing(newChat, "New chat", info)
       await page.screenshot({ path: info.outputPath("sidebar.png") })
