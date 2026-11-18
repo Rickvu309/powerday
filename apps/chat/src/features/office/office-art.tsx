@@ -1,4 +1,13 @@
-import { FileTextIcon, GlobeIcon, ImagesIcon, PresentationIcon } from "lucide-react"
+import {
+  ChartColumnIcon,
+  FileTextIcon,
+  GlobeIcon,
+  GraduationCapIcon,
+  ImagesIcon,
+  ListTodoIcon,
+  PlaneIcon,
+  PresentationIcon,
+} from "lucide-react"
 import type { ComponentType } from "react"
 import type { OfficeKind } from "./office-registry"
 
@@ -25,6 +34,22 @@ function SiteMark() {
 
 function ImageMark() {
   return <ImagesIcon className="text-muted-foreground" />
+}
+
+export function GuideBadge() {
+  return <GraduationCapIcon style={{ color: pageBlue }} />
+}
+
+export function TodoBadge() {
+  return <ListTodoIcon style={{ color: todoGreen }} />
+}
+
+export function TrackerBadge() {
+  return <ChartColumnIcon style={{ color: pageBlue }} />
+}
+
+export function TravelBadge() {
+  return <PlaneIcon style={{ color: pageBlue }} />
 }
 
 export const officeMark: Record<OfficeKind, ComponentType> = {

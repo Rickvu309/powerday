@@ -1,4 +1,5 @@
 import type { ComponentType } from "react"
+import { GuideBadge, TodoBadge, TrackerBadge, TravelBadge } from "./office-art"
 import { GuidePreview, PhotographyPreview, TodoPreview, TrackerPreview, TravelPreview } from "./office-previews"
 
 export type OfficeKind = "page" | "slides" | "site" | "image"
@@ -14,6 +15,7 @@ export type OfficeDocument = {
 export type OfficeTemplate = {
   readonly document: OfficeDocument
   readonly label: string
+  readonly Badge?: ComponentType
 }
 
 export type OfficeItem = {
@@ -52,11 +54,11 @@ const travelPlanner: OfficeDocument = {
 export const officeKinds: readonly OfficeKind[] = ["page", "slides", "site", "image"]
 
 export const officeTemplates: readonly OfficeTemplate[] = [
-  { document: guidePages, label: "Start here" },
-  { document: toDoList, label: "Page" },
-  { document: projectTracker, label: "Page" },
+  { document: guidePages, label: "Start here", Badge: GuideBadge },
+  { document: toDoList, label: "Page", Badge: TodoBadge },
+  { document: projectTracker, label: "Page", Badge: TrackerBadge },
   { document: photographyPortfolio, label: "Slides" },
-  { document: travelPlanner, label: "Page" },
+  { document: travelPlanner, label: "Page", Badge: TravelBadge },
 ]
 
 export const officeItems: readonly OfficeItem[] = [

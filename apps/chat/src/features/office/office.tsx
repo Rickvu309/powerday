@@ -1,7 +1,7 @@
-import { ArrowDownWideNarrowIcon, ChevronDownIcon, LayoutGridIcon, ListIcon } from "lucide-react"
+import { ChevronDownIcon, LayoutGridIcon, ListFilterIcon, ListIcon, SearchIcon } from "lucide-react"
 import { useEffect, useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { showComingSoon } from "@/features/toast/coming-soon"
 import { ItemCard, TemplateCard } from "./office-cards"
 import { officeSelection, type OfficeTab } from "./office-filters"
@@ -43,43 +43,58 @@ export function Office() {
           All
         </h1>
         <div className="flex items-center gap-2">
-          <Input
-            type="search"
-            aria-label="Search office"
-            placeholder="Search"
-            className="h-9 w-56 rounded-full"
-            value={query}
-            onChange={(event) => setQuery(event.currentTarget.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") setQuery("")
-            }}
-          />
+          <InputGroup className="h-9 w-40 rounded-full sm:w-56">
+            <InputGroupInput
+              type="search"
+              aria-label="Search office"
+              placeholder="Search"
+              value={query}
+              onChange={(event) => setQuery(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setQuery("")
+              }}
+            />
+            <InputGroupAddon>
+              <SearchIcon />
+            </InputGroupAddon>
+          </InputGroup>
           <Button className={createPill} onClick={() => showComingSoon("Creating")}>
             Create
             <ChevronDownIcon />
           </Button>
         </div>
       </div>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-        <div role="group" aria-label="Filter" className="flex flex-wrap items-center gap-1">
+      <div className="mt-4 flex items-center justify-between gap-2">
+        <div
+          role="group"
+          aria-label="Filter"
+          className="no-scrollbar -mx-1 flex min-w-0 items-center gap-1 overflow-x-auto px-1 py-1"
+        >
           {tabs.map((each) => (
             <Button
               key={each}
               variant="ghost"
               size="lg"
               aria-pressed={tab === each}
-              className="rounded-full px-3.5 aria-pressed:bg-card aria-pressed:text-foreground aria-pressed:shadow-sm"
+              className="shrink-0 rounded-full px-3.5 aria-pressed:bg-secondary aria-pressed:text-foreground"
               onClick={() => setTab(each)}
             >
               {tabLabel[each]}
             </Button>
           ))}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="hidden shrink-0 items-center gap-1 md:flex">
           <Button variant="ghost" size="icon" aria-label="Sort" onClick={() => showComingSoon("Sorting")}>
-            <ArrowDownWideNarrowIcon />
+            <ListFilterIcon />
           </Button>
-          <Button variant="ghost" size="icon" aria-pressed={true} aria-label="Grid view">
+          <span aria-hidden className="mx-1 h-5 w-px bg-border" />
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-pressed={true}
+            aria-label="Grid view"
+            className="aria-pressed:bg-secondary"
+          >
             <LayoutGridIcon />
           </Button>
           <Button variant="ghost" size="icon" aria-label="List view" onClick={() => showComingSoon("List view")}>
@@ -89,7 +104,7 @@ export function Office() {
       </div>
       {tab === "suggested" ? (
         <section aria-labelledby="office-gallery-title" className="mt-8">
-          <h2 id="office-gallery-title" className="text-xl font-semibold">
+          <h2 id="office-gallery-title" className="text-lg font-medium">
             Create together in Office
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">

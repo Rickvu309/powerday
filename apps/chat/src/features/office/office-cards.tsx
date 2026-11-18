@@ -3,11 +3,11 @@ import { showComingSoon } from "@/features/toast/coming-soon"
 import { officeLift, officeMark } from "./office-art"
 import type { OfficeItem, OfficeKind, OfficeTemplate } from "./office-registry"
 
-const templateSheet: Record<OfficeKind, string> = {
-  page: "h-[72%]",
-  slides: "h-full",
-  site: "h-[72%]",
-  image: "h-full",
+const framed: Record<OfficeKind, boolean> = {
+  page: true,
+  slides: false,
+  site: true,
+  image: false,
 }
 
 const itemBody: Record<OfficeKind, string> = {
@@ -18,14 +18,25 @@ const itemBody: Record<OfficeKind, string> = {
 }
 
 export function TemplateCard({ template }: { template: OfficeTemplate }) {
-  const { document, label } = template
+  const { document, label, Badge } = template
   return (
-    <li className="w-60 shrink-0">
+    <li className="w-54 shrink-0">
       <button type="button" onClick={() => showComingSoon(document.title)} className="block w-full text-left">
-        <span className="flex aspect-[16/10] items-end overflow-hidden rounded-xl bg-muted">
-          <span className={cn("w-full overflow-hidden rounded-t-lg bg-card", templateSheet[document.kind])}>
-            <document.Preview />
-          </span>
+        <span className="relative block aspect-video overflow-hidden rounded-xl border bg-sidebar">
+          {framed[document.kind] ? (
+            <span className="absolute inset-x-[11%] top-[12%] h-full overflow-hidden rounded-t-md border bg-card">
+              {Badge ? (
+                <span className="block px-2 pt-2 [&_svg]:size-3.5">
+                  <Badge />
+                </span>
+              ) : null}
+              <document.Preview />
+            </span>
+          ) : (
+            <span className="block h-full w-full">
+              <document.Preview />
+            </span>
+          )}
         </span>
         <span className="mt-3 block text-center">
           <span className="block truncate text-sm font-medium">{document.title}</span>
@@ -39,7 +50,7 @@ export function TemplateCard({ template }: { template: OfficeTemplate }) {
 export function ItemCard({ item }: { item: OfficeItem }) {
   const Mark = officeMark[item.document.kind]
   return (
-    <li className="w-52">
+    <li className="w-48">
       <button type="button" onClick={() => showComingSoon(item.document.title)} className="block w-full text-left">
         <span className="block overflow-hidden rounded-2xl border bg-card" style={{ boxShadow: officeLift }}>
           <span className="flex items-center gap-2 border-b px-3 py-2">
