@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 import { useEffect, useRef, useState, type MouseEvent, type Ref } from "react"
 import { Account } from "@/features/auth/account"
-import { enterAdmin, useAdminPage } from "@/features/admin/admin-navigation"
+import { enterSpace, useSpace } from "@/space-navigation"
 import { showComingSoon } from "@/features/toast/coming-soon"
 import { cn } from "cn"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -101,7 +101,7 @@ function useAdminAccess() {
 
 export function NavigationRail() {
   const { isMobile, openMobile, state, setOpenMobile, toggleSidebar } = useSidebar()
-  const admin = useAdminPage()
+  const admin = useSpace() === "admin"
   const open = useOpenConversation()
   const canAdmin = useAdminAccess()
   const chatsRef = useRef<HTMLButtonElement>(null)
@@ -159,7 +159,7 @@ export function NavigationRail() {
             href="/admin"
             active={admin}
             onClick={(event) => {
-              enterAdmin(event)
+              enterSpace(event, "/admin")
               if (event.defaultPrevented && isMobile) setOpenMobile(false)
             }}
           />

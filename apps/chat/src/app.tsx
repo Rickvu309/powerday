@@ -3,7 +3,7 @@ import { MessageCircleDashedIcon } from "lucide-react"
 import { SpaceSwitch } from "@/features/chat/space-switch"
 import { ComingSoonToast, showComingSoon } from "@/features/toast/coming-soon"
 import { Button } from "@/components/ui/button"
-import { useAdminPage } from "@/features/admin/admin-navigation"
+import { useSpace } from "@/space-navigation"
 import { ModelChoice } from "@/features/model-picker/model-choice"
 import { ConversationMain } from "@/features/sidebar/conversation-main"
 import { NavigationSidebar } from "@/features/sidebar/navigation-sidebar"
@@ -83,16 +83,20 @@ export function App() {
       delete document.documentElement.dataset.inputModality
     }
   }, [])
-  const admin = useAdminPage()
-  const wasAdmin = useRef(admin)
+  const space = useSpace()
+  const admin = space === "admin"
+  const sawAdmin = useRef(false)
   const { reload } = useContext(ModelChoice)
   useEffect(() => {
-    if (wasAdmin.current && !admin) {
-      void reload()
-      document.querySelector<HTMLTextAreaElement>('[aria-label="Message"]')?.focus()
+    if (admin) {
+      sawAdmin.current = true
+      return
     }
-    wasAdmin.current = admin
-  }, [admin, reload])
+    if (space !== "chat" || !sawAdmin.current) return
+    sawAdmin.current = false
+    void reload()
+    document.querySelector<HTMLTextAreaElement>('[aria-label="Message"]')?.focus()
+  }, [space, admin, reload])
   return (
     <SignInGate>
       <TooltipProvider delay={300}>
