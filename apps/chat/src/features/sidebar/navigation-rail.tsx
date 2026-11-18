@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 import { useEffect, useRef, useState, type MouseEvent, type Ref } from "react"
 import { Account } from "@/features/auth/account"
-import { enterAdmin, useAdminPage } from "@/features/admin/admin-navigation"
+import { enterSpace, returnChat, useSpace } from "@/space-navigation"
 import { showComingSoon } from "@/features/toast/coming-soon"
 import { cn } from "cn"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -100,8 +100,10 @@ function useAdminAccess() {
 }
 
 export function NavigationRail() {
-  const { isMobile, openMobile, state, setOpenMobile, toggleSidebar } = useSidebar()
-  const admin = useAdminPage()
+  const { isMobile, openMobile, state, setOpen, setOpenMobile, toggleSidebar } = useSidebar()
+  const space = useSpace()
+  const admin = space === "admin"
+  const office = space === "office"
   const open = useOpenConversation()
   const canAdmin = useAdminAccess()
   const chatsRef = useRef<HTMLButtonElement>(null)
@@ -135,21 +137,41 @@ export function NavigationRail() {
         <RailButton
           label="Home"
           icon={HouseIcon}
-          active={!admin && open === null}
+          active={space === "chat" && open === null}
           onClick={() => {
             openConversation(null, { focus: true })
             if (isMobile) setOpenMobile(false)
           }}
         />
-        <RailButton label="Office" icon={BriefcaseIcon} onClick={() => soon("Office")} />
+        <RailButton
+          label="Office"
+          icon={BriefcaseIcon}
+          href="/office"
+          active={office}
+          onClick={(event) => {
+            if (office) {
+              event.preventDefault()
+              if (!isMobile) toggleSidebar()
+              return
+            }
+            enterSpace(event, "/office")
+            if (!event.defaultPrevented) return
+            if (isMobile) setOpenMobile(false)
+            else setOpen(true)
+          }}
+        />
         <RailButton label="Library" icon={ImagesIcon} onClick={() => soon("Library")} />
         {isMobile ? null : (
           <RailButton
             label="Chats"
             icon={HistoryIcon}
-            expanded={state === "expanded"}
+            expanded={state === "expanded" && !office}
             buttonRef={chatsRef}
-            onClick={() => toggleSidebar()}
+            onClick={(event) => {
+              if (!office) return toggleSidebar()
+              returnChat(event)
+              setOpen(true)
+            }}
           />
         )}
         {canAdmin ? (
@@ -159,7 +181,7 @@ export function NavigationRail() {
             href="/admin"
             active={admin}
             onClick={(event) => {
-              enterAdmin(event)
+              enterSpace(event, "/admin")
               if (event.defaultPrevented && isMobile) setOpenMobile(false)
             }}
           />

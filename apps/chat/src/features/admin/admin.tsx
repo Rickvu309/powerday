@@ -12,7 +12,7 @@ import {
 import { ModelChoice } from "@/features/model-picker/model-choice"
 import { ProviderForm } from "./provider-form"
 import { ModelForm } from "./model-form"
-import { leaveAdmin, returnPath } from "./admin-navigation"
+import { chatHref, returnChat } from "@/space-navigation"
 import { Limits } from "./limits"
 import { Usage } from "./usage"
 
@@ -179,8 +179,8 @@ export function Admin({
         </div>
         <a
           className="rounded-md px-3 py-2 text-sm underline underline-offset-4 focus-visible:outline"
-          href={returnPath()}
-          onClick={leaveAdmin}
+          href={chatHref()}
+          onClick={returnChat}
         >
           Back to chat
         </a>
