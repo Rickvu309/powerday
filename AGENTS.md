@@ -62,7 +62,7 @@ Better Auth rate limiting is explicitly enabled with database storage in D1 (the
 
 - Section 7 of `docs/goals.md` sets how we build: contracts first, one owner per area, small PRs, merge by risk.
 - Every PR targets `main`, never another PR's branch.
-- Prove the change before you push. Write the failing test first, then run `pnpm check`. For anything a user sees or the API answers, drive the real app.
+- Prove the change before you push. Write the failing test first, then run `pnpm check`. For anything a user sees or the API answers, drive the real app. The `verify-power-chat` skill in `.agents/skills/verify-power-chat` launches a private stack, scans each state, puts the build beside a reference image and draws the before / after callouts for the PR.
 - An agent that did not write a PR reviews it.
 - An agent's comment or review on a pull request or issue starts with `🤖 **AI Agent responding on behalf of Quan Vu**`.
 - A bug or a rule lands in the repo as a test or a check. A chat message fixes nothing.
