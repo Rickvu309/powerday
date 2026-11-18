@@ -135,7 +135,7 @@ export function App() {
                 {office ? (
                   <Suspense
                     fallback={
-                      <p role="status" className="px-4 py-2 text-sm text-muted-foreground">
+                      <p role="status" aria-busy="true" className="px-4 py-2 text-sm text-muted-foreground">
                         Loading office…
                       </p>
                     }
@@ -189,7 +189,7 @@ export function App() {
               <div className="overflow-y-auto">
                 <Suspense
                   fallback={
-                    <p role="status" className="p-8">
+                    <p role="status" aria-busy="true" className="p-8">
                       Loading office…
                     </p>
                   }
