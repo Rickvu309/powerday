@@ -62,7 +62,10 @@ export const Composer = memo(function Composer({
               if (!empty && !busy && ready) event.currentTarget.form?.requestSubmit()
             }}
           />
-          <InputGroupAddon align="inline-end" className="mr-0 ml-auto min-w-0 cursor-default gap-1 py-0 pr-0">
+          <InputGroupAddon
+            align="inline-end"
+            className="ml-auto min-w-0 cursor-default gap-1 py-0 pr-0 has-[>button]:mr-0"
+          >
             <ModelPicker />
             <InputGroupButton
               type={busy ? "button" : "submit"}
