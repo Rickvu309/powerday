@@ -1,5 +1,5 @@
 import type { Found } from "@powerday/chat-core"
-import { CircleDotIcon, SearchIcon, SquarePenIcon } from "lucide-react"
+import { SearchIcon, SquarePenIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { showComingSoon } from "@/features/toast/coming-soon"
@@ -66,6 +66,20 @@ export function PanelSearchTrigger() {
       </TooltipTrigger>
       <TooltipContent side="bottom">Search chats</TooltipContent>
     </Tooltip>
+  )
+}
+
+function PowerBotIcon() {
+  return (
+    <svg aria-hidden viewBox="-5.48 -2.17 52.04 52.04" fill="none">
+      <polygon
+        points="20.54,0 41.08,11.93 41.08,35.78 20.54,47.7 0,35.78 0,11.93"
+        stroke="currentColor"
+        strokeWidth="4.25"
+      />
+      <rect x="10.93" y="15.24" width="4.2" height="17.23" rx="2.1" fill="currentColor" />
+      <rect x="25.95" y="15.24" width="4.2" height="17.23" rx="2.1" fill="currentColor" />
+    </svg>
   )
 }
 
@@ -301,7 +315,7 @@ export function ConversationList({ initialQuery = "" }: { initialQuery?: string 
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={() => showComingSoon("Power Bot")}>
-              <CircleDotIcon className="text-muted-foreground" />
+              <PowerBotIcon />
               <span>Power Bot</span>
             </SidebarMenuButton>
           </SidebarMenuItem>

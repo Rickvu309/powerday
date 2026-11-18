@@ -1,11 +1,11 @@
 import {
+  createLucideIcon,
   CircleAlertIcon,
   EllipsisIcon,
   HistoryIcon,
   HouseIcon,
   ImagesIcon,
   LayoutGridIcon,
-  LuggageIcon,
   ShieldIcon,
   type LucideIcon,
 } from "lucide-react"
@@ -18,6 +18,13 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { openConversation, useOpenConversation } from "@/open-conversation"
+
+const BriefcaseIcon = createLucideIcon("briefcase-business", [
+  ["path", { d: "M12 12h.01", key: "1mp3jc" }],
+  ["path", { d: "M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2", key: "1ksdt3" }],
+  ["path", { d: "M22 13a18.15 18.15 0 0 1-20 0", key: "12hx5q" }],
+  ["rect", { width: "20", height: "14", x: "2", y: "6", rx: "2", key: "i6l2r4" }],
+])
 
 export const sidebarHandoff = { current: false }
 
@@ -134,7 +141,7 @@ export function NavigationRail() {
             if (isMobile) setOpenMobile(false)
           }}
         />
-        <RailButton label="Office" icon={LuggageIcon} onClick={() => soon("Office")} />
+        <RailButton label="Office" icon={BriefcaseIcon} onClick={() => soon("Office")} />
         <RailButton label="Library" icon={ImagesIcon} onClick={() => soon("Library")} />
         {isMobile ? null : (
           <RailButton
