@@ -491,7 +491,10 @@ async function annotate(file, named) {
           const boxes = []
           const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
           for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-            if (node.textContent.trim() === "" || !node.parentElement?.checkVisibility()) continue
+            const holder = node.parentElement
+            if (node.textContent.trim() === "" || !holder?.checkVisibility()) continue
+            const shown = holder.getBoundingClientRect()
+            if (shown.width <= 1 || shown.height <= 1 || getComputedStyle(holder).clipPath === "inset(50%)") continue
             const range = document.createRange()
             range.selectNodeContents(node)
             for (const rect of range.getClientRects())
