@@ -6,7 +6,11 @@ export const detectors = [
   },
   { name: "unnamed-control", rank: 1, catches: "a visible button, link or field with no accessible name" },
   { name: "cut-text", rank: 2, catches: "text cut by its box: an ellipsis, a line clamp or hidden overflow" },
-  { name: "small-target", rank: 2, catches: "a control smaller than 24 by 24 CSS px (WCAG 2.5.8)" },
+  {
+    name: "small-target",
+    rank: 2,
+    catches: "a control with a side under 24 CSS px and an area under 24 by 24 (WCAG 2.5.8)",
+  },
   { name: "text-contrast", rank: 2, catches: "text under WCAG AA against the solid colors painted under it" },
 ]
 
@@ -144,9 +148,12 @@ export function scan() {
   for (const element of textHolders) {
     if (!visible(element)) continue
     const style = getComputedStyle(element)
-    const cut = style.textOverflow === "ellipsis" || style.webkitLineClamp !== "none" || style.overflow !== "visible"
-    if (cut && (element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 2))
-      add("cut-text", 2, element, `“${element.textContent.trim().slice(0, 40)}” is cut`)
+    const clips = (axis) => ["hidden", "clip"].includes(axis)
+    const cutAcross =
+      (clips(style.overflowX) || style.textOverflow === "ellipsis") && element.scrollWidth > element.clientWidth + 1
+    const cutDown =
+      (clips(style.overflowY) || style.webkitLineClamp !== "none") && element.scrollHeight > element.clientHeight + 2
+    if (cutAcross || cutDown) add("cut-text", 2, element, `“${element.textContent.trim().slice(0, 40)}” is cut`)
     if (element.closest("[aria-disabled=true], :disabled")) continue
     const ink = parse(style.color)
     const under = backgroundOf(element)

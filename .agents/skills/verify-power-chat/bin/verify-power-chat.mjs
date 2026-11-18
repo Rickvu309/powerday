@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync, spawn } from "node:child_process"
 import { createHash, randomBytes } from "node:crypto"
-import { existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { createServer } from "node:net"
 import { homedir } from "node:os"
 import path from "node:path"
@@ -62,13 +62,17 @@ const readState = (run) => {
 }
 
 const sh = (command, args, cwd, log) => {
-  const out = log ? openSync(log, "a") : "ignore"
+  const out = openSync(log, "a")
   try {
     execFileSync(command, args, { cwd, stdio: ["ignore", out, out], env: process.env })
   } catch {
-    fail(`${command} ${args.join(" ")} failed in ${cwd}. Read ${log}.`)
+    fail(`${command} ${args.join(" ")} failed in ${cwd}. Read ${log}, then run stop on this run.`)
+  } finally {
+    closeSync(out)
   }
 }
+
+const ours = (state) => commandLine(state.pid).includes(state.persist)
 
 const alive = (pid) => {
   try {
@@ -94,17 +98,18 @@ async function launch(named) {
   mkdirSync(scratch, { recursive: true })
   mkdirSync(evidence, { recursive: true })
   const log = path.join(scratch, "launch.log")
-  let checkout = repo
   const ref = typeof named.ref === "string" ? named.ref : undefined
+  const checkout = ref === undefined ? repo : path.join(scratch, "checkout")
+  const persist = path.join(scratch, "state")
+  writeFileSync(statePath(run), JSON.stringify({ run, checkout, ownCheckout: ref !== undefined, persist, evidence }))
+  console.error(`run ${run}`)
   if (ref !== undefined) {
-    checkout = path.join(scratch, "checkout")
     sh("git", ["worktree", "add", "--detach", checkout, ref], repo, log)
     sh("pnpm", ["install", "--frozen-lockfile", "--prefer-offline"], checkout, log)
   }
   const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: checkout, encoding: "utf8" }).trim()
   if (named["no-build"] !== true) sh("pnpm", ["--filter", "@powerday/chat", "build"], checkout, log)
   sh("node", ["scripts/browser-config.mjs"], checkout, log)
-  const persist = path.join(scratch, "state")
   const chat = path.join(checkout, "apps/chat")
   sh(
     "pnpm",
@@ -172,7 +177,7 @@ async function doctor(run) {
   const session = await fetch(`${state.origin}/api/auth/get-session`).catch(() => undefined)
   const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: state.checkout, encoding: "utf8" }).trim()
   const checks = {
-    serveOwned: alive(state.pid) && commandLine(state.pid).includes("wrangler"),
+    serveOwned: alive(state.pid) && ours(state),
     appServed: answer?.ok === true,
     apiAnswers: session?.ok === true,
     buildIsHead: head === state.commit,
@@ -184,11 +189,14 @@ async function doctor(run) {
 
 function stop(run) {
   const state = readState(run)
-  if (alive(state.pid) && commandLine(state.pid).includes("wrangler")) {
-    try {
-      process.kill(-state.pid, "SIGTERM")
-    } catch {
-      process.kill(state.pid, "SIGTERM")
+  if (state.pid !== undefined && alive(state.pid) && ours(state)) {
+    for (const target of [-state.pid, state.pid]) {
+      try {
+        process.kill(target, "SIGTERM")
+        break
+      } catch {
+        continue
+      }
     }
   }
   if (state.ownCheckout && existsSync(state.checkout))

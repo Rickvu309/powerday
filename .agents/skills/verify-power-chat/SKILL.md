@@ -24,7 +24,7 @@ $V doctor <run>                 # serveOwned, appServed, apiAnswers, buildIsHead
 $V stop <run>                   # stops only this run's Worker, removes its scratch and worktree
 ```
 
-Launch prints `{run, origin, commit, evidence}`. Keep the `run`. A launch takes about 25 s, plus a `pnpm install` for `--ref`. Launch again after you edit code: the stack serves the build it made. Run `stop` for every run you launched, passed or failed. Evidence under `~/tmp/verify-power-chat/<run>/` survives `stop`.
+Launch prints `{run, origin, commit, evidence}`. Keep the `run`. A launch takes about 25 s, plus a `pnpm install` for `--ref`. Launch again after you edit code: the stack serves the build it made. Run `stop` for every run you launched, passed or failed. A launch prints its run on stderr first, so a launch that fails can be stopped too. Evidence under `~/tmp/verify-power-chat/<run>/` survives `stop`.
 
 Chromium needs system libraries. When they are missing, the helper adds `~/.cache/chromium-libs/root/usr/lib/x86_64-linux-gnu` to `LD_LIBRARY_PATH` if it exists, and otherwise names the missing library.
 
@@ -45,13 +45,13 @@ $V look <run> / --as admin@example.com --width 375 --height 812
 
 Writes `page.png`, `aria.txt`, `findings.json` and `annotated.png`, with each finding boxed and numbered (red rank 1, orange rank 2). Rank 1: a person loses content or a control. Rank 2: readability or reach.
 
-| Detector        | Rank | Catches                                                       | Cannot judge                           |
-| --------------- | ---- | ------------------------------------------------------------- | -------------------------------------- |
-| page-overflow   | 1    | an element past the right edge that scrolls the page sideways | overflow inside a scroller             |
-| unnamed-control | 1    | a visible button, link or field with no accessible name       | whether the name is right              |
-| cut-text        | 2    | text cut by an ellipsis, a line clamp or hidden overflow      | whether the cut was meant              |
-| small-target    | 2    | a control under 24 by 24 CSS px (WCAG 2.5.8)                  | inline links in a sentence             |
-| text-contrast   | 2    | text under WCAG AA against the solid colors under it          | text over images, gradients or filters |
+| Detector        | Rank | Catches                                                                       | Cannot judge                                                                 |
+| --------------- | ---- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| page-overflow   | 1    | an element past the right edge that scrolls the page sideways                 | overflow inside a scroller                                                   |
+| unnamed-control | 1    | a visible button, link or field with no accessible name                       | whether the name is right                                                    |
+| cut-text        | 2    | text cut by an ellipsis, a line clamp or hidden overflow                      | whether the cut was meant                                                    |
+| small-target    | 2    | a control with a side under 24 CSS px and an area under 24 by 24 (WCAG 2.5.8) | a long thin control, such as a 16 px edge handle; inline links in a sentence |
+| text-contrast   | 2    | text under WCAG AA against the solid colors under it                          | text over images, gradients or filters                                       |
 
 Zero findings is not a design sign-off. Open `page.png` and say what you see, as a designer would: what draws the eye, what looks off, what differs from the reference.
 
@@ -61,7 +61,7 @@ Zero findings is not a design sign-off. Open `page.png` and say what you see, as
 $V beside <run> / --reference ref.png --scale 1.4 --regions regions.json --as admin@example.com
 ```
 
-Captures the build at the reference's size divided by `--scale`, puts the reference above the build, boxes each region on both, and writes `beside.png` and `beside.json` with the box deltas in CSS px. A region is `{ "name", "selector", "target"?: "text", "reference": {x, y, width, height} }`, with the reference box in image px.
+Captures the build at the reference's size divided by `--scale`, puts the reference and the build together (side by side when they fit, the reference above when the capture is wide), boxes each region on both, and writes `beside.png` and `beside.json` with the box deltas in CSS px. A region is `{ "name", "selector", "target"?: "text", "reference": {x, y, width, height} }`, with the reference box in image px.
 
 Find the scale before you trust a delta. A Mac screenshot is usually 2, but a resized one is not. Match a known size, such as a 768 px composer or a 14 px label, and write the scale down as an estimate. Compare proportions first: the rail's and panel's share of the width, the composer's width and height, and where the greeting sits. Pixels come after. Sample the reference's colors to tell which surfaces share a background and which have a border. Keep a reference screenshot of another product out of the public repo and its releases.
 

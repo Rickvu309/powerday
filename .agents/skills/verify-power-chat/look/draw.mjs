@@ -137,15 +137,19 @@ li{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:18px}
 .missing{color:var(--muted-foreground)}
 table{border-collapse:collapse;font-size:13px;margin-top:12px}td,th{padding:4px 10px;border-bottom:1px solid var(--border);text-align:left}th{color:var(--muted-foreground);font-weight:600}`
 
-function frameHtml(side, scale, circles, stroke) {
+function frameHtml(side, scale, stroke) {
   const width = side.width * scale
   const height = side.height * scale
-  const shift = (point) => ({ x: point.x * scale + margin, y: point.y * scale + margin })
-  const parts = side.boxes.map((box, index) => {
+  const sized = (box) =>
+    box ? { x: box.x * scale, y: box.y * scale, width: box.width * scale, height: box.height * scale } : null
+  const boxes = side.boxes.map(sized)
+  const circles = place(boxes, { width, height }, (side.texts ?? []).map(sized))
+  const shift = (point) => ({ x: point.x + margin, y: point.y + margin })
+  const parts = boxes.map((box, index) => {
     const circle = circles[index]
     if (box === null || circle === null || circle === undefined) return ""
     const color = side.colors?.[index] ?? stroke
-    const outline = `<rect x="${(box.x * scale + margin).toFixed(1)}" y="${(box.y * scale + margin).toFixed(1)}" width="${(box.width * scale).toFixed(1)}" height="${(box.height * scale).toFixed(1)}" rx="3" fill="none" stroke="${color}" stroke-width="2"/>`
+    const outline = `<rect x="${(box.x + margin).toFixed(1)}" y="${(box.y + margin).toFixed(1)}" width="${box.width.toFixed(1)}" height="${box.height.toFixed(1)}" rx="3" fill="none" stroke="${color}" stroke-width="2"/>`
     const line = arrow(circle, box)
     const drawn =
       line === null
@@ -162,17 +166,8 @@ export function blockHtml(block, { maxWidth = 1100 } = {}) {
   const besideScale = Math.min(1, (maxWidth - 16 * (block.sides.length - 1)) / block.sides.length / widest)
   const stackedScale = Math.min(1, maxWidth / widest)
   const sideBySide = block.sides.length === 1 || besideScale >= stackedScale * 0.6
-  const scale = (sideBySide ? besideScale : stackedScale) * (block.zoom ?? 1)
-  const frames = block.sides
-    .map((side) =>
-      frameHtml(
-        side,
-        scale,
-        place(side.boxes, { width: side.width, height: side.height }, side.texts ?? []),
-        "var(--callout)",
-      ),
-    )
-    .join("")
+  const scale = sideBySide ? besideScale : stackedScale
+  const frames = block.sides.map((side) => frameHtml(side, scale, "var(--callout)")).join("")
   const legend = block.notes
     .map((note, index) => {
       const missing = block.sides.filter((side) => side.boxes[index] === null).map((side) => side.label)

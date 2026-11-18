@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { arrow, place, radius, readCallouts } from "./draw.mjs"
+import { arrow, blockHtml, place, radius, readCallouts } from "./draw.mjs"
 
 const overlaps = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
 const circle = (point) => ({ x: point.x - radius, y: point.y - radius, width: radius * 2, height: radius * 2 })
@@ -50,4 +50,28 @@ test("callouts refuse a block with no path, a long note or an unknown target", (
   const [block] = readCallouts(JSON.stringify([{ path: "/", title: "t", callouts: [{ at: "main", note: "n" }] }]))
   assert.equal(block.width, 1280)
   assert.equal(block.callouts[0].target, "element")
+})
+
+test("circles stay apart after a wide capture is scaled down", () => {
+  const html = blockHtml({
+    title: "wide",
+    notes: ["one", "two"],
+    sides: [
+      {
+        label: "",
+        image: "",
+        width: 1430,
+        height: 900,
+        boxes: [
+          { x: 100, y: 100, width: 50, height: 8 },
+          { x: 100, y: 130, width: 50, height: 8 },
+        ],
+      },
+    ],
+  })
+  const [first, second] = [...html.matchAll(/<circle cx="([\d.]+)" cy="([\d.]+)"/g)].map((match) => ({
+    x: Number(match[1]),
+    y: Number(match[2]),
+  }))
+  assert.ok(Math.hypot(first.x - second.x, first.y - second.y) >= radius * 2)
 })
