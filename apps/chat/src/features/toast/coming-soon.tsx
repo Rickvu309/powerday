@@ -33,7 +33,9 @@ export function ComingSoonToast() {
       className="pointer-events-none fixed inset-x-0 top-[calc(3.75rem+var(--safe-area-top))] z-50 flex justify-center px-4"
     >
       {text === "" ? null : (
-        <p className="rounded-full bg-foreground px-4 py-2 text-sm text-background shadow-lg">{text}</p>
+        <p key={count} className="rounded-full bg-foreground px-4 py-2 text-sm text-background shadow-lg">
+          {text}
+        </p>
       )}
     </div>
   )

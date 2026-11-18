@@ -57,7 +57,7 @@ export const Composer = memo(function Composer({
             autoFocus={finePointer}
             enterKeyHint={finePointer ? "send" : "enter"}
             value={text}
-            className="max-h-48 min-h-9 min-w-0 grow basis-0 px-3 py-1.5 text-base max-md:order-first max-md:basis-full md:text-base"
+            className="max-h-48 min-h-9 min-w-0 grow basis-0 px-3 py-1.5 text-base max-md:order-first max-md:basis-full md:basis-64 md:text-base"
             onChange={(event) => draft.edit(event.currentTarget.value)}
             onKeyDown={(event) => {
               if (

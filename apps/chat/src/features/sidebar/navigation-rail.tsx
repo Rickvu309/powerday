@@ -115,8 +115,22 @@ export function NavigationRail() {
             requestAnimationFrame(() => document.getElementById(searchFieldId)?.focus())
           }}
         />
-        <RailButton label="Library" icon={ImagesIcon} onClick={() => showComingSoon("Library")} />
-        <RailButton label="Apps" icon={LayoutGridIcon} onClick={() => showComingSoon("Apps")} />
+        <RailButton
+          label="Library"
+          icon={ImagesIcon}
+          onClick={() => {
+            if (isMobile) setOpenMobile(false)
+            showComingSoon("Library")
+          }}
+        />
+        <RailButton
+          label="Apps"
+          icon={LayoutGridIcon}
+          onClick={() => {
+            if (isMobile) setOpenMobile(false)
+            showComingSoon("Apps")
+          }}
+        />
         {canAdmin ? (
           <RailButton
             label="Admin"

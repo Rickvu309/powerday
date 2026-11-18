@@ -32,7 +32,7 @@ export function ModelPicker() {
     )
   }
   const { chosen } = models
-  const fast = models.models.find((model) => !model.capabilities.reasoning) ?? models.models[0]
+  const fast = models.models.find((model) => !model.capabilities.reasoning)
   const think = models.models.find((model) => model.capabilities.reasoning)
   const level = chosen.capabilities.reasoning ? 1 : 0
   const name = stops[level]
@@ -81,11 +81,11 @@ function EffortPopover({
           if (event.newState !== "open" || trigger.current === null) return
           const anchor = trigger.current.getBoundingClientRect()
           const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
-          const width = Math.min(15 * rem, innerWidth - 16)
+          const width = Math.min(15 * rem, innerWidth - rem)
           const below = innerHeight - anchor.bottom - 8 >= 8 * rem
           event.currentTarget.style.top = below ? `${String(anchor.bottom + 4)}px` : "auto"
           event.currentTarget.style.bottom = below ? "auto" : `${String(innerHeight - anchor.top + 4)}px`
-          event.currentTarget.style.left = `${String(Math.max(8, Math.min(anchor.right - width, innerWidth - width - 8)))}px`
+          event.currentTarget.style.left = `${String(Math.max(rem / 2, Math.min(anchor.right - width, innerWidth - width - rem / 2)))}px`
         }}
         onToggle={(event) => {
           const shown = event.newState === "open"

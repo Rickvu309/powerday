@@ -165,6 +165,7 @@ for (const width of [375, 1280]) {
       const search = page.getByRole("searchbox", { name: "Search chats" })
       await search.focus()
       await expect(search).toHaveCSS("outline-style", "none")
+      await expect(search).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)")
       const newChat = page.getByRole("button", { name: "New chat" })
       await search.press("Shift+Tab")
       await expect(newChat).toBeFocused()

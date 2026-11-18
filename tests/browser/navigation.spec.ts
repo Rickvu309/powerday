@@ -135,6 +135,30 @@ test("features we do not have yet say they are coming soon", async ({ page }) =>
   await expect(toast).toHaveText("", { timeout: 5000 })
 })
 
+test("a coming soon item in the phone drawer closes it so the toast shows", async ({ page }) => {
+  await navigationFixtures(page)
+  await page.setViewportSize({ width: 375, height: 900 })
+  await page.goto("/")
+  await page.getByRole("button", { name: "Toggle Sidebar", exact: true }).click()
+  await page.getByRole("dialog").getByRole("button", { name: "Library", exact: true }).click()
+  await expect(page.getByRole("dialog")).toHaveCount(0)
+  const toast = page.locator('[aria-live="polite"][aria-atomic="true"]')
+  await expect(toast).toHaveText("Library is coming soon")
+  await expect(toast).toBeVisible()
+})
+
+test("Instant says coming soon when every model reasons", async ({ page }) => {
+  await navigationFixtures(page)
+  await page.route("**/api/models", (route) => route.fulfill({ json: { models: [models[1]] } }))
+  await page.goto("/")
+  await page.getByRole("button", { name: /^Model:/ }).click()
+  const slider = page.getByRole("slider", { name: "Thinking effort" })
+  await expect(slider).toHaveAttribute("aria-valuetext", "Medium")
+  await slider.fill("0")
+  await expect(page.locator('[aria-live="polite"][aria-atomic="true"]')).toHaveText("Instant is coming soon")
+  await expect(slider).toHaveAttribute("aria-valuetext", "Medium")
+})
+
 test("skip link is first and focuses the conversation", async ({ page }) => {
   await navigationFixtures(page)
   await page.goto("/")
