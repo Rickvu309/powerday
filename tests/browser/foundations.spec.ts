@@ -97,16 +97,17 @@ for (const mode of ["pointer", "keyboard", "reduce"] as const) {
         mode === "keyboard" ? "keyboard" : "pointer",
       )
     await page.evaluate(() => {
-      const animations: Animation[] = []
-      const observer = new MutationObserver(() => {
-        for (const animation of document.getAnimations()) {
-          if (animations.includes(animation)) continue
-          animations.push(animation)
-          animation.playbackRate = 0.2
-        }
-      })
-      observer.observe(document.body, { childList: true, subtree: true, attributes: true })
-      Object.assign(window, { foundationAnimations: animations })
+      const motions: Array<{ kind: string; slot: string | null }> = []
+      const record = (event: TransitionEvent | AnimationEvent) => {
+        const kind = event instanceof TransitionEvent ? event.propertyName : "keyframes"
+        const slot = event.target instanceof Element ? event.target.getAttribute("data-slot") : null
+        if (motions.some((motion) => motion.kind === kind && motion.slot === slot)) return
+        motions.push({ kind, slot })
+      }
+      for (const type of ["transitionrun", "transitionstart", "animationstart"] as const) {
+        document.addEventListener(type, record, { capture: true })
+      }
+      Object.assign(window, { foundationAnimations: motions })
     })
     if (mode === "keyboard") {
       await model.focus()
@@ -139,12 +140,9 @@ for (const mode of ["pointer", "keyboard", "reduce"] as const) {
     await page.keyboard.press("Control+b")
     await expect(drawer).toBeHidden()
     const animations = await page.evaluate(() => {
-      const animations = "foundationAnimations" in window ? window.foundationAnimations : []
-      if (!Array.isArray(animations)) throw new Error("Missing motion observer")
-      return animations.map((animation: Animation) => ({
-        kind: animation instanceof CSSTransition ? animation.transitionProperty : "keyframes",
-        slot: animation.effect instanceof KeyframeEffect ? animation.effect.target?.getAttribute("data-slot") : null,
-      }))
+      const motions = "foundationAnimations" in window ? window.foundationAnimations : []
+      if (!Array.isArray(motions)) throw new Error("Missing motion observer")
+      return motions as Array<{ kind: string; slot: string | null }>
     })
     if (mode !== "pointer") expect(animations).toEqual([])
     else {
