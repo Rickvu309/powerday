@@ -34,7 +34,7 @@ export const Composer = memo(function Composer({
           if (onSend(text)) field.current?.focus()
         }}
       >
-        <InputGroup className="flex-wrap items-end gap-x-1 rounded-[1.75rem] border-border bg-card! p-1.5 shadow-lg shadow-foreground/5 has-disabled:opacity-100! has-focus-visible:border-foreground! has-focus-visible:ring-0! has-focus-visible:outline-none!">
+        <InputGroup className="flex-wrap items-end gap-x-1 rounded-[1.75rem] border-border bg-card! p-1.5 shadow-lg shadow-foreground/5 has-disabled:opacity-100! has-focus-visible:ring-1! has-focus-visible:ring-foreground! has-focus-visible:outline-none!">
           <InputGroupButton
             aria-label="Attach"
             size="icon-sm"

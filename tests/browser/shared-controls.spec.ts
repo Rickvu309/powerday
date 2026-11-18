@@ -142,7 +142,7 @@ for (const width of [375, 1280]) {
       const message = page.getByRole("textbox", { name: "Message" })
       await message.focus()
       await expect(page.locator('[data-slot="input-group"]')).toHaveCSS("outline-style", "none")
-      await expect(page.locator('[data-slot="input-group"]')).toHaveCSS("border-top-color", /^rgb\(31, 31, 31\)$/)
+      await expect(page.locator('[data-slot="input-group"]')).toHaveCSS("box-shadow", /rgb\(31, 31, 31\) 0px 0px 0px 1px/)
       await expectBoundary(page.locator('[data-slot="input-group"]'), "Focused composer", info)
       await expect(message).toHaveCSS("outline-style", "none")
       await page.screenshot({ path: info.outputPath("composer.png") })
