@@ -1,7 +1,6 @@
 import { useSyncExternalStore, type MouseEvent } from "react"
 import { cn } from "cn"
-import { chatHref, returnChat, useSpace } from "@/space-navigation"
-import { showComingSoon } from "@/features/toast/coming-soon"
+import { chatHref, enterSpace, returnChat, useSpace } from "@/space-navigation"
 import { subscribeOpenConversation } from "@/open-conversation"
 
 const pill =
@@ -25,9 +24,14 @@ export function SpaceSwitch({ className }: { className?: string }) {
       >
         Chat
       </a>
-      <button type="button" className={pill} onClick={() => showComingSoon("Work")}>
-        Work
-      </button>
+      <a
+        href="/office"
+        aria-current={space === "office" ? "page" : undefined}
+        className={pill}
+        onClick={space === "office" ? stay : (event) => enterSpace(event, "/office")}
+      >
+        Office
+      </a>
     </nav>
   )
 }

@@ -122,7 +122,6 @@ test("features we do not have yet say they are coming soon", async ({ page }) =>
   await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible()
   const toast = page.locator('[aria-live="polite"][aria-atomic="true"]')
   for (const [name, feature] of [
-    ["Work", "Work"],
     ["Attach", "Attachments"],
     ["Voice", "Voice"],
     ["Library", "Library"],

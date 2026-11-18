@@ -3,7 +3,7 @@ import { MessageCircleDashedIcon } from "lucide-react"
 import { SpaceSwitch } from "@/features/chat/space-switch"
 import { ComingSoonToast, showComingSoon } from "@/features/toast/coming-soon"
 import { Button } from "@/components/ui/button"
-import { useSpace } from "@/space-navigation"
+import { useSpace, type Space } from "@/space-navigation"
 import { ModelChoice } from "@/features/model-picker/model-choice"
 import { ConversationMain } from "@/features/sidebar/conversation-main"
 import { NavigationSidebar } from "@/features/sidebar/navigation-sidebar"
@@ -63,6 +63,16 @@ function MainTrigger() {
 }
 
 const Admin = lazy(() => import("@/features/admin/admin").then((module) => ({ default: module.Admin })))
+const Office = lazy(() => import("@/features/office/office").then((module) => ({ default: module.Office })))
+const OfficeSidebar = lazy(() =>
+  import("@/features/office/office-sidebar").then((module) => ({ default: module.OfficeSidebar })),
+)
+
+const spaceHeading: Record<Space, string> = {
+  chat: "conversation-title",
+  admin: "admin-title",
+  office: "office-title",
+}
 
 export function App() {
   useEffect(() => {
@@ -85,6 +95,7 @@ export function App() {
   }, [])
   const space = useSpace()
   const admin = space === "admin"
+  const office = space === "office"
   const sawAdmin = useRef(false)
   const { reload } = useContext(ModelChoice)
   useEffect(() => {
@@ -121,16 +132,30 @@ export function App() {
                 data-panel
                 className="flex h-full min-w-0 flex-1 flex-col bg-background text-sidebar-foreground group-data-[collapsible=icon]:invisible"
               >
-                <SidebarHeader className="h-12 flex-row items-center justify-between gap-2 pr-2 pl-4">
-                  <span className="truncate text-lg font-medium">Power Chat</span>
-                  <span className="flex items-center gap-1">
-                    <PanelSearchTrigger />
-                    <PanelTrigger />
-                  </span>
-                </SidebarHeader>
-                <SidebarContent>
-                  <ConversationList />
-                </SidebarContent>
+                {office ? (
+                  <Suspense
+                    fallback={
+                      <p role="status" className="px-4 py-2 text-sm text-muted-foreground">
+                        Loading office…
+                      </p>
+                    }
+                  >
+                    <OfficeSidebar trigger={<PanelTrigger />} />
+                  </Suspense>
+                ) : (
+                  <>
+                    <SidebarHeader className="h-12 flex-row items-center justify-between gap-2 pr-2 pl-4">
+                      <span className="truncate text-lg font-medium">Power Chat</span>
+                      <span className="flex items-center gap-1">
+                        <PanelSearchTrigger />
+                        <PanelTrigger />
+                      </span>
+                    </SidebarHeader>
+                    <SidebarContent>
+                      <ConversationList />
+                    </SidebarContent>
+                  </>
+                )}
               </div>
             </div>
             <SidebarRail />
@@ -138,13 +163,13 @@ export function App() {
           <SidebarInset
             id="conversation-main"
             tabIndex={-1}
-            aria-labelledby={admin ? "admin-title" : "conversation-title"}
+            aria-labelledby={spaceHeading[space]}
             className="h-dvh min-w-0 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
           >
             <header className="relative flex shrink-0 items-center gap-1 px-2">
               <MainTrigger />
               <SpaceSwitch className="absolute top-[calc(50%+var(--safe-area-top)/2)] left-1/2 -translate-x-1/2 -translate-y-1/2" />
-              <TemporaryChat />
+              {space === "chat" ? <TemporaryChat /> : null}
             </header>
             <ComingSoonToast />
             {admin ? (
@@ -160,9 +185,22 @@ export function App() {
                 </Suspense>
               </div>
             ) : null}
-            <div className={admin ? "hidden" : "flex min-h-0 flex-1 flex-col"}>
-              <ConversationMain paused={admin}>
-                <Chat paused={admin} />
+            {office ? (
+              <div className="overflow-y-auto">
+                <Suspense
+                  fallback={
+                    <p role="status" className="p-8">
+                      Loading office…
+                    </p>
+                  }
+                >
+                  <Office />
+                </Suspense>
+              </div>
+            ) : null}
+            <div className={space === "chat" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+              <ConversationMain paused={space !== "chat"}>
+                <Chat paused={space !== "chat"} />
               </ConversationMain>
             </div>
           </SidebarInset>

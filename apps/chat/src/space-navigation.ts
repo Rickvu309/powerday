@@ -31,4 +31,4 @@ export const readSpace = (): Space => {
   return "chat"
 }
 
-export const useSpace = () => useSyncExternalStore(subscribeOpenConversation, readSpace, () => "chat")
+export const useSpace = () => useSyncExternalStore<Space>(subscribeOpenConversation, readSpace, () => "chat")
