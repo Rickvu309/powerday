@@ -1,9 +1,9 @@
-import { lazy, Suspense, useContext, useEffect, useRef, type CSSProperties } from "react"
+import { lazy, Suspense, useContext, useEffect, useRef, type CSSProperties, type ReactNode } from "react"
 import { MessageCircleDashedIcon } from "lucide-react"
 import { SpaceSwitch } from "@/features/chat/space-switch"
 import { ComingSoonToast, showComingSoon } from "@/features/toast/coming-soon"
 import { Button } from "@/components/ui/button"
-import { useSpace, type Space } from "@/space-navigation"
+import { goSpace, useSpace, type Space } from "@/space-navigation"
 import { ModelChoice } from "@/features/model-picker/model-choice"
 import { ConversationMain } from "@/features/sidebar/conversation-main"
 import { NavigationSidebar } from "@/features/sidebar/navigation-sidebar"
@@ -11,6 +11,7 @@ import { SignInGate } from "@/features/auth/sign-in-gate"
 import { Chat } from "@/features/chat/chat"
 import { ConversationList, PanelSearchTrigger } from "@/features/sidebar/conversation-list"
 import { NavigationRail, sidebarHandoff } from "@/features/sidebar/navigation-rail"
+import { endPeek, holdPeek, leavePeek, usePeek, type PeekPanel } from "@/features/sidebar/panel-peek"
 import {
   SidebarContent,
   SidebarFooter,
@@ -42,12 +43,7 @@ function HandoffTrigger({ className }: { className?: string }) {
   )
 }
 
-function PanelTrigger() {
-  const { isMobile, state } = useSidebar()
-  return isMobile || state === "expanded" ? (
-    <HandoffTrigger className="size-8 text-muted-foreground [&_svg]:size-4" />
-  ) : null
-}
+const panelTriggerStyle = "size-8 text-muted-foreground [&_svg]:size-4"
 
 function TemporaryChat() {
   return (
@@ -85,8 +81,7 @@ const officeSidebarParts = {
   SidebarMenuItem,
 }
 
-function OfficePanel() {
-  const { isMobile, setOpenMobile } = useSidebar()
+function OfficePanel({ trigger, close }: { trigger: ReactNode; close: () => void }) {
   return (
     <Suspense
       fallback={
@@ -95,14 +90,94 @@ function OfficePanel() {
         </p>
       }
     >
-      <OfficeSidebar
-        trigger={<PanelTrigger />}
-        parts={officeSidebarParts}
-        close={() => {
-          if (isMobile) setOpenMobile(false)
-        }}
-      />
+      <OfficeSidebar trigger={trigger} parts={officeSidebarParts} close={close} />
     </Suspense>
+  )
+}
+
+function PanelBody({ panel, trigger, close }: { panel: PeekPanel; trigger: ReactNode; close: () => void }) {
+  if (panel === "office") return <OfficePanel trigger={trigger} close={close} />
+  return (
+    <>
+      <SidebarHeader className="h-12 flex-row items-center justify-between gap-2 pr-2 pl-4">
+        <span className="truncate text-lg font-medium">Power Chat</span>
+        <span className="flex items-center gap-1">
+          <PanelSearchTrigger />
+          {trigger}
+        </span>
+      </SidebarHeader>
+      <SidebarContent>
+        <ConversationList />
+      </SidebarContent>
+    </>
+  )
+}
+
+function DockedPanel({ panel }: { panel: PeekPanel }) {
+  const { isMobile, state, setOpenMobile } = useSidebar()
+  if (!isMobile && state === "collapsed") return null
+  return (
+    <PanelBody
+      panel={panel}
+      trigger={<HandoffTrigger className={panelTriggerStyle} />}
+      close={() => {
+        if (isMobile) setOpenMobile(false)
+      }}
+    />
+  )
+}
+
+function PeekedPanel() {
+  const { isMobile, state } = useSidebar()
+  const space = useSpace()
+  const peeked = usePeek()
+  const inside = useRef(false)
+  const shown = isMobile || state === "expanded" ? null : peeked
+  useEffect(() => {
+    if (isMobile || state === "expanded") endPeek()
+  }, [isMobile, state])
+  useEffect(() => {
+    if (shown === null) return
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.isComposing) endPeek()
+    }
+    const outside = (event: globalThis.PointerEvent) => {
+      const held = inside.current || (event.target instanceof Element && event.target.closest("[data-rail]"))
+      inside.current = false
+      if (!held) endPeek()
+    }
+    document.addEventListener("keydown", dismiss)
+    document.addEventListener("pointerdown", outside)
+    return () => {
+      document.removeEventListener("keydown", dismiss)
+      document.removeEventListener("pointerdown", outside)
+    }
+  }, [shown])
+  if (shown === null) return null
+  return (
+    <div
+      data-peek={shown}
+      className="fixed inset-y-0 left-(--sidebar-width-icon) z-20 hidden w-[calc(var(--sidebar-width)-var(--sidebar-width-icon))] py-1.5 pl-1.5 md:flex"
+      onPointerEnter={(event) => {
+        if (event.pointerType === "mouse") holdPeek()
+      }}
+      onPointerLeave={(event) => {
+        if (event.pointerType === "mouse") leavePeek()
+      }}
+      onPointerDown={() => {
+        inside.current = true
+      }}
+    >
+      <div className="flex min-h-0 flex-1 animate-in flex-col overflow-hidden rounded-2xl border border-sidebar-hairline bg-background text-sidebar-foreground shadow-sm duration-150 ease-(--ease-out) fade-in-0 slide-in-from-left-1 motion-reduce:animate-none">
+        <PanelBody
+          panel={shown}
+          trigger={<SidebarTrigger className={panelTriggerStyle} />}
+          close={() => {
+            if (shown === "office" && space !== "office") goSpace("/office")
+          }}
+        />
+      </div>
+    </div>
   )
 }
 
@@ -162,7 +237,7 @@ export function App() {
         <SidebarProvider style={sidebarSize}>
           <NavigationSidebar
             collapsible="icon"
-            className="overflow-hidden group-data-[state=expanded]:border-sidebar-border/40"
+            className="overflow-hidden border-sidebar-hairline group-data-[state=expanded]:border-sidebar-border/40"
           >
             <div className="flex size-full min-h-0">
               <NavigationRail />
@@ -170,26 +245,12 @@ export function App() {
                 data-panel
                 className="flex h-full min-w-0 flex-1 flex-col bg-background text-sidebar-foreground group-data-[collapsible=icon]:invisible"
               >
-                {office ? (
-                  <OfficePanel />
-                ) : (
-                  <>
-                    <SidebarHeader className="h-12 flex-row items-center justify-between gap-2 pr-2 pl-4">
-                      <span className="truncate text-lg font-medium">Power Chat</span>
-                      <span className="flex items-center gap-1">
-                        <PanelSearchTrigger />
-                        <PanelTrigger />
-                      </span>
-                    </SidebarHeader>
-                    <SidebarContent>
-                      <ConversationList />
-                    </SidebarContent>
-                  </>
-                )}
+                <DockedPanel panel={office ? "office" : "chat"} />
               </div>
             </div>
             <SidebarRail />
           </NavigationSidebar>
+          <PeekedPanel />
           <SidebarInset
             id="conversation-main"
             tabIndex={-1}

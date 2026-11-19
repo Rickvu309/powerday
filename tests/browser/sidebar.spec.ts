@@ -167,3 +167,42 @@ for (const width of [1280, 375]) {
     }
   }
 }
+
+test("hovering the collapsed rail peeks its panel beside the rail", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.goto("/screens/22-sidebar-many")
+  const sidebar = page.locator('[data-slot="sidebar"]')
+  const peeked = page.locator("[data-peek]")
+  await page.locator('[data-slot="sidebar-header"]').getByRole("button", { name: "Toggle Sidebar" }).click()
+  await expect(sidebar).toHaveAttribute("data-state", "collapsed")
+  await expect(peeked).toHaveCount(0)
+
+  await page.getByRole("button", { name: "Home", exact: true }).hover()
+  await expect(peeked).toHaveAttribute("data-peek", "chat")
+  await expect(peeked.getByRole("button", { name: "New chat", exact: true })).toBeVisible()
+  await expect(page.getByRole("tooltip")).toHaveCount(0)
+  await page.screenshot({ path: test.info().outputPath("peek-chat.png") })
+
+  await page.getByRole("link", { name: "Office", exact: true }).hover()
+  await expect(peeked).toHaveAttribute("data-peek", "office")
+  await expect(peeked.getByRole("button", { name: "Pages", exact: true })).toBeVisible()
+  await page.screenshot({ path: test.info().outputPath("peek-office.png") })
+
+  await peeked.getByRole("button", { name: "Pages", exact: true }).click()
+  await expect(page).toHaveURL(/\/office$/)
+  await expect(sidebar).toHaveAttribute("data-state", "collapsed")
+
+  await page.mouse.move(900, 400)
+  await expect(peeked).toHaveCount(0)
+
+  await page.getByRole("button", { name: "Chats", exact: true }).hover()
+  await expect(peeked).toHaveAttribute("data-peek", "chat")
+  await page.keyboard.press("Escape")
+  await expect(peeked).toHaveCount(0)
+
+  await page.getByRole("button", { name: "Home", exact: true }).hover()
+  await expect(peeked).toHaveAttribute("data-peek", "chat")
+  await peeked.getByRole("button", { name: "Toggle Sidebar" }).click()
+  await expect(sidebar).toHaveAttribute("data-state", "expanded")
+  await expect(peeked).toHaveCount(0)
+})

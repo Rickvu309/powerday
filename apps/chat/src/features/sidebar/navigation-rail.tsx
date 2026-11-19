@@ -9,7 +9,7 @@ import {
   ShieldIcon,
   type LucideIcon,
 } from "lucide-react"
-import { useEffect, useRef, useState, type MouseEvent, type Ref } from "react"
+import { useEffect, useRef, useState, type MouseEvent, type PointerEvent, type Ref } from "react"
 import { Account } from "@/features/auth/account"
 import { enterSpace, returnChat, useSpace } from "@/space-navigation"
 import { showComingSoon } from "@/features/toast/coming-soon"
@@ -18,6 +18,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { openConversation, useOpenConversation } from "@/open-conversation"
+import { leavePeek, peek, type PeekPanel } from "./panel-peek"
 
 const BriefcaseIcon = createLucideIcon("briefcase-business", [
   ["path", { d: "M12 12h.01", key: "1mp3jc" }],
@@ -39,6 +40,8 @@ function RailButton({
   href,
   onClick,
   buttonRef,
+  panel,
+  hoverPeek = false,
 }: {
   label: string
   icon: LucideIcon
@@ -47,9 +50,16 @@ function RailButton({
   href?: string
   onClick: (event: MouseEvent) => void
   buttonRef?: Ref<HTMLButtonElement>
+  panel?: PeekPanel
+  hoverPeek?: boolean
 }) {
+  const onPointerEnter = (event: PointerEvent) => {
+    if (!hoverPeek || event.pointerType !== "mouse") return
+    if (panel === undefined) leavePeek()
+    else peek(panel)
+  }
   return (
-    <Tooltip>
+    <Tooltip disabled={hoverPeek && panel !== undefined}>
       <TooltipTrigger
         render={
           href === undefined ? (
@@ -62,6 +72,7 @@ function RailButton({
               aria-expanded={expanded}
               className={railItem}
               onClick={onClick}
+              onPointerEnter={onPointerEnter}
             />
           ) : (
             <a
@@ -70,6 +81,7 @@ function RailButton({
               aria-current={active ? "page" : undefined}
               className={cn(buttonVariants({ variant: "ghost", size: "icon-lg" }), railItem)}
               onClick={onClick}
+              onPointerEnter={onPointerEnter}
             />
           )
         }
@@ -107,6 +119,7 @@ export function NavigationRail() {
   const open = useOpenConversation()
   const canAdmin = useAdminAccess()
   const chatsRef = useRef<HTMLButtonElement>(null)
+  const hoverPeek = !isMobile && state === "collapsed"
   const soon = (feature: string) => {
     if (isMobile) setOpenMobile(false)
     showComingSoon(feature)
@@ -131,12 +144,17 @@ export function NavigationRail() {
   return (
     <div
       data-rail
-      className="flex h-full w-(--sidebar-width-icon) shrink-0 flex-col items-center justify-between border-r border-sidebar-border bg-sidebar py-2 text-sidebar-foreground"
+      className="flex h-full w-(--sidebar-width-icon) shrink-0 flex-col items-center justify-between border-r border-sidebar-hairline bg-sidebar py-2 text-sidebar-foreground"
+      onPointerLeave={(event) => {
+        if (hoverPeek && event.pointerType === "mouse") leavePeek()
+      }}
     >
       <nav aria-label="Rail" className="flex flex-col items-center gap-3">
         <RailButton
           label="Home"
           icon={HouseIcon}
+          panel="chat"
+          hoverPeek={hoverPeek}
           active={space === "chat" && open === null}
           onClick={() => {
             openConversation(null, { focus: true })
@@ -146,6 +164,8 @@ export function NavigationRail() {
         <RailButton
           label="Office"
           icon={BriefcaseIcon}
+          panel="office"
+          hoverPeek={hoverPeek}
           href="/office"
           active={office}
           onClick={(event) => {
@@ -160,11 +180,13 @@ export function NavigationRail() {
             else setOpen(true)
           }}
         />
-        <RailButton label="Library" icon={ImagesIcon} onClick={() => soon("Library")} />
+        <RailButton label="Library" hoverPeek={hoverPeek} icon={ImagesIcon} onClick={() => soon("Library")} />
         {isMobile ? null : (
           <RailButton
             label="Chats"
             icon={HistoryIcon}
+            panel="chat"
+            hoverPeek={hoverPeek}
             expanded={state === "expanded" && !office}
             buttonRef={chatsRef}
             onClick={(event) => {
@@ -178,6 +200,7 @@ export function NavigationRail() {
           <RailButton
             label="Admin"
             icon={ShieldIcon}
+            hoverPeek={hoverPeek}
             href="/admin"
             active={admin}
             onClick={(event) => {
@@ -186,12 +209,12 @@ export function NavigationRail() {
             }}
           />
         ) : null}
-        <RailButton label="More" icon={EllipsisIcon} onClick={() => soon("More")} />
+        <RailButton label="More" hoverPeek={hoverPeek} icon={EllipsisIcon} onClick={() => soon("More")} />
         <div aria-hidden className="h-px w-6 bg-sidebar-border" />
-        <RailButton label="Apps" icon={LayoutGridIcon} onClick={() => soon("Apps")} />
+        <RailButton label="Apps" hoverPeek={hoverPeek} icon={LayoutGridIcon} onClick={() => soon("Apps")} />
       </nav>
       <div className="flex flex-col items-center gap-3">
-        <RailButton label="Feedback" icon={CircleAlertIcon} onClick={() => soon("Feedback")} />
+        <RailButton label="Feedback" hoverPeek={hoverPeek} icon={CircleAlertIcon} onClick={() => soon("Feedback")} />
         <Account />
       </div>
     </div>
