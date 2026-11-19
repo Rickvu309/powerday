@@ -1,5 +1,6 @@
 import { lazy, Suspense, useContext, useEffect, useRef, type CSSProperties, type ReactNode } from "react"
 import { MessageCircleDashedIcon } from "lucide-react"
+import { cn } from "cn"
 import { SpaceSwitch } from "@/features/chat/space-switch"
 import { ComingSoonToast, showComingSoon } from "@/features/toast/coming-soon"
 import { Button } from "@/components/ui/button"
@@ -44,6 +45,8 @@ function HandoffTrigger({ className }: { className?: string }) {
 }
 
 const panelTriggerStyle = "size-8 text-muted-foreground [&_svg]:size-4"
+const panelCard =
+  "flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:rounded-2xl md:border md:border-sidebar-hairline"
 
 function TemporaryChat() {
   return (
@@ -168,7 +171,12 @@ function PeekedPanel() {
         inside.current = true
       }}
     >
-      <div className="flex min-h-0 flex-1 animate-in flex-col overflow-hidden rounded-2xl border border-sidebar-hairline bg-background text-sidebar-foreground shadow-sm duration-150 ease-(--ease-out) fade-in-0 slide-in-from-left-1 motion-reduce:animate-none">
+      <div
+        className={cn(
+          panelCard,
+          "animate-in shadow-sm duration-150 ease-(--ease-out) fade-in-0 slide-in-from-left-1 motion-reduce:animate-none",
+        )}
+      >
         <PanelBody
           panel={shown}
           trigger={<SidebarTrigger className={panelTriggerStyle} />}
@@ -237,15 +245,17 @@ export function App() {
         <SidebarProvider style={sidebarSize}>
           <NavigationSidebar
             collapsible="icon"
-            className="overflow-hidden border-sidebar-hairline group-data-[state=expanded]:border-sidebar-border/40"
+            className="overflow-hidden border-sidebar-hairline group-data-[state=expanded]:border-transparent"
           >
             <div className="flex size-full min-h-0">
               <NavigationRail />
               <div
                 data-panel
-                className="flex h-full min-w-0 flex-1 flex-col bg-background text-sidebar-foreground group-data-[collapsible=icon]:invisible"
+                className="flex h-full min-w-0 flex-1 flex-col text-sidebar-foreground group-data-[collapsible=icon]:invisible md:py-1.5 md:pl-1.5"
               >
-                <DockedPanel panel={office ? "office" : "chat"} />
+                <div className={panelCard}>
+                  <DockedPanel panel={office ? "office" : "chat"} />
+                </div>
               </div>
             </div>
             <SidebarRail />

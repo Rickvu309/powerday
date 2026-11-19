@@ -144,7 +144,7 @@ export function NavigationRail() {
   return (
     <div
       data-rail
-      className="flex h-full w-(--sidebar-width-icon) shrink-0 flex-col items-center justify-between border-r border-sidebar-hairline bg-sidebar py-2 text-sidebar-foreground"
+      className="flex h-full w-(--sidebar-width-icon) shrink-0 flex-col items-center justify-between bg-sidebar py-2 text-sidebar-foreground"
       onPointerLeave={(event) => {
         if (hoverPeek && event.pointerType === "mouse") leavePeek()
       }}
