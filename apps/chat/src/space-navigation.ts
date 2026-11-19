@@ -16,10 +16,18 @@ const follow = (event: MouseEvent, path: string) => {
   navigate(path)
 }
 
-export const enterSpace = (event: MouseEvent, path: string) => {
+const rememberChat = () => {
   const current = normalize(location.pathname)
   if (current === "/" || current.startsWith("/c/")) chatPath = current
+}
+
+export const enterSpace = (event: MouseEvent, path: string) => {
+  rememberChat()
   follow(event, path)
+}
+export const goSpace = (path: string) => {
+  rememberChat()
+  navigate(path)
 }
 export const returnChat = (event: MouseEvent) => follow(event, chatPath)
 export const chatHref = () => chatPath
