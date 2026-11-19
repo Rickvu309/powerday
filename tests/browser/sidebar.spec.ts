@@ -173,6 +173,8 @@ test("hovering the collapsed rail peeks its panel beside the rail", async ({ pag
   await page.goto("/screens/22-sidebar-many")
   const sidebar = page.locator('[data-slot="sidebar"]')
   const peeked = page.locator("[data-peek]")
+  await expect(page.locator("[data-panel]").getByRole("button", { name: "New chat", exact: true })).toBeVisible()
+  await page.screenshot({ path: test.info().outputPath("docked.png") })
   await page.locator('[data-slot="sidebar-header"]').getByRole("button", { name: "Toggle Sidebar" }).click()
   await expect(sidebar).toHaveAttribute("data-state", "collapsed")
   await expect(peeked).toHaveCount(0)
